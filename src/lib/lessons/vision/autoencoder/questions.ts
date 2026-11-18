@@ -7,6 +7,7 @@ export const questions: Question[] = [
 			'The [[data:rebuilt]] drawing is smoother than the original: the wobbles are gone. Why?\n\nSwitch between the shapes and compare the two drawings.',
 		params: { show: 1, sample: 3, scenario: 8 },
 		controls: ['sample'],
+		readouts: [],
 		options: [
 			{
 				text: 'The decoder blurs every drawing on purpose, to hide the noise.',

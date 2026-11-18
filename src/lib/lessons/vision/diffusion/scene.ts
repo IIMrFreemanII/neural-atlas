@@ -9,6 +9,8 @@ import { fitCamera, lessonInsets, type WorldRect } from '../../fit.ts';
 import { N, PATTERNS } from './data.ts';
 
 const WORLD: WorldRect = { x0: -2.6, x1: 2.6, y0: -2.1, y1: 2.1 };
+/** Noise dots reach this far (3 standard deviations) at full noise; practically all of them stay inside. */
+const NOISE_BOUND = 3;
 const OY = 0.05; // data (0, 0) sits at world (0, OY)
 const COLS = 15;
 const ROWS = 12;
@@ -31,6 +33,18 @@ const DOT_NOISE = { intensity: 1.5, alpha: 0.6 };
 const NOISE_MIX = 0.8; // how far the dot color moves from data to noise at t = 1
 
 const clamp = (v: number, a: number, b: number) => Math.min(b, Math.max(a, v));
+
+/**
+ * What the stage must show at noise level t: the pattern shrunk by alpha plus noise of spread sigma.
+ * It equals WORLD at t = 0 (so the clean pattern keeps its size) and grows to the 3-sigma disc at t = 1,
+ * which then fits between the chips and the control bar. It follows t, so scrubbing or generating zooms smoothly.
+ */
+function viewWorld(t: number): WorldRect {
+	const { alpha, sigma } = schedule(t);
+	const hx = Math.hypot(alpha * WORLD.x1, NOISE_BOUND * sigma);
+	const hy = Math.hypot(alpha * WORLD.y1, NOISE_BOUND * sigma);
+	return { x0: -hx, x1: hx, y0: -hy, y1: hy };
+}
 const round2 = (v: number) => Math.round(v * 100) / 100;
 
 export const createDiffusionScene: SceneFactory = () => {
@@ -56,6 +70,8 @@ export const createDiffusionScene: SceneFactory = () => {
 
 	// time and modes
 	let tCur = 0;
+	let viewT = 0; // the noise level the camera is framed for; eases toward tCur
+	let viewSeen = false;
 	let known = 0; // the value of param t as the UI last saw it from us
 	let dirty = true;
 	let teleport = false;
@@ -278,7 +294,10 @@ export const createDiffusionScene: SceneFactory = () => {
 		},
 		update(fr) {
 			const v = ctx.view;
-			fitCamera(camera, v, WORLD, lessonInsets(v));
+			// The framing eases toward the noise level, so a few-step run does not make the whole view jump.
+			viewT = ctx.reducedMotion || !viewSeen ? tCur : viewT + (tCur - viewT) * (1 - Math.exp(-fr.dt / 0.15));
+			viewSeen = true;
+			fitCamera(camera, v, viewWorld(viewT), lessonInsets(v));
 			v.setViewProj(camera.matrix(v.aspect));
 
 			if (animating && fr.dt > 0) {

@@ -8,6 +8,7 @@ export const questions: Question[] = [
 			'[[ok:Show directions]] is on and the noise level is 0.2. The arrows point at nearby pieces of the pattern. You drag the noise level up to 0.9. What do the arrows do?\n\nDecide first, then check with the slider.',
 		params: { t: 0.2, field: 1, scenario: 4, pattern: 1 },
 		controls: ['t', 'field'],
+		readouts: ['level'],
 		options: [
 			{
 				text: 'They keep pointing at the nearest piece of the pattern.',
@@ -34,6 +35,8 @@ export const questions: Question[] = [
 			'Press **Generate** and watch where the dots end. Then make one run end with every dot at the same single spot in the middle, not on the pattern.',
 		params: { t: 1, steps: 12, scenario: 6, pattern: 0 },
 		controls: ['steps', 'generate'],
+		legend: ['Samples', 'Noise'],
+		readouts: ['level', 'step'],
 		goal: ({ params: p, readouts: r }) => shown(p.steps, 0) === 1 && r.step === '1 / 1',
 		hint: 'Each step moves the dots along the arrows by a small amount. Think about the shortest possible run, and what the first jump from pure noise can know.',
 		solved:
@@ -45,6 +48,8 @@ export const questions: Question[] = [
 			'You press **Generate** and the pattern appears. Without touching anything else, you press **Generate** again. What do you see?\n\nDecide first, then check by pressing it twice.',
 		params: { t: 1, steps: 40, scenario: 7, pattern: 0 },
 		controls: ['generate', 'again'],
+		legend: ['Samples', 'Noise'],
+		readouts: ['level', 'step'],
 		options: [
 			{
 				text: 'The dots start from new random noise and land in different places.',

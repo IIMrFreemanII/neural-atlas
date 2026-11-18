@@ -47,6 +47,7 @@ const lesson: LessonDef = {
 			body: `After reading the [[text:text so far]], a language model gives every token in its vocabulary a [[data:probability]]. The bars show the 12 most likely tokens, and the last bar gathers all the rest.\n\nThese are the real scores of a small transformer trained on simple children's stories. It knows ${WORDS} words and has about ${WEIGHTS} thousand weights. The large models you chat with work the same way, with billions of weights and tokens that are pieces of words.`,
 			params: { scenario: 1, strip: 0, temperature: 1 },
 			controls: [],
+			legend: ['Probability', 'Text so far'],
 			deepDive: {
 				note: `This model is a simplified version of a chat model. Its tokens are whole words, not word pieces. Its vocabulary has only ${WORDS} entries, so rarer words are unknown to it and are never offered. It reads at most ${LM_CONFIG.ctx} tokens of context, so older text is ignored. It was trained for about 40 minutes on one computer, so its stories are simple and often odd.`
 			}
@@ -55,19 +56,22 @@ const lesson: LessonDef = {
 			title: 'Always take the top token',
 			body: 'The simplest rule is to always take the most likely token. This is called **greedy decoding**.\n\nPress **Generate** and watch the [[text:text]] grow. It reads smoothly, but every run gives exactly the same story, and it tends to circle back to the same phrases.',
 			params: { scenario: 2, strip: 0, temperature: 0 },
-			controls: ['run', 'sample', 'reset']
+			controls: ['run', 'sample', 'reset'],
+			legend: ['Probability', 'Picked', 'Text so far']
 		},
 		{
 			title: 'Roll the dice instead',
 			body: 'On the strip, each token gets a slice as wide as its [[data:probability]]. A needle lands at a random spot, and the slice it lands on is the [[ok:token picked]].\n\nPress **Pick one token** a few times, then **Generate**. Likely tokens win often, but not always, so every run is different.',
 			params: { scenario: 3, strip: 1, temperature: 1 },
-			controls: ['sample', 'run', 'reset']
+			controls: ['sample', 'run', 'reset'],
+			legend: ['Probability', 'Picked', 'Text so far']
 		},
 		{
 			title: 'Temperature reshapes the odds',
 			body: 'Temperature changes the odds before the dice are rolled. Low values sharpen the bars toward the top token: safe, but repetitive. High values flatten them: more surprising, and at the top of the range mostly nonsense.\n\nThe small ticks mark the original odds. Drag the slider, then press **Generate** at both ends.',
 			params: { scenario: 4, temperature: 1 },
 			controls: ['temperature', 'run', 'reset'],
+			legend: ['Probability', 'Picked', 'Text so far'],
 			deepDive: {
 				note: 'Temperature divides the raw scores (logits) before the softmax. As T gets close to 0 the top token takes everything, which is greedy decoding. At T = 1 you get the model\'s own probabilities.',
 				math: [

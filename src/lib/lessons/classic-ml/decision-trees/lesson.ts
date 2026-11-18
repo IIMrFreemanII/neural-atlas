@@ -3,6 +3,9 @@ import { BOUNDS, MAX_DEPTH, START_CUT } from './data.ts';
 import { questions } from './questions.ts';
 import { createDecisionTreesScene } from './scene.ts';
 
+// Pages before the test points exist show no test chip and no test accuracy.
+const TRAIN_ONLY = { legend: ['Class A', 'Class B'], readouts: ['acc'] };
+
 const lesson: LessonDef = {
 	id: 'decision-trees',
 	track: 'classic-ml',
@@ -41,18 +44,21 @@ const lesson: LessonDef = {
 			title: 'A flowchart of yes-or-no questions',
 			body: 'A **decision tree** asks a question about one coordinate, such as "is x₂ below 0.14?". Inside each answer it asks another question, and so on. The [[text:questions]] are the boxes in the diagram, and each line on the plane is one of them.\n\nWhen the questions run out, the dot is in a **leaf**: one box of the plane. The box is tinted by the [[data:class A]] and [[neg:class B]] dots inside it, and that color is the tree\'s answer there. Hover a box to see its leaf in the diagram.',
 			params: { scenario: 1, depth: 2 },
+			...TRAIN_ONLY,
 			controls: []
 		},
 		{
 			title: 'Follow one point down',
 			body: 'Drag the [[grad:probe]] around the plane. To classify it, the tree asks the root question first, then the question in the box it landed in, and so on down the [[grad:path]] in the diagram.\n\nThe leaf at the end answers with its majority class. The label beside the probe gives the leaf\'s class and how many of its dots agree.',
 			params: { scenario: 2, depth: 2, probe: 1 },
+			...TRAIN_ONLY,
 			controls: []
 		},
 		{
 			title: 'Finding the best first question',
 			body: 'How does a tree pick its questions? It tries every cut and keeps the best. The chart shows how mixed the two sides of the [[grad:cut]] are for every cut position. Low means both sides are nearly pure, with 0 meaning each side holds a single class.\n\nMove **Cut at** to the lowest point of the curve, or press **Find best**. Switch **Cut direction** to try horizontal cuts too.',
 			params: { scenario: 3, depth: 0, split: 1, axis: START_CUT.axis, cut: START_CUT.threshold },
+			...TRAIN_ONLY,
 			controls: ['axis', 'cut', 'best'],
 			deepDive: {
 				note: 'The mix of a group of dots is measured with Gini impurity. A cut is scored by the impurity of its two sides, weighted by how many dots each side holds. The tree tries every midpoint between neighbouring dots, on both axes, and keeps the lowest score.',
@@ -69,6 +75,7 @@ const lesson: LessonDef = {
 			title: 'Grow it one level at a time',
 			body: 'Press **Grow**. Every box is split again by its own best question, found the same way as the first one. Each press adds a level, and the tree gets more leaves.\n\nTraining accuracy climbs because smaller boxes can follow the [[data:class A]] and [[neg:class B]] dots more closely.',
 			params: { scenario: 4, depth: 1 },
+			...TRAIN_ONLY,
 			controls: ['grow', 'depth'],
 			deepDive: {
 				note: 'The tree is greedy: each question is the best one right now, without looking ahead. That is not always the best tree overall, but finding the best tree means trying every possible set of questions, which is far too slow.'
@@ -78,6 +85,7 @@ const lesson: LessonDef = {
 			title: 'Grown until every leaf is pure',
 			body: 'Let the tree grow to its maximum depth and every leaf ends up holding a single class. [[data:Training accuracy]] reaches 100%.\n\nLook at the tiny boxes drawn around single noisy dots. The tree did not learn the shape of the two moons. It memorized the dots.',
 			params: { scenario: 5, depth: MAX_DEPTH },
+			...TRAIN_ONLY,
 			controls: ['depth']
 		},
 		{
@@ -90,6 +98,7 @@ const lesson: LessonDef = {
 			title: 'Trees are unstable',
 			body: 'Press **New sample**. A fresh sample of the same moons gives a very different tree. The faint lines are the cuts of the trees grown on the other samples, and they disagree a lot.\n\nThis is high **variance**: the tree depends on exactly which dots it saw. Lower **Max depth** and the trees agree more.',
 			params: { scenario: 7, depth: MAX_DEPTH, ghosts: 1 },
+			...TRAIN_ONLY,
 			controls: ['resample', 'depth'],
 			deepDive: {
 				note: 'A shallow tree asks few questions, so a few dots cannot change them much. A deep tree reshapes itself around individual dots. The Overfitting lesson calls this trade-off bias and variance.'

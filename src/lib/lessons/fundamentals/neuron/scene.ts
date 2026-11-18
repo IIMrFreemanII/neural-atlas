@@ -7,6 +7,8 @@ import { ACTIVATION_NAMES, activate, type ActivationId } from '../../../ml/activ
 import { fitCamera, lessonInsets, type WorldRect } from '../../fit.ts';
 
 const WORLD: WorldRect = { x0: -2.1, x1: 3.4, y0: -1.1, y1: 1.5 };
+/** World shift that centres the diagram (x from -2.1 to 1.8) while the activation plot is hidden. */
+const CENTER_SHIFT = 0.8;
 const IN_X = -1.8;
 const NEURON = { x: 0, y: 0 };
 const BIAS = { x: 0, y: 1.0 };
@@ -320,7 +322,9 @@ export const createNeuronScene: SceneFactory = () => {
 		},
 		update() {
 			const v = ctx.view;
-			fitCamera(camera, v, WORLD, lessonInsets(v));
+			// showAct is tweened with the other params, so the diagram glides from centred to the plot layout.
+			const shift = CENTER_SHIFT * (1 - clamp(p.showAct ?? 0, 0, 1));
+			fitCamera(camera, v, { ...WORLD, x0: WORLD.x0 - shift, x1: WORLD.x1 - shift }, lessonInsets(v));
 			v.setViewProj(camera.matrix(v.aspect));
 			if (v.width !== lastW || v.height !== lastH) {
 				lastW = v.width;

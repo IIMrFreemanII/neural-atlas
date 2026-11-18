@@ -15,22 +15,31 @@ const Y_LIM = 1.15;
 const ERR_LO = 0.001;
 const ERR_HI = 100;
 
-// World layout. The plot maps data x in [-1, 1] to [0, PW] and y to itself.
-const PW = 3.4;
-const C0 = PW + 0.95; // chart left
-const CW = 2.1;
-const CX1 = C0 + CW + 0.1;
+// World layout. The plot maps data x in [-1, 1] to [0, pw] and y to y * yScale.
+// Alone, the plot is wide. With the chart beside it the pair is narrower and taller instead, which fills a
+// stage that is wider than the pair but not tall enough for it: the plot gets narrower, both stretch in y.
+const PW_ALONE = 3.4;
+const PW_PAIR = 2.6;
+const YS_PAIR = 1.5; // y stretch of the pair
+const GAP = 0.85; // plot right edge to chart left, room for the error labels
+const CW = 2.1 - 0.3;
+const CHART_TAIL = 0.1;
 const HALF_H = 1.38;
+
+// Current layout, eased between the two above by the chart mix. Set at the top of every update.
+let pw = PW_ALONE;
+let yScale = 1;
+let c0 = pw + GAP; // chart left
 
 function fmtErr(e: number): string {
 	if (!Number.isFinite(e) || e >= 1000) return 'over 1000';
 	return e < 10 ? e.toFixed(3) : e.toFixed(1);
 }
 const clamp = (v: number, a: number, b: number) => Math.min(b, Math.max(a, v));
-const px = (x: number) => ((x + 1) / 2) * PW;
+const px = (x: number) => ((x + 1) / 2) * pw;
 const logT = (e: number) => clamp(Math.log10(Math.max(e, 1e-12) / ERR_LO) / Math.log10(ERR_HI / ERR_LO), 0, 1);
-const cx = (d: number) => C0 + ((d - 1) / (MAX_DEGREE - 1)) * CW;
-const cy = (e: number) => -Y_LIM + 2 * Y_LIM * logT(e);
+const cx = (d: number) => c0 + ((d - 1) / (MAX_DEGREE - 1)) * CW;
+const cy = (e: number) => (-Y_LIM + 2 * Y_LIM * logT(e)) * yScale;
 
 type Pt = [number, number];
 
@@ -110,13 +119,13 @@ export const createOverfittingScene: SceneFactory = () => {
 	}
 
 	/** Write a polyline of (data x, data y) samples clipped to |y| <= Y_LIM. Returns the next free segment index. */
-	function clippedCurve(lines: Lines, start: number, ys: Float64Array, width: number, color: [number, number, number, number]) {
+	function clippedCurve(lines: Lines, start: number, curve: Float64Array, width: number, color: [number, number, number, number]) {
 		let k = start;
 		for (let i = 0; i + 1 < CURVE_SAMPLES; i++) {
 			let x0 = xs[i];
-			let y0 = ys[i];
+			let y0 = curve[i];
 			let x1 = xs[i + 1];
-			let y1 = ys[i + 1];
+			let y1 = curve[i + 1];
 			if (!Number.isFinite(y0) || !Number.isFinite(y1)) continue;
 			if ((y0 > Y_LIM && y1 > Y_LIM) || (y0 < -Y_LIM && y1 < -Y_LIM)) continue;
 			// Liang-Barsky against the y band
@@ -137,7 +146,7 @@ export const createOverfittingScene: SceneFactory = () => {
 			y1 = y0 + dy * t1;
 			x0 = nx0;
 			y0 = ny0;
-			lines.set(k++, { a: [px(x0), y0], b: [px(x1), y1], width, color });
+			lines.set(k++, { a: [px(x0), y0 * yScale], b: [px(x1), y1 * yScale], width, color });
 		}
 		return k;
 	}
@@ -153,19 +162,20 @@ export const createOverfittingScene: SceneFactory = () => {
 		let k = 0;
 		const frameC = tone('muted', 1, 0.5);
 		const axisC = tone('muted', 1, 0.25);
+		const yl = Y_LIM * yScale;
 		const corners: Pt[] = [
-			[0, -Y_LIM],
-			[PW, -Y_LIM],
-			[PW, Y_LIM],
-			[0, Y_LIM],
-			[0, -Y_LIM]
+			[0, -yl],
+			[pw, -yl],
+			[pw, yl],
+			[0, yl],
+			[0, -yl]
 		];
 		k = base.setPolyline(k, corners, { width: 1, color: frameC });
-		base.set(k++, { a: [PW / 2, -Y_LIM], b: [PW / 2, Y_LIM], width: 1, color: axisC });
-		base.set(k++, { a: [0, 0], b: [PW, 0], width: 1, color: axisC });
+		base.set(k++, { a: [pw / 2, -yl], b: [pw / 2, yl], width: 1, color: axisC });
+		base.set(k++, { a: [0, 0], b: [pw, 0], width: 1, color: axisC });
 		if (truthLine >= 0.5) {
 			const pts: Pt[] = [];
-			for (let i = 0; i < CURVE_SAMPLES; i++) pts.push([px(xs[i]), truth(xs[i])]);
+			for (let i = 0; i < CURVE_SAMPLES; i++) pts.push([px(xs[i]), truth(xs[i]) * yScale]);
 			k = base.setPolyline(k, pts, { width: 1.5, color: tone('muted', 1, 0.55 * mM) });
 		}
 		base.count = k;
@@ -194,7 +204,7 @@ export const createOverfittingScene: SceneFactory = () => {
 		for (let pass = 0; pass < 2; pass++) {
 			for (let i = 0; i < train.x.length; i++) {
 				if (!inside(train.y[i])) continue;
-				const p = { x: px(train.x[i]), y: train.y[i], radius: 4.5 };
+				const p = { x: px(train.x[i]), y: train.y[i] * yScale, radius: 4.5 };
 				if (pass === 0) dots.set(d++, { ...p, color: tone('data', 1.3, 0.95 * mD) });
 				else dots.set(d++, { ...p, ring: 1, color: tone('data', 0.3, 0.9 * mD) });
 			}
@@ -202,7 +212,7 @@ export const createOverfittingScene: SceneFactory = () => {
 		if (showTest >= 0.5) {
 			for (let i = 0; i < test.x.length; i++) {
 				if (!inside(test.y[i])) continue;
-				dots.set(d++, { x: px(test.x[i]), y: test.y[i], radius: 3, ring: 1.3, color: tone('ok', 1.2, 0.9 * mO) });
+				dots.set(d++, { x: px(test.x[i]), y: test.y[i] * yScale, radius: 3, ring: 1.3, color: tone('ok', 1.2, 0.9 * mO) });
 			}
 		}
 		dots.count = d;
@@ -215,11 +225,11 @@ export const createOverfittingScene: SceneFactory = () => {
 		if (a > 0.01) {
 			const axis = tone('muted', 1, 0.6 * a);
 			const grid = tone('muted', 1, 0.18 * a);
-			chartLines.set(q++, { a: [C0, -Y_LIM], b: [C0, Y_LIM], width: 1, color: axis });
-			chartLines.set(q++, { a: [C0, -Y_LIM], b: [C0 + CW, -Y_LIM], width: 1, color: axis });
+			chartLines.set(q++, { a: [c0, -yl], b: [c0, yl], width: 1, color: axis });
+			chartLines.set(q++, { a: [c0, -yl], b: [c0 + CW, -yl], width: 1, color: axis });
 			for (const e of [0.01, 0.1, 1, 10]) {
-				chartLines.set(q++, { a: [C0, cy(e)], b: [C0 + CW, cy(e)], width: 1, color: grid });
-				const [lx, ly] = v.project(C0, cy(e));
+				chartLines.set(q++, { a: [c0, cy(e)], b: [c0 + CW, cy(e)], width: 1, color: grid });
+				const [lx, ly] = v.project(c0, cy(e));
 				labels.push({ id: `ey-${e}`, x: lx - 6, y: ly, text: String(e), tone: 'muted', mono: true, align: 'right', opacity: a });
 			}
 			const trainPts: Pt[] = [];
@@ -230,21 +240,21 @@ export const createOverfittingScene: SceneFactory = () => {
 			}
 			q = chartLines.setPolyline(q, testPts, { width: 2, color: tone('ok', 1.4, 0.9 * mO * a) });
 			q = chartLines.setPolyline(q, trainPts, { width: 2, color: tone('data', 1.4, 0.9 * mD * a) });
-			chartLines.set(q++, { a: [cx(degree), -Y_LIM], b: [cx(degree), Y_LIM], width: 1.5, color: tone('param', 1, 0.6 * mP * a) });
+			chartLines.set(q++, { a: [cx(degree), -yl], b: [cx(degree), yl], width: 1.5, color: tone('param', 1, 0.6 * mP * a) });
 			for (let dd = 1; dd <= MAX_DEGREE; dd++) {
 				chartDots.set(cd++, { x: testPts[dd - 1][0], y: testPts[dd - 1][1], radius: 2.8, color: tone('ok', 1.4, 0.95 * mO * a) });
 				chartDots.set(cd++, { x: trainPts[dd - 1][0], y: trainPts[dd - 1][1], radius: 2.8, color: tone('data', 1.4, 0.95 * mD * a) });
 			}
 			for (let dd = 2; dd <= MAX_DEGREE; dd += 2) {
-				const [lx, ly] = v.project(cx(dd), -Y_LIM);
+				const [lx, ly] = v.project(cx(dd), -yl);
 				labels.push({ id: `ex-${dd}`, x: lx, y: ly + 12, text: String(dd), tone: 'muted', mono: true, opacity: a });
 			}
-			const [l0x, l0y] = v.project(C0, -Y_LIM);
-			const [l1x] = v.project(C0 + CW, -Y_LIM);
+			const [l0x, l0y] = v.project(c0, -yl);
+			const [l1x] = v.project(c0 + CW, -yl);
 			labels.push({ id: 'cap-simple', x: l0x, y: l0y + 32, text: 'too simple', tone: 'muted', align: 'left', opacity: a });
 			labels.push({ id: 'cap-flex', x: l1x, y: l0y + 32, text: 'too flexible', tone: 'muted', align: 'right', opacity: a });
 			labels.push({ id: 'cap-degree', x: (l0x + l1x) / 2, y: l0y + 32, text: 'degree', tone: 'muted', mono: true, opacity: a });
-			const [tx, ty] = v.project(C0, Y_LIM);
+			const [tx, ty] = v.project(c0, yl);
 			labels.push({ id: 'cap-error', x: tx, y: ty - 12, text: 'error', tone: 'muted', mono: true, align: 'left', opacity: a });
 		}
 		chartLines.count = q;
@@ -301,7 +311,10 @@ export const createOverfittingScene: SceneFactory = () => {
 				dirty = true;
 			}
 			const s = chartMix * chartMix * (3 - 2 * chartMix);
-			const world: WorldRect = { x0: 0, x1: PW + (CX1 - PW) * s, y0: -HALF_H, y1: HALF_H };
+			pw = PW_ALONE + (PW_PAIR - PW_ALONE) * s;
+			yScale = 1 + (YS_PAIR - 1) * s;
+			c0 = pw + GAP;
+			const world: WorldRect = { x0: 0, x1: pw + (GAP + CW + CHART_TAIL) * s, y0: -HALF_H * yScale, y1: HALF_H * yScale };
 			fitCamera(camera, v, world, lessonInsets(v));
 			v.setViewProj(camera.matrix(v.aspect));
 

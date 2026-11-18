@@ -24,8 +24,8 @@ const WORLD: WorldRect = { x0: -3.1, x1: 3.1, y0: -2.52, y1: 2.52 };
 // chart band: the plot area, loss from 0 to LOSS_MAX
 const PX0 = -2.85;
 const PX1 = 2.95;
-const PY0 = 0.78; // loss 0
-const PY1 = 2.15; // loss LOSS_MAX
+const PY0_ = 0.78; // loss 0
+const PY1_ = 2.15; // loss LOSS_MAX
 const LOSS_MAX = 8.5;
 const DASH = 0.09;
 const DASH_GAP = 0.06;
@@ -44,10 +44,24 @@ const PROBE_X1 = 3.1;
 const PROBE_CAPTION_Y = -0.95;
 const PROBE_Y = -1.2;
 const PROBE_FONT = 11;
-const TRACK_TOP = -1.38;
+const TRACK_TOP_ = -1.38;
 const TRACK_H = 0.46;
-const PCT_Y = -1.95;
-const DETAIL_Y = -2.24;
+const PCT_Y_ = -1.95;
+const DETAIL_Y_ = -2.24;
+
+// vertical layout: the visible bands are stacked and centered as a group at LAYOUT_CENTER (world y),
+// a little below the camera center so the group sits between the chips above and the control bar below.
+// Each band lists where its content naturally spans (top and bottom, world y) with the constants above.
+const LAYOUT_CENTER = -0.45;
+const BAND_GAP = 0.18;
+const BANDS = {
+	chart: { top: PY1_ + 0.23, bottom: PY0_ - 0.42 },
+	story: { top: STORY_CAPTION_Y + 0.07, bottom: STORY_Y - 0.74 },
+	probe: { top: PROBE_CAPTION_Y + 0.07, bottom: DETAIL_Y_ - 0.07 }
+};
+type BandKey = keyof typeof BANDS;
+const BAND_ORDER: BandKey[] = ['chart', 'story', 'probe'];
+const SHIFT_TAU = 0.07;
 
 // timing, seconds
 const BAND_TIME = 0.25;
@@ -66,7 +80,7 @@ const toward = (v: number, target: number, step: number) =>
 	v < target ? Math.min(target, v + step) : Math.max(target, v - step);
 
 const cx = (step: number) => PX0 + axisX(step) * (PX1 - PX0);
-const cy = (loss: number) => PY0 + (clamp(loss, 0, LOSS_MAX) / LOSS_MAX) * (PY1 - PY0);
+const cyAt = (loss: number) => PY0_ + (clamp(loss, 0, LOSS_MAX) / LOSS_MAX) * (PY1_ - PY0_);
 
 type Pt = [number, number];
 
@@ -110,6 +124,8 @@ export const createTrainingScene: SceneFactory = () => {
 	let storyMix = 0;
 	let probeMix = 0;
 	let validMix = 0;
+	// vertical shift of each band from its natural place, eased toward the group layout
+	const shift: Record<BandKey, number> = { chart: 0, story: 0, probe: 0 };
 	let shownCk = 0;
 	let shownPrompt = 0;
 	let shownDice = 0;
@@ -127,6 +143,22 @@ export const createTrainingScene: SceneFactory = () => {
 	let lastStep = '';
 	let lastLoss = Number.NaN;
 	let lastChoices = '';
+
+	/** Where each band should sit so the wanted ones, stacked, are centered at LAYOUT_CENTER. */
+	function shiftTargets(): Record<BandKey, number> {
+		const on: Record<BandKey, boolean> = { chart: chartOn >= 0.5, story: storyOn >= 0.5, probe: probeOn >= 0.5 };
+		const shown = BAND_ORDER.filter((b) => on[b]);
+		const out: Record<BandKey, number> = { chart: 0, story: 0, probe: 0 };
+		if (shown.length === 0) return out;
+		let total = BAND_GAP * (shown.length - 1);
+		for (const b of shown) total += BANDS[b].top - BANDS[b].bottom;
+		let top = LAYOUT_CENTER + total / 2;
+		for (const b of shown) {
+			out[b] = top - BANDS[b].top;
+			top -= BANDS[b].top - BANDS[b].bottom + BAND_GAP;
+		}
+		return out;
+	}
 
 	const mul = (t: Tone) => (hl === null || hl === t ? 1 : 0.3);
 	const currentCk = () => clamp(Math.floor(pos + 1e-6), 0, LAST);
@@ -162,6 +194,10 @@ export const createTrainingScene: SceneFactory = () => {
 
 	function drawChart(labels: Label[], loss: number, step: number, qn: number): number {
 		const v = ctx.view;
+		const dy0 = shift.chart;
+		const PY0 = PY0_ + dy0;
+		const PY1 = PY1_ + dy0;
+		const cy = (loss: number) => cyAt(loss) + dy0;
 		const a = chartMix;
 		let k = 0;
 		let c = 0;
@@ -294,7 +330,7 @@ export const createTrainingScene: SceneFactory = () => {
 		const v = ctx.view;
 		const mText = mul('text');
 		const mData = mul('data');
-		const [cx0, cy0] = v.project(STORY_X0, STORY_CAPTION_Y);
+		const [cx0, cy0] = v.project(STORY_X0, STORY_CAPTION_Y + shift.story);
 		labels.push({
 			id: 'cap-story',
 			x: cx0,
@@ -311,7 +347,7 @@ export const createTrainingScene: SceneFactory = () => {
 		const boxes = layoutChips(all, {
 			x0: STORY_X0,
 			x1: STORY_X1,
-			y: STORY_Y,
+			y: STORY_Y + shift.story,
 			scale: ppw,
 			fontPx: STORY_FONT,
 			padPx: 5,
@@ -353,6 +389,10 @@ export const createTrainingScene: SceneFactory = () => {
 		const a = probeMix;
 		if (a <= 0.005) return qn;
 		const v = ctx.view;
+		const dyP = shift.probe;
+		const TRACK_TOP = TRACK_TOP_ + dyP;
+		const PCT_Y = PCT_Y_ + dyP;
+		const DETAIL_Y = DETAIL_Y_ + dyP;
 		const mText = mul('text');
 		const mOk = mul('ok');
 		const mGrad = mul('grad');
@@ -362,7 +402,7 @@ export const createTrainingScene: SceneFactory = () => {
 		const boxes = layoutChips(tokens, {
 			x0: PROBE_X0,
 			x1: PROBE_X1,
-			y: PROBE_Y,
+			y: PROBE_Y + dyP,
 			scale: ppw,
 			fontPx: PROBE_FONT,
 			padPx: 4,
@@ -375,9 +415,9 @@ export const createTrainingScene: SceneFactory = () => {
 		const right = Math.max(...boxes.map((b) => b.x + b.w / 2));
 		const centerX = (left + right) / 2;
 
-		const [lx, ly] = v.project(left, PROBE_CAPTION_Y);
+		const [lx, ly] = v.project(left, PROBE_CAPTION_Y + dyP);
 		labels.push({ id: 'cap-probe', x: lx, y: ly, text: 'guess the next token', tone: 'muted', size: 11, align: 'left', opacity: a });
-		const [rx, ry] = v.project(right, PROBE_CAPTION_Y);
+		const [rx, ry] = v.project(right, PROBE_CAPTION_Y + dyP);
 		labels.push({
 			id: 'probe-loss',
 			x: rx,
@@ -522,6 +562,7 @@ export const createTrainingScene: SceneFactory = () => {
 				storyMix = storyOn >= 0.5 ? 1 : 0;
 				probeMix = probeOn >= 0.5 ? 1 : 0;
 				validMix = validOn >= 0.5 ? 1 : 0;
+				Object.assign(shift, shiftTargets());
 			} else if (at !== lastAt) {
 				running = false;
 				lastAt = at;
@@ -552,6 +593,16 @@ export const createTrainingScene: SceneFactory = () => {
 			const next = mixes.map(([m, t]) => (m === t ? m : jump ? t : toward(m, t, dt / BAND_TIME)));
 			if (next.some((m, i) => m !== mixes[i][0])) dirty = true;
 			[chartMix, storyMix, probeMix, validMix] = next;
+
+			// the bands slide to their stacked places (at once with reduced motion)
+			const want = shiftTargets();
+			const kShift = jump ? 1 : 1 - Math.exp(-dt / SHIFT_TAU);
+			for (const b of BAND_ORDER) {
+				const diff = want[b] - shift[b];
+				if (diff === 0) continue;
+				shift[b] = Math.abs(diff) < 1e-3 || kShift >= 1 ? want[b] : shift[b] + diff * kShift;
+				dirty = true;
+			}
 
 			// position
 			if (running) {

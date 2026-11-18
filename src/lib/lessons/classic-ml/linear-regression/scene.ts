@@ -9,7 +9,11 @@ import { fitCamera, lessonInsets, type WorldRect } from '../../fit.ts';
 
 const N_POINTS = 14;
 const EXT = 1.3; // the plot covers [-EXT, EXT] on both axes
-const WORLD: WorldRect = { x0: -1.45, x1: 2.15, y0: -1.5, y1: 1.4 };
+// The error bar sits right of the plot from step 4 on. Without it the plot is centred; with it the
+// world widens to the right, so the plot slides left to make room.
+const WORLD_NO_BAR: WorldRect = { x0: -1.45, x1: 1.45, y0: -1.5, y1: 1.4 };
+const WORLD_BAR_X1 = 2.15;
+const LAYOUT_RATE = 6; // 1 / s, how fast the layout eases when the bar appears or goes
 const BAR = { x0: 1.5, x1: 1.7, y0: -EXT, h: 2 * EXT }; // full height = MSE of 1
 const LR = 0.3;
 const STEPS_PER_SECOND = 40;
@@ -37,6 +41,7 @@ export const createLinearRegressionScene: SceneFactory = () => {
 	let paramsSeen = false;
 	let noiseUsed = -1;
 	let hl: Tone | null = null;
+	let barMix = NaN; // 0 = no bar, plot centred; 1 = bar shown, plot left
 
 	// state
 	let seed = 1;
@@ -178,7 +183,14 @@ export const createLinearRegressionScene: SceneFactory = () => {
 		},
 		update(fr) {
 			const v = ctx.view;
-			fitCamera(camera, v, WORLD, lessonInsets(v));
+			const barTarget = show >= 3 ? 1 : 0;
+			if (Number.isNaN(barMix) || ctx.reducedMotion || fr.dt === 0) barMix = barTarget;
+			else {
+				barMix += (barTarget - barMix) * (1 - Math.exp(-fr.dt * LAYOUT_RATE));
+				if (Math.abs(barTarget - barMix) < 0.001) barMix = barTarget;
+			}
+			const world: WorldRect = { ...WORLD_NO_BAR, x1: WORLD_NO_BAR.x1 + (WORLD_BAR_X1 - WORLD_NO_BAR.x1) * barMix };
+			fitCamera(camera, v, world, lessonInsets(v));
 			v.setViewProj(camera.matrix(v.aspect));
 
 			if (fitting && fr.dt > 0) {

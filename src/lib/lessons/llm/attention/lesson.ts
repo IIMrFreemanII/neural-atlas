@@ -67,13 +67,16 @@ const lesson: LessonDef = {
 			title: 'A word alone is not enough',
 			body: 'Read the sentence: the dog lost the ball when it was wet. You know at once what is wet. The model has only the vector for "wet", and that vector is the same in every sentence.\n\nTo work out what "wet" describes, the tokens have to **exchange information**.',
 			params: { scenario: 1, arcs: 0, token: 8 },
-			controls: []
+			controls: [],
+			legend: ['Query'],
+			readouts: ['from']
 		},
 		{
 			title: 'Each token looks at the others',
 			body: 'The arcs show how much "wet" looks at each word. The shares add up to 100%, and the thickest arc goes to the word it cares about most. Click another word to look from it, then switch the last word to "tired".\n\nThe numbers here were set by hand so the pattern is easy to read. A real model learns them from text.',
 			params: { scenario: 2, arcs: 1, token: 8 },
-			controls: ['sentence']
+			controls: ['sentence'],
+			legend: ['Query', 'Value, attention']
 		},
 		{
 			title: 'Queries and keys',
@@ -111,13 +114,15 @@ const lesson: LessonDef = {
 			title: 'Every token does this at once',
 			body: 'Here is the whole thing as a grid. Each row is a token looking, and each column is a token being looked at. Hover a row to follow it.\n\n"it" splits between "dog" and "ball". Words with nothing to ask spread their attention out evenly.',
 			params: { scenario: 6, matrix: 1, token: 6 },
-			controls: ['sentence']
+			controls: ['sentence'],
+			legend: ['Query', 'Value, attention']
 		},
 		{
 			title: 'Different heads, different jobs',
 			body: 'A layer runs several **heads** side by side, each with its own weights. Switch **Head** and watch the grid change: one head looks at the previous word, another at repeats of the same word.\n\nEach head asks a different question about the same tokens.',
 			params: { scenario: 7, matrix: 1, head: 1, token: 4 },
 			controls: ['head', 'sentence'],
+			legend: ['Query', 'Value, attention'],
 			deepDive: {
 				note: 'The toy uses whole words as tokens so the grid is easy to read. Real models use subword tokens. The three heads here were designed by hand. In a trained model the heads are found by training, and most of them do jobs that are harder to name. The last step shows the heads of a real trained model.'
 			}
@@ -126,13 +131,15 @@ const lesson: LessonDef = {
 			title: 'No peeking ahead',
 			body: 'A model that predicts the next token must not see it. So each token may only look at itself and earlier tokens, and the upper triangle goes dark.\n\nTurn **Hide later words** on and off and see how the rows change.',
 			params: { scenario: 8, matrix: 1, head: 0, causal: 1, token: 8 },
-			controls: ['causal', 'head']
+			controls: ['causal', 'head'],
+			legend: ['Query', 'Value, attention']
 		},
 		{
 			title: 'What training finds',
 			body: `These grids are not hand-made. They come from a small transformer that was trained on children's stories to predict the next word. Nobody designed its heads. It has ${LM_CONFIG.layers} blocks with ${LM_CONFIG.heads} heads each. Pick a **Block** and a **Head**, then follow a row.\n\nBlock 2, head 3 looks back at who the sentence is about: "he" looks at "tom". Switch to head 1: \"his\" and \"ball\" look at the latest verb, \"lost\". Block 1, head 1 mostly looks at the word just before. Many other heads have no job you can put a name to, and that is normal. Each token only looks back, because the model was trained to predict what comes next.`,
 			params: { scenario: 9, trained: 1, matrix: 1, tsentence: 1, tblock: 1, thead: 2, token: 5 },
 			controls: ['tsentence', 'tblock', 'thead'],
+			legend: ['Query', 'Value, attention'],
 			deepDive: {
 				note: `The model is a decoder-only transformer with ${LM_CONFIG.layers} blocks of ${LM_CONFIG.heads} heads, vectors of ${LM_CONFIG.d} numbers and about ${Math.round(LM_TRAINING.parameters / 1000)} thousand weights. It was trained on TinyStories, ${LM_TRAINING.stories.toLocaleString('en-US')} short stories written for young children. Its tokens are whole words, from a vocabulary of ${LM_CONFIG.vocab.toLocaleString('en-US')} entries, so every chip is one word or one punctuation mark.`
 			}

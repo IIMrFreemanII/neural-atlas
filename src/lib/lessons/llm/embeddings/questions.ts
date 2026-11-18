@@ -11,6 +11,7 @@ export const questions: Question[] = [
 			'Cat and dog are both animals, and nobody told the layout that. Why are their vectors still close together?',
 		params: { colors: 1, word: indexOf('cat'), neighbors: 0 },
 		controls: ['spin'],
+		readouts: ['word'],
 		options: [
 			{
 				text: 'The numbers come from which words appear near each other, and cat and dog keep similar company.',

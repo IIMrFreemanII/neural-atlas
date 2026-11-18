@@ -61,19 +61,25 @@ const lesson: LessonDef = {
 			title: 'A new model knows nothing',
 			body: `Every lesson in this track used the same small language model. Here it is before any training: all ${WEIGHTS} of its weights are random numbers.\n\nAsk it to continue a [[text:story]] and it [[data:writes]] tokens with no pattern. Turn **Roll the dice** off and it always takes its top token instead of drawing one. Then it only repeats itself.`,
 			params: { at: 0, chart: 0, probe: 0, dice: 1 },
-			controls: ['prompt', 'dice']
+			controls: ['prompt', 'dice'],
+			legend: ['Written by the model', 'Given text'],
+			readouts: []
 		},
 		{
 			title: 'The exercise: guess the next token',
 			body: `Training is one exercise, repeated millions of times. Stop a sentence before each token and ask the model how likely every token in its vocabulary is to come next.\n\nEach bar shows the probability the model gave to the [[ok:right token]]. The untrained model spreads its bets over all ${VOCAB} tokens, so every bar is nearly empty. Hover a token to see what the model guessed there.`,
 			params: { at: 0, chart: 0, story: 0 },
-			controls: []
+			controls: [],
+			legend: ['Right token', 'Given text'],
+			readouts: ['choices']
 		},
 		{
 			title: 'Loss: one number for how wrong',
 			body: `The [[grad:loss]] turns those bars into one number. A right token with a full bar costs nothing. A right token with a nearly empty bar costs a lot. The loss is the average cost over all tokens.\n\nThe dashed line is the loss of guessing blindly, with every token equally likely: ${UNIFORM}. The untrained model starts just above it. Training has one goal, to push the loss down.`,
 			params: { at: 0, story: 0 },
 			controls: [],
+			legend: ['Loss', 'Right token', 'Given text'],
+			readouts: ['loss', 'choices'],
 			deepDive: {
 				note: `This loss is called cross-entropy. With all ${VOCAB} tokens equally likely it is ln ${LOG.vocab} = ${UNIFORM}.`,
 				math: [
@@ -109,6 +115,7 @@ const lesson: LessonDef = {
 			body: 'A model can also lower its loss by memorizing the training text. To check for that, some stories were set aside and never used for training.\n\nThe [[text:white dots]] show the loss on those unseen stories. They stay close to the [[grad:training loss]], so the model learned patterns that carry over to new text. When a model memorizes, the dots stop falling while the training loss keeps going down.',
 			params: { at: LAST, valid: 1, story: 0 },
 			controls: ['at'],
+			legend: ['Loss', 'Right token', 'Given text'],
 			deepDive: {
 				note: 'The last 2% of the stories were set aside before training. The loss on unseen stories is measured on 400 fixed snippets of them, at every checkpoint.'
 			}

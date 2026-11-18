@@ -75,6 +75,13 @@ export interface Step {
 	 * Undefined = all of the lesson's controls. Empty array = none.
 	 */
 	controls?: string[];
+	/**
+	 * Which legend chips are visible at this step, by label. Undefined = all of the lesson's legend.
+	 * List only the things the picture shows at this step, so a chip never names something not on screen.
+	 */
+	legend?: string[];
+	/** Which readouts are visible at this step, by key. Undefined = all. Hidden readouts still update. */
+	readouts?: string[];
 	deepDive?: DeepDive;
 }
 
@@ -95,6 +102,10 @@ interface QuestionBase {
 	params?: Params;
 	/** Visible controls while this question is open, like Step.controls. Undefined = all. */
 	controls?: string[];
+	/** Visible legend chips by label, like Step.legend. Undefined = all. */
+	legend?: string[];
+	/** Visible readouts by key, like Step.readouts. Undefined = all. */
+	readouts?: string[];
 }
 
 /** Pick one answer. The visual stays live, so the learner can try things out before answering. */

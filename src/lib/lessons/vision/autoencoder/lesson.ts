@@ -37,6 +37,7 @@ const lesson: LessonDef = {
 			body: 'An **autoencoder** is two small networks back to back. The [[param:encoder]] squeezes a drawing of 256 pixels down to just two numbers, its [[data:code]]. The [[param:decoder]] gets only those two numbers and draws the picture again.\n\nNobody told the network what the two numbers should mean. It was trained on thousands of drawings with one goal: the rebuilt drawing should match the original.',
 			params: { show: 1, scenario: 1 },
 			controls: ['sample'],
+			readouts: [],
 			deepDive: {
 				note: 'Both halves are small fully connected networks: 256 pixels, 32 hidden units, 2 code numbers, 32 hidden units, 256 pixels. The hidden layers and the code use tanh, so each code number is between -1 and 1. The output uses a sigmoid, so each pixel is between 0 and 1.',
 				math: [
@@ -57,13 +58,15 @@ const lesson: LessonDef = {
 			title: 'What survives the squeeze',
 			body: 'Switch between the shapes. The [[data:rebuilt]] drawing keeps the kind of shape, but the wobbles and the exact strokes are gone.\n\nTwo numbers cannot hold everything about 256 pixels. Training kept what helps most to redraw a picture, and that is mainly which shape it is.',
 			params: { show: 1, scenario: 2 },
-			controls: ['sample']
+			controls: ['sample'],
+			readouts: []
 		},
 		{
 			title: 'The code is a place',
 			body: 'Two numbers are a position on a plane: the first goes across, the second goes up. So every drawing\'s [[data:code]] is a point on this map.\n\nSwitch shapes and watch the point jump. Each shape lands somewhere else.',
 			params: { show: 2, scenario: 3 },
-			controls: ['sample']
+			controls: ['sample'],
+			readouts: []
 		},
 		{
 			title: 'A map of all drawings',

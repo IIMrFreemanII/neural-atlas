@@ -52,7 +52,8 @@ const lesson: LessonDef = {
 			title: 'Classifying means coloring the plane',
 			body: 'Every dot has a class: [[data:class A]] or [[neg:class B]]. A classifier has to answer for every possible position, not only the dots, and the background color shows that answer.\n\nThe [[text:white line]] is where the answer flips. It is called the **decision boundary**.',
 			params: { scenario: 1 },
-			controls: []
+			controls: [],
+			readouts: ['acc']
 		},
 		{
 			title: 'Logistic regression draws one straight line',
@@ -74,7 +75,8 @@ const lesson: LessonDef = {
 			title: 'A straight line is not always enough',
 			body: 'These two interleaved moons cannot be split by any straight line. The [[grad:ringed dots]] sit on the wrong side, and no amount of training fixes that.\n\nTry the other datasets with the **Data** control and see which ones a line can handle.',
 			params: { scenario: 3, dataset: 1 },
-			controls: ['dataset']
+			controls: ['dataset'],
+			readouts: ['acc']
 		},
 		{
 			title: 'k-nearest neighbors asks the neighbors',

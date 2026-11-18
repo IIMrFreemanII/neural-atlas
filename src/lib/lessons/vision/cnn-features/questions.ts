@@ -7,6 +7,8 @@ export const questions: Question[] = [
 			'Some cells of a [[data:feature map]] are 0 after ReLU. What does a 0 tell you about the spot of the drawing that the cell looks at?\n\nHover a few cells to read their values.',
 		params: { show: 1, scenario: 2, sample: 3 },
 		controls: ['sample'],
+		legend: ['Input', 'Maps', 'Kernel'],
+		readouts: [],
 		options: [
 			{
 				text: 'The drawing is empty at that spot.',

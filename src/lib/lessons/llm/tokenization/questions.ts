@@ -13,6 +13,7 @@ export const questions: Question[] = [
 			'The text is split into subwords, with no merges learned yet, so every character is its own token. You drag **Merges learned** up to 100. What happens to the number of tokens and to the vocabulary size?\n\nDecide first, then check with the slider.',
 		params: { view: 0, mode: 2, merges: 0, ids: 1, chart: 0 },
 		controls: ['merges'],
+		legend: ['Single characters', 'Learned pieces'],
 		options: [
 			{
 				text: 'Both numbers fall, because merging joins pieces together.',
@@ -39,6 +40,7 @@ export const questions: Question[] = [
 			'Split the text into subwords. Using only **Merges learned**, cut it to **20 tokens or fewer** while keeping the [[param:vocabulary size]] **under 80**.',
 		params: { view: 0, mode: 2, merges: 0, ids: 1, chart: 0 },
 		controls: ['merges'],
+		legend: ['Single characters', 'Learned pieces'],
 		goal: ({ params: p }) =>
 			p.mode === 2 &&
 			encode(DEFAULT_TEXT, MODEL, Math.round(p.merges)).tokens.length <= 20 &&
@@ -54,6 +56,7 @@ export const questions: Question[] = [
 			'In **Words** mode the word Tokenizers is shown in rose as unknown, because the tokenizer never saw it. Why can **Subwords** mode cut this word, and any other new word, without an unknown piece?',
 		params: { view: 0, mode: 1, merges: 300, ids: 1, chart: 0 },
 		controls: ['text', 'mode'],
+		legend: ['Single characters', 'Learned pieces', 'Unknown word'],
 		options: [
 			{
 				text: 'Its vocabulary holds every word, so no word is ever new.',

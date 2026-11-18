@@ -8,6 +8,7 @@ export const questions: Question[] = [
 			'The bars show the [[data:probability]] of each token. You lower the temperature from 1 to 0.5. What happens to the bars?\n\nDecide first, then check with the slider.',
 		params: { scenario: 4, strip: 1, temperature: 1 },
 		controls: ['temperature'],
+		legend: ['Probability', 'Text so far'],
 		options: [
 			{
 				text: 'They all become equally tall, so every token is as likely as any other.',
@@ -34,6 +35,7 @@ export const questions: Question[] = [
 			'Top-p is 0.8 and the temperature is 1.3. After "once upon a time there was a" many tokens stay in play. After "one day, lily went" only a handful do. Why?',
 		params: { scenario: 6, temperature: 1.3, topP: 0.8, prompt: 0 },
 		controls: ['topP', 'prompt'],
+		legend: ['Probability', 'Cut off', 'Text so far'],
 		options: [
 			{
 				text: 'Top-p keeps just enough tokens to add up to 0.8. When one token already holds most of the probability, few are needed.',

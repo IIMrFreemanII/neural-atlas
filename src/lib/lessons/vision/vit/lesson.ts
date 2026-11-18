@@ -55,13 +55,17 @@ const lesson: LessonDef = {
 			title: 'Cut the image into patches',
 			body: 'A transformer reads a sequence of tokens. A vision transformer makes one from an image by cutting it into a grid of [[data:patches]]: here 16 patches of 4 x 4 pixels.\n\nThe patches are read in order, row by row, and each one becomes a token in a row. A seventeenth token, the [[param:class token]], goes first. You will see what it is for in a moment.',
 			params: { show: 1, scenario: 1 },
-			controls: ['sample']
+			controls: ['sample'],
+			legend: ['Ink', 'Class token'],
+			readouts: []
 		},
 		{
 			title: 'Each patch becomes a vector',
 			body: 'A token is a list of numbers, so each patch is turned into one. Its 16 pixels are weighed into 32 numbers, the same way words become embedding vectors in the language lessons.\n\nEach strip is one patch vector: [[data:cyan]] cells are positive and pink cells are negative. Switch **Drawing** and watch the strips change with the pixels.',
 			params: { show: 2, scenario: 2 },
 			controls: ['sample'],
+			legend: ['Ink', 'Class token'],
+			readouts: [],
 			deepDive: {
 				note: 'The same matrix E and bias b are used for every patch. The class token is a vector that is learned in training and is the same for every image.',
 				math: [{ tex: 'e_p = E\\, x_p + b', caption: 'Patch p: 16 pixels x_p become 32 numbers e_p' }]
@@ -72,6 +76,8 @@ const lesson: LessonDef = {
 			body: 'Attention compares tokens without knowing their order, so each patch also gets a learned [[param:position vector]], added to its own. Without it, the model could not tell the top of the image from the bottom.\n\nTurn **Position vectors** off. The cross is now taken for another shape, and **Shuffle patches** no longer changes the answer at all: without positions the model sees a bag of patches. Press **Put back** to undo the shuffle.',
 			params: { show: 3, scenario: 3, sample: 4 },
 			controls: ['positions', 'shuffle', 'restore'],
+			legend: ['Ink', 'Class token'],
+			readouts: ['answer'],
 			deepDive: {
 				note: 'Run without its position vectors, the same trained model gets about a third of 1000 new drawings right, close to guessing among four shapes. With them it gets about 100% right.',
 				math: [{ tex: 'z_p = e_p + \\text{pos}_p', caption: 'The token that enters block 1' }]
@@ -101,6 +107,8 @@ const lesson: LessonDef = {
 			body: 'After both blocks, only the [[param:class token]] is used. A small layer turns its 32 numbers into four scores, and softmax turns the scores into [[ok:probabilities]].\n\nIt says about 92% for every shape it recognizes. Training used label smoothing, which keeps the model from claiming 100%.',
 			params: { show: 6, scenario: 6 },
 			controls: ['sample'],
+			legend: ['Ink', 'Class token'],
+			readouts: ['answer'],
 			deepDive: {
 				note: 'Label smoothing trains toward 92.5% for the right shape and 2.5% for each of the others, instead of 100% and 0%. The scores become less extreme, and so does the confidence.',
 				math: [
@@ -120,6 +128,8 @@ const lesson: LessonDef = {
 			body: 'A CNN\'s first layer sees a 3 x 3 neighbourhood and widens step by step. Here every patch can reach every other at once.\n\nReal vision transformers cut a 224 x 224 photo into 196 patches of 16 x 16 pixels and learn from millions of images. This one has about 18 thousand weights, trained by this repo on generated drawings.',
 			params: { show: 6, scenario: 8 },
 			controls: ['sample'],
+			legend: ['Ink', 'Class token'],
+			readouts: ['answer'],
 			deepDive: {
 				note: 'The model is trained by scripts/train-vit.py in this repo, on drawings made by the same generator as the ones you see here.'
 			}

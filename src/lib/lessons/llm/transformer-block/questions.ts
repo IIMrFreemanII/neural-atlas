@@ -33,6 +33,7 @@ export const questions: Question[] = [
 			'In the attention step, which tokens can the lane of "play" gather information from?\n\nDecide first, then click the lanes to check.',
 		params: { focus: 2, zoom: 0, scenario: 2 },
 		controls: ['play'],
+		legend: ['Vectors', 'Layers'],
 		options: [
 			{
 				text: 'Itself and the tokens before it: "she", "loved", "to".',
@@ -59,6 +60,7 @@ export const questions: Question[] = [
 			'With all 4 blocks the model\'s first guess for the next token is "her". Read after only 1 block, its first guess is "his". Why is the early guess worse?\n\nDrag **Blocks** to compare the two.',
 		params: { focus: 7, zoom: 1, depth: 4, scenario: 7 },
 		controls: ['depth'],
+		legend: ['Vectors', 'Layers'],
 		options: [
 			{
 				text: 'The first block has weaker weights than the later ones.',

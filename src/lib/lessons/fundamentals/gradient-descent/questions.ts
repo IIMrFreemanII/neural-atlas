@@ -9,6 +9,7 @@ export const questions: Question[] = [
 			'The learning rate is 0.2. The first step moves the ball from w = 1.8 to w = 1.08. Compare the second step with the first one. Is it longer, shorter or the same?\n\nDecide first, then check with **Step**.',
 		params: { scenario: 2 },
 		controls: ['step', 'reset'],
+		legend: ['Plain gradient descent', 'Loss landscape'],
 		options: [
 			{
 				text: 'The same length, because the learning rate has not changed.',
@@ -35,6 +36,7 @@ export const questions: Question[] = [
 			'The ball starts at w = 1.8. Set the [[grad:learning rate]] so that the first step carries it across to the other side of the valley, and to a spot lower on the curve than where it started.',
 		params: { scenario: 4, lr: 0.2 },
 		controls: ['lr', 'step', 'reset'],
+		legend: ['Plain gradient descent', 'Loss landscape'],
 		goal: ({ params: p }) => {
 			const w = curve.start;
 			const next = w - p.lr * curve.grad(w);
@@ -51,6 +53,7 @@ export const questions: Question[] = [
 			'On the ravine, plain descent bounces between the walls and crawls along the floor, even though the minimum is straight ahead along the floor. Why does it bounce?\n\nDecide first, then check with **Run** and the slider.',
 		params: { scenario: 6, map: 1, surface: 1, lr: 0.42 },
 		controls: ['run', 'step', 'reset', 'lr'],
+		legend: ['Plain gradient descent', 'Loss landscape'],
 		options: [
 			{
 				text: 'Plain descent adds a little random noise to every step.',

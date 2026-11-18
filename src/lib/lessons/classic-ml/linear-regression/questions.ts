@@ -1,6 +1,9 @@
 import { shown } from '../../questions.ts';
 import type { Question } from '../../types.ts';
 
+// The best-fit line is not drawn while `best` is 0; only its tick on the bar is.
+const NO_BEST_LINE = ['Data points', 'Model line', 'Error'];
+
 export const questions: Question[] = [
 	{
 		kind: 'choice',
@@ -8,6 +11,7 @@ export const questions: Question[] = [
 			'Two lines are tested on the same two points. Line A misses both points by 0.2. Line B hits one point exactly and misses the other by 0.4. In both cases the misses add up to a total miss of 0.4. Which line has the larger [[grad:squared error]]?',
 		params: { show: 3 },
 		controls: [],
+		legend: NO_BEST_LINE,
 		options: [
 			{
 				text: 'Neither. Both miss by 0.4 in total, so the errors are equal.',
@@ -30,6 +34,7 @@ export const questions: Question[] = [
 			'Use the [[param:slope]] and the [[param:intercept]] to bring the [[grad:squared error]] to within 0.01 of the [[ok:best possible]] error.',
 		params: { show: 3, best: 0 },
 		controls: ['w', 'b'],
+		legend: NO_BEST_LINE,
 		goal: ({ readouts }) => shown(readouts.mse, 3) <= shown(readouts.best, 3) + 0.01,
 		hint: 'Look at the squares. Tilt the line until it follows the rise of the cloud, then lift it until the misses are about as often above as below.',
 		solved:

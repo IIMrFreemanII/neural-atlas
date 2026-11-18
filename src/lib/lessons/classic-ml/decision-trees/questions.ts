@@ -12,6 +12,10 @@ const lowest = best.impurity + SLACK;
 /** The best cut on the slider's grid, as the "Find best" button rounds it. */
 export const bestCut = { axis: best.axis, cut: Math.round(best.threshold * 100) / 100 };
 
+// No test points on these pages, so no test chip and no test accuracy.
+const TRAIN_LEGEND = ['Class A', 'Class B'];
+const TRAIN_READOUTS = ['acc'];
+
 const bestDepth = bestTestDepth();
 
 export const questions: Question[] = [
@@ -21,6 +25,8 @@ export const questions: Question[] = [
 			'This tree classifies every training dot correctly. What should you expect on new points from the same moons?\n\nSlide **Max depth** down to see how the boxes change.',
 		params: { scenario: 9, depth: MAX_DEPTH },
 		controls: ['depth'],
+		legend: TRAIN_LEGEND,
+		readouts: TRAIN_READOUTS,
 		options: [
 			{
 				text: 'Also 100%, because it never makes a mistake.',
@@ -46,6 +52,8 @@ export const questions: Question[] = [
 		prompt: 'Place the first question yourself: move the cut until the two sides are as pure as they can be.',
 		params: { scenario: 10, depth: 0, split: 1, axis: START_CUT.axis, cut: START_CUT.threshold },
 		controls: ['axis', 'cut'],
+		legend: TRAIN_LEGEND,
+		readouts: TRAIN_READOUTS,
 		goal: ({ params: p }) => splitImpurity(train, p.axis === 1 ? 1 : 0, p.cut) <= lowest,
 		hint: 'Watch the [[grad:marker]] on the chart and the number beside it. Try both cut directions, and look for the lowest point of the curve.',
 		solved:

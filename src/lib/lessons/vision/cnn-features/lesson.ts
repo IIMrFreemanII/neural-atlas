@@ -35,19 +35,25 @@ const lesson: LessonDef = {
 			title: 'Many kernels, many maps',
 			body: 'The last lesson slid one kernel over an image. A convolution layer uses several at once, here 4. Each one produces its own **feature map**: a picture of where its pattern appears in the drawing.\n\nThis network is tiny and was really trained, on thousands of generated drawings of four shapes. Its [[param:kernels]] were learned, not designed.',
 			params: { show: 1, scenario: 1 },
-			controls: ['sample']
+			controls: ['sample'],
+			legend: ['Input', 'Maps', 'Kernel'],
+			readouts: []
 		},
 		{
 			title: 'Keep only what fired',
 			body: 'After each kernel, negative answers are set to zero (ReLU, as in the activation lesson). A [[data:map]] then shows only where its pattern **is** present.\n\nSwitch between shapes and watch which map responds to which strokes: some favor one direction, others another.',
 			params: { show: 1, scenario: 2 },
-			controls: ['sample']
+			controls: ['sample'],
+			legend: ['Input', 'Maps', 'Kernel'],
+			readouts: []
 		},
 		{
 			title: 'Pooling shrinks the map',
 			body: 'Each 2 x 2 block of a map keeps only its largest value. The [[data:pooled maps]] are 4 times smaller, and a small shift of the drawing changes them very little.\n\nSwitch shapes and compare each pooled map with the map it came from.',
 			params: { show: 2, scenario: 3 },
 			controls: ['sample'],
+			legend: ['Input', 'Maps', 'Kernel'],
+			readouts: [],
 			deepDive: {
 				note: 'Max pooling slides a 2 x 2 window with stride 2 and keeps the largest value in each window.',
 				math: [{ tex: 'p_{i,j} = \\max_{0 \\le a, b < 2} \; m_{2i+a,\\, 2j+b}', caption: 'Max pooling' }]
@@ -57,7 +63,9 @@ const lesson: LessonDef = {
 			title: 'The second layer looks at maps, not pixels',
 			body: 'Each second-layer kernel reads all four pooled maps at once, so it can respond to combinations: two strokes meeting, a curve, a crossing.\n\nHover any cell of any map. The [[ok:green square]] on the drawing is everything that cell can see. It grows with depth: 3 x 3, then 4 x 4, then 8 x 8 pixels.',
 			params: { show: 3, scenario: 4 },
-			controls: ['sample']
+			controls: ['sample'],
+			legend: ['Input', 'Maps', 'Kernel'],
+			readouts: []
 		},
 		{
 			title: 'From maps to an answer',

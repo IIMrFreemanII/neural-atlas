@@ -7,6 +7,8 @@ export const questions: Question[] = [
 			'Why does every patch get a [[param:position vector]]?\n\nTurn **Position vectors** off, press **Shuffle patches** and watch the answer, then try it with the vectors on.',
 		params: { show: 3, scenario: 9, sample: 4 },
 		controls: ['positions', 'shuffle', 'restore'],
+		legend: ['Ink', 'Class token'],
+		readouts: ['answer'],
 		options: [
 			{
 				text: 'To make patches with more ink count more.',
@@ -45,6 +47,8 @@ export const questions: Question[] = [
 			'A patch with no ink at all still becomes a token. What does its vector carry?\n\nLook at the strips of the empty patches in the corners.',
 		params: { show: 3, scenario: 11, sample: 1 },
 		controls: ['sample'],
+		legend: ['Ink', 'Class token'],
+		readouts: ['answer'],
 		options: [
 			{
 				text: 'Nothing: it is all zeros.',

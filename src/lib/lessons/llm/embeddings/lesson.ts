@@ -68,13 +68,16 @@ const lesson: LessonDef = {
 			title: 'A token ID means nothing by itself',
 			body: 'A token ID is just a row number. The model looks that row up in a table and gets a vector: a list of numbers, 100 here, shown in the panel as a grid of cells.\n\nEach dot is one word, placed by its vector. These are real GloVe vectors, learned from Wikipedia and news text by counting which words appear near which. Only 74 words are shown. Hover and click dots.',
 			params: { colors: 0, word: CAT },
-			controls: ['spin']
+			controls: ['spin'],
+			legend: [],
+			readouts: ['word']
 		},
 		{
 			title: 'Similar words land close together',
 			body: 'Now color shows the kind of word: [[param:people]], [[ok:animals]], [[grad:food]], [[data:places]], [[neg:actions]] and [[text:sizes]].\n\nNobody told the layout what the kinds are. Words that mean similar things simply have similar numbers, so they sit near each other. The colors are ours: the vectors never saw them, and a few words sit between kinds.',
 			params: { colors: 1 },
-			controls: ['spin']
+			controls: ['spin'],
+			readouts: ['word']
 		},
 		{
 			title: 'Nearest neighbors',
@@ -95,7 +98,8 @@ const lesson: LessonDef = {
 			title: 'Directions carry meaning',
 			body: 'Pick a **Direction**. The arrows from a male word to its female partner mostly point the same way, so "more female" is roughly a direction in this space. They are not identical: in all 100 numbers they mostly agree, but this 3D picture flattens some of them, so a few look short or tilted.\n\nTry the other directions: country to capital, present to past, adult to young, big to bigger.',
 			params: { word: indexOf('man'), relation: 1 },
-			controls: ['relation', 'spin']
+			controls: ['relation', 'spin'],
+			readouts: ['word']
 		},
 		{
 			title: 'Arithmetic on meaning',

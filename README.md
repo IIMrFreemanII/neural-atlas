@@ -210,7 +210,8 @@ e2e/                            Playwright smoke test
 ```
 
 A lesson is a `LessonDef` (`src/lib/lessons/types.ts`): a list of steps, each with narration and the scene
-parameters for that step, plus a scene factory. The scene implements `Scene` (`src/lib/gpu/types.ts`). To add a
+parameters for that step, plus a scene factory. A step can also list which controls, legend chips and
+readouts it shows, so that a chip never names something that is not on screen yet. The scene implements `Scene` (`src/lib/gpu/types.ts`). To add a
 lesson, create its folder and register it in `src/lib/content/curriculum.ts`, give it a position in
 `src/lib/content/constellation.ts`, and add its terms to `src/lib/content/glossary.ts`.
 

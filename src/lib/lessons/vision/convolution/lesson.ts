@@ -54,7 +54,9 @@ const lesson: LessonDef = {
 			title: 'An image is a grid of numbers',
 			body: 'Each pixel of the [[text:image]] on the left is one number, from 0 (black) to 1 (white). Hover a pixel to read its value.\n\nThis picture is tiny on purpose: real photos have millions of pixels and three color channels, while this one has 576 pixels and one channel.',
 			params: { scenario: 1, kernel: 0, calc: 0, scan: 1 },
-			controls: ['image']
+			controls: ['image'],
+			legend: ['Image', 'Kernel', 'Plus'],
+			readouts: ['size']
 		},
 		{
 			title: 'A kernel looks at nine pixels at once',

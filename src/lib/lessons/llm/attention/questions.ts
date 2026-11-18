@@ -9,6 +9,7 @@ export const questions: Question[] = [
 			'The last word is "wet", and its thickest arc goes to "ball". Now you switch the last word to "tired". Where does its thickest arc go?\n\nDecide first, then check by switching the sentence.',
 		params: { scenario: 2, sentence: 0, head: 0, causal: 0, sharp: 1, arcs: 1, matrix: 0, mech: 0, token: 8 },
 		controls: ['sentence'],
+		legend: ['Query', 'Value, attention'],
 		options: [
 			{
 				text: 'To "ball" again, because "ball" is still where it was.',
@@ -35,6 +36,7 @@ export const questions: Question[] = [
 			'Look from the last word, "tired". Using only **Sharpness**, make its attention less decisive: "dog" must get **less than 40%** of it and still have the thickest arc.',
 		params: { scenario: 4, sentence: 1, head: 0, causal: 0, sharp: 1, arcs: 1, matrix: 0, mech: 0, token: 8 },
 		controls: ['sharp'],
+		legend: ['Query', 'Value, attention'],
 		goal: ({ params: p }) => {
 			const run = runHead(SENTENCES[Math.round(p.sentence)], HEADS[Math.round(p.head)], {
 				causal: p.causal >= 0.5,
@@ -54,6 +56,7 @@ export const questions: Question[] = [
 			'Look from the first word, "the". It spreads its attention over all nine words. You turn **Hide later words** on. What does its attention become?\n\nDecide first, then check with the toggle.',
 		params: { scenario: 8, sentence: 0, head: 0, causal: 0, sharp: 1, arcs: 1, matrix: 1, mech: 0, token: 0 },
 		controls: ['causal'],
+		legend: ['Query', 'Value, attention'],
 		options: [
 			{
 				text: 'It goes blank, because no word comes before it.',

@@ -50,13 +50,17 @@ const lesson: LessonDef = {
 			title: 'First, a guess',
 			body: 'The network turns two inputs into one number. Each connection multiplies a [[data:value]] by its [[param:weight]], each neuron adds up what arrives, and the result flows forward to the output.\n\nThat number, ŷ, is the network’s guess. With its current weights it is probably wrong. Drag the inputs and watch the guess change.',
 			params: { phase: 0 },
-			controls: ['x1', 'x2']
+			controls: ['x1', 'x2'],
+			legend: ['Activation', 'Weight'],
+			readouts: ['pred']
 		},
 		{
 			title: 'Then, a score',
 			body: 'Now compare the guess with the [[ok:target]], the answer we wanted. The gap between them is the error, and the [[grad:loss]] turns that gap into one number: zero means perfect, bigger means worse.\n\nTry flipping the target and see the loss jump.',
 			params: { phase: 1 },
 			controls: ['x1', 'x2', 'target'],
+			legend: ['Activation', 'Weight', 'Target'],
+			readouts: ['pred', 'target', 'loss'],
 			deepDive: {
 				math: [{ tex: 'L = \\tfrac{1}{2}(\\hat{y} - y)^2', caption: 'Squared error: the loss grows quickly as the guess moves away from the target.' }]
 			}
@@ -66,6 +70,7 @@ const lesson: LessonDef = {
 			body: 'To improve, we need to know who is responsible. Ask: if the output neuron’s sum nudged up a little, how would the [[grad:loss]] change? That number is [[grad:δ]] (delta), the output’s share of the blame.\n\nIts sign says which way to push, and its size says how much it matters.',
 			params: { phase: 2 },
 			controls: ['target'],
+			readouts: ['pred', 'target', 'loss'],
 			deepDive: {
 				math: [
 					{
@@ -80,6 +85,7 @@ const lesson: LessonDef = {
 			body: 'The hidden neurons never touched the target, yet they share the blame. Each one receives it through the [[param:weight]] that connected it to the output: a strong connection passes on more.\n\nReusing the output’s [[grad:δ]] instead of starting over is the chain rule at work.',
 			params: { phase: 3 },
 			controls: [],
+			readouts: ['pred', 'target', 'loss'],
 			deepDive: {
 				math: [
 					{
@@ -94,6 +100,7 @@ const lesson: LessonDef = {
 			body: 'A weight’s [[grad:gradient]] answers: if this weight grew a little, how would the loss change? It equals the blame at the weight’s destination times the [[data:signal]] at its source.\n\nOne backward sweep gives the gradient of every weight at once, which is why backpropagation is fast. Thicker edges mean bigger gradients.',
 			params: { phase: 4 },
 			controls: ['x1', 'x2'],
+			readouts: ['pred', 'target', 'loss'],
 			deepDive: {
 				math: [{ tex: '\\frac{\\partial L}{\\partial w_{ji}} = \\delta_j\\,a_i', caption: 'Blame at the destination j, times the activation at the source i.' }],
 				code: { lang: 'ts', source: BACKWARD_CODE }

@@ -14,6 +14,9 @@ function testError(degree: number, n: number, noise: number, reg: number): numbe
 	return polyMse(fitPoly(train.x, train.y, degree, lambda), test.x, test.y);
 }
 
+// The true pattern is not drawn on the questions.
+const NO_TRUTH = ['Training points', 'Test points', 'Model'];
+
 export const questions: Question[] = [
 	{
 		kind: 'choice',
@@ -21,6 +24,7 @@ export const questions: Question[] = [
 			'The curve now has degree 4, fitted to 14 training points. You raise the **Degree** to 10. What happens to the [[data:training error]] and to the [[ok:test error]]?\n\nDecide first, then check with the slider.',
 		params: { degree: 4, test: 1, scenario: 21 },
 		controls: ['degree'],
+		legend: NO_TRUTH,
 		options: [
 			{
 				text: 'Both fall, because a more flexible curve fits better.',
@@ -43,6 +47,7 @@ export const questions: Question[] = [
 			'The curve has degree 10 and only a few training points, so it overfits. The degree stays at 10. Bring the [[ok:test error]] below 0.04 with the other controls.',
 		params: { degree: 10, test: 1, scenario: 22 },
 		controls: ['n', 'reg'],
+		legend: NO_TRUTH,
 		goal: ({ params: p }) => shown(testError(p.degree, Math.round(p.n), p.noise, p.reg), 3) < 0.04,
 		hint: 'The curve overfits because it has too much freedom for so few dots. Take away some of that freedom, or give it more dots to be held in check by.',
 		solved:
@@ -55,6 +60,7 @@ export const questions: Question[] = [
 			'The [[param:model]] is a straight line fitted to 14 training points, and its [[ok:test error]] is about 0.05. You raise **Training points** to 60. What happens to the test error?\n\nDecide first, then check with the slider.',
 		params: { degree: 1, test: 1, scenario: 23 },
 		controls: ['n'],
+		legend: NO_TRUTH,
 		options: [
 			{
 				text: 'It stays about the same, because a line cannot bend to fit the pattern.',

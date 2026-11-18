@@ -9,6 +9,8 @@ export const questions: Question[] = [
 			'The [[ok:right token]] at one position is "park". Model A gives it 60% and spreads the other 40% over many tokens. Model B gives it 10% and puts 80% on one wrong token. Which model has the lower [[grad:loss]] at this position?',
 		params: { at: 0, chart: 0, story: 0 },
 		controls: [],
+		legend: ['Loss', 'Right token', 'Given text'],
+		readouts: ['loss', 'choices'],
 		options: [
 			{
 				text: 'Model A, because only the probability given to the right token counts.',
@@ -50,6 +52,7 @@ export const questions: Question[] = [
 			'Another team trains a model. Its training loss keeps falling, but its loss on [[text:unseen stories]] stops falling and then rises. What is the most likely reason?',
 		params: { at: 10, valid: 1, story: 0 },
 		controls: ['at'],
+		legend: ['Loss', 'Right token', 'Given text'],
 		options: [
 			{
 				text: 'Unseen stories are harder than the training ones, so this is normal.',

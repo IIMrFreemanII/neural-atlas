@@ -8,6 +8,7 @@ export const questions: Question[] = [
 			'The network guesses ŷ = 0.40 and the target is 1, so the output blame [[grad:δ]] is −0.14. Now you switch the target to 0, which is closer to the guess. What happens to δ?\n\nDecide first, then check with the toggle.',
 		params: { phase: 2, target: 1 },
 		controls: ['target'],
+		readouts: ['pred', 'target', 'loss'],
 		options: [
 			{
 				text: 'It stays at −0.14, because the guess ŷ has not changed.',
@@ -34,6 +35,7 @@ export const questions: Question[] = [
 			'Set the input x₁ to 0. Which weights now have a [[grad:gradient]] of exactly 0?\n\nDecide first, then check with the slider.',
 		params: { phase: 4 },
 		controls: ['x1', 'x2'],
+		readouts: ['pred', 'target', 'loss'],
 		options: [
 			{
 				text: 'None, because every neuron still carries some blame.',

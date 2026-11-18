@@ -39,19 +39,22 @@ const lesson: LessonDef = {
 			title: 'A model makes guesses',
 			body: 'The [[data:dots]] are our data: examples where we know the right answer. The [[param:line]] is the model. Its **weight** sets the tilt and its **bias** sets the height.\n\nDrag the sliders and try to make the line pass through the dots.',
 			params: {},
-			controls: ['w', 'b']
+			controls: ['w', 'b'],
+			legend: ['Data points', 'Model and its settings']
 		},
 		{
 			title: 'Error is the gap for each point',
 			body: 'For every dot, the model makes a guess. The amber [[grad:segment]] is the gap between that guess and the true value. This gap is the **error** for one point.\n\nA good setting leaves every segment short.',
 			params: { resid: 1 },
-			controls: ['w', 'b']
+			controls: ['w', 'b'],
+			legend: ['Data points', 'Model and its settings', 'Error and loss']
 		},
 		{
 			title: 'Loss squeezes all errors into one number',
 			body: 'To judge a setting with one number, square each gap and take the average. This is the mean squared error, called the [[grad:loss]]. Lower is better.\n\nWatch the **Loss** readout while you move the sliders. Squaring makes big misses count much more than small ones.',
 			params: { resid: 1 },
 			controls: ['w', 'b'],
+			legend: ['Data points', 'Model and its settings', 'Error and loss'],
 			deepDive: {
 				math: [
 					{

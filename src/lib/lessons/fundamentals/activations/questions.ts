@@ -9,6 +9,8 @@ export const questions: Question[] = [
 			'This unit uses Step, and [[data:z]] is 1.0. A training method nudges z up to 1.1 to see whether the output gets better. What does it learn from that nudge?\n\nDecide first, then check with the slider.',
 		params: { act: 4, showDeriv: 1, z: 1 },
 		controls: ['z'],
+		legend: ['Function output', 'Slope (derivative)'],
+		readouts: ['out', 'slope'],
 		options: [
 			{
 				text: 'That a higher z is better, because the output is 1.',
@@ -35,6 +37,8 @@ export const questions: Question[] = [
 			'Sigmoid is chosen. Move [[data:z]] to a place where the [[grad:slope]] readout shows 0.04 or less.',
 		params: { act: 1, showDeriv: 1, z: 0 },
 		controls: ['z'],
+		legend: ['Function output', 'Slope (derivative)'],
+		readouts: ['out', 'slope'],
 		goal: ({ params: p }) => shown(derivative(Math.round(p.act) as ActivationId, p.z)) <= 0.04,
 		hint: 'The slope is the steepness of the curve. Look for the parts of the sigmoid where the curve has gone flat.',
 		solved:
@@ -47,6 +51,8 @@ export const questions: Question[] = [
 			'The network is fitted with 1 hidden unit and a Linear activation. The [[neg:fit error]] reads 0.565. You raise [[param:units]] to 6. What happens to the error?\n\nDecide first, then check with the sliders.',
 		params: { mode: 1, act: 0, units: 1 },
 		controls: ['units', 'act'],
+		legend: ['Function output', 'Hidden units', 'Target curve'],
+		readouts: ['err'],
 		options: [
 			{
 				text: 'It drops, because every extra unit adds a bend.',

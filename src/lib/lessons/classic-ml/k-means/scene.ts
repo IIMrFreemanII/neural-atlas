@@ -14,7 +14,11 @@ const DATA_SEED = 1;
 const EXTENT = 1.5; // the map covers [-EXTENT, EXTENT] on both axes
 const MAX_K = 6;
 const MAP_OX = -0.6; // data (0, 0) sits at world (MAP_OX, 0)
+// The spread chart sits right of the map. Without it the map is centred (x1 mirrors x0 around the
+// map's centre); with it the world widens to the right, so the map slides left to make room.
 const WORLD: WorldRect = { x0: -2.15, x1: 2.7, y0: -1.68, y1: 1.55 };
+const WORLD_NO_CHART_X1 = 2 * MAP_OX - WORLD.x0;
+const LAYOUT_RATE = 6; // 1 / s, how fast the layout eases when the chart appears or goes
 const CHART = { x0: 1.3, x1: 2.35, y0: -0.9, y1: 0.5 };
 const CLUSTER_TONES: Tone[] = ['data', 'param', 'grad', 'neg', 'ok', 'text'];
 const SPOKES = 300;
@@ -52,6 +56,7 @@ export const createKMeansScene: SceneFactory = () => {
 	let scenario = 1;
 	let paramsSeen = false;
 	let hl: Tone | null = null;
+	let chartMix = NaN; // 0 = no chart, map centred; 1 = chart shown, map left
 
 	// data
 	let points: Float64Array = new Float64Array(0);
@@ -466,7 +471,14 @@ export const createKMeansScene: SceneFactory = () => {
 		},
 		update(fr) {
 			const v = ctx.view;
-			fitCamera(camera, v, WORLD, lessonInsets(v));
+			const chartTarget = chartKind === 0 && prep === 0 ? 0 : 1; // as drawChart decides
+			if (Number.isNaN(chartMix) || ctx.reducedMotion || fr.dt === 0) chartMix = chartTarget;
+			else {
+				chartMix += (chartTarget - chartMix) * (1 - Math.exp(-fr.dt * LAYOUT_RATE));
+				if (Math.abs(chartTarget - chartMix) < 0.001) chartMix = chartTarget;
+			}
+			const world: WorldRect = { ...WORLD, x1: WORLD_NO_CHART_X1 + (WORLD.x1 - WORLD_NO_CHART_X1) * chartMix };
+			fitCamera(camera, v, world, lessonInsets(v));
 			v.setViewProj(camera.matrix(v.aspect));
 
 			// automatic alternation

@@ -4,6 +4,7 @@
 	import type { LessonDef, LessonMeta, Params, Track } from '../../lessons/types.ts';
 	import { lessonKey } from '../../content/curriculum.ts';
 	import { initialTexts, questionControls, questionParams } from '../../lessons/questions.ts';
+	import { pageLegend, pageReadouts } from '../../lessons/chips.ts';
 	import { progress } from '../../state/progress.svelte.ts';
 	import { settings } from '../../state/settings.svelte.ts';
 	import Icon from '../shell/Icon.svelte';
@@ -151,6 +152,10 @@
 					)
 	);
 
+	const page = $derived(question ?? lesson.steps[stepIndex]);
+	const visibleLegend = $derived(pageLegend(lesson, page));
+	const visibleReadouts = $derived(pageReadouts(lesson, page));
+
 	const solved = $derived(
 		(lesson.questions ?? []).map((_, j) => progress.isSolved(key, j))
 	);
@@ -254,20 +259,22 @@
 				onreadout={onreadout}
 			/>
 		{/key}
-		<div class="tl">
-			{#if collapsed}
-				<button
-					type="button"
-					class="reopen glass"
-					aria-label="Show lesson list"
-					onclick={() => (collapsed = false)}
-				>
-					<Icon name="chevron-right" />
-				</button>
-			{/if}
-			<Legend items={lesson.legend ?? []} />
+		<div class="top">
+			<div class="tl">
+				{#if collapsed}
+					<button
+						type="button"
+						class="reopen glass"
+						aria-label="Show lesson list"
+						onclick={() => (collapsed = false)}
+					>
+						<Icon name="chevron-right" />
+					</button>
+				{/if}
+				<Legend items={visibleLegend} />
+			</div>
+			<div class="tr"><Readouts readouts={visibleReadouts} values={readoutValues} /></div>
 		</div>
-		<div class="tr"><Readouts readouts={lesson.readouts ?? []} values={readoutValues} /></div>
 		{#if visibleControls.length}
 			<div class="bottom">
 				<ControlBar
@@ -321,25 +328,33 @@
 		overflow: hidden;
 		background: var(--bg-void);
 	}
-	.tl,
-	.tr,
+	.top,
 	.bottom {
 		position: absolute;
 		z-index: 2;
 		pointer-events: none;
 	}
-	.tl {
+	/* Legend on the left, readouts on the right, each as wide as its chips; they wrap only when the two meet. */
+	.top {
 		top: 12px;
 		left: 12px;
-		right: 50%;
+		right: 12px;
+		display: flex;
+		justify-content: space-between;
+		align-items: flex-start;
+		gap: 12px;
+	}
+	.tl {
 		display: flex;
 		align-items: flex-start;
 		gap: 8px;
+		flex: 0 1 auto;
+		min-width: 0;
 	}
 	.tr {
-		top: 12px;
-		right: 12px;
-		left: 50%;
+		flex: 0 1 auto;
+		min-width: 0;
+		margin-left: auto;
 	}
 	.bottom {
 		bottom: 16px;

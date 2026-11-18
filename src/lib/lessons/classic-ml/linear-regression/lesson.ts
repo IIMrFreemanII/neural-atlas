@@ -32,25 +32,33 @@ const lesson: LessonDef = {
 			title: 'A trend hidden in noisy points',
 			body: 'Each [[data:dot]] is one measurement. The horizontal position is what you know, and the vertical position is what you want to predict.\n\nThey rise together, but not exactly. Press **New data** to see another batch with the same hidden trend.',
 			params: { show: 0 },
-			controls: ['shuffle']
+			controls: ['shuffle'],
+			legend: ['Data points'],
+			readouts: []
 		},
 		{
 			title: 'A line is the model',
 			body: 'A straight [[param:line]] is the simplest model. It has two parameters: the **slope** tilts it and the **intercept** lifts it.\n\nMove both sliders and try to run the line through the middle of the cloud.',
 			params: { show: 1 },
-			controls: ['w', 'b']
+			controls: ['w', 'b'],
+			legend: ['Data points', 'Model line'],
+			readouts: ['mse']
 		},
 		{
 			title: 'Measure the misses',
 			body: 'Each [[grad:segment]] is how far the [[param:line]] is from one point. Some are above and some are below, so simply adding them up would let them cancel out.\n\nAdjust the sliders and watch the segments shrink and grow.',
 			params: { show: 2 },
-			controls: ['w', 'b']
+			controls: ['w', 'b'],
+			legend: ['Data points', 'Model line', 'Error'],
+			readouts: ['mse']
 		},
 		{
 			title: 'Square the misses',
 			body: 'Each miss becomes a [[grad:square]]. A square is never negative, and a miss twice as long costs **four times** as much.\n\nThe average area is the mean squared error, shown by the bar on the right. Move the line to make the squares smaller.',
 			params: { show: 3 },
 			controls: ['w', 'b'],
+			// The green tick on the bar is the "Best possible" readout; the green line (Best fit) comes next step.
+			legend: ['Data points', 'Model line', 'Error'],
 			deepDive: {
 				note: 'Mean squared error averages the squared miss over all n points. Fitting the line means finding the slope and intercept that make it smallest.',
 				math: [

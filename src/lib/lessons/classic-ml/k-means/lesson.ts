@@ -50,13 +50,17 @@ const lesson: LessonDef = {
 			title: 'Points with no labels',
 			body: 'These twelve thousand [[muted:points]] come with no labels. Nobody has said which point belongs where, yet you can see clumps.\n\n**Clustering** means finding such groups automatically. K-means is the simplest way to do it.',
 			params: { scenario: 1, prep: 0 },
-			controls: []
+			controls: [],
+			legend: ['Points'],
+			readouts: []
 		},
 		{
 			title: 'Guess k centers',
 			body: 'K-means starts by dropping **k** [[text:centers]] onto random points. The guess is usually poor, and that is fine.\n\nPress **New start** a few times to see different guesses.',
 			params: { scenario: 2, prep: 1 },
-			controls: ['reseed']
+			controls: ['reseed'],
+			legend: ['Points', 'Centers'],
+			readouts: []
 		},
 		{
 			title: 'Assign every point to its nearest center',

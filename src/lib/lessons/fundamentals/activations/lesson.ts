@@ -44,7 +44,9 @@ const lesson: LessonDef = {
 				'With no activation, a neuron’s [[data:output]] is just its input: a straight line. Drag z and the output follows one for one.\n\n' +
 				'Stacking straight lines only gives another straight line, so a network made of them can never learn a curve. It needs a bend.',
 			params: { act: 0 },
-			controls: ['z']
+			controls: ['z'],
+			legend: ['Function output'],
+			readouts: ['out']
 		},
 		{
 			title: 'Step: all or nothing',
@@ -52,7 +54,9 @@ const lesson: LessonDef = {
 				'The earliest artificial neurons simply fired: output 1 when the input is zero or above, otherwise 0.\n\n' +
 				'The [[grad:slope]] is zero everywhere, so a tiny change in the weights changes nothing, and learning gets no hint about which way to move.',
 			params: { act: 4, showDeriv: 1 },
-			controls: ['z']
+			controls: ['z'],
+			legend: ['Function output', 'Slope (derivative)'],
+			readouts: ['out', 'slope']
 		},
 		{
 			title: 'Sigmoid: a smooth switch',
@@ -61,6 +65,8 @@ const lesson: LessonDef = {
 				'Far from zero the curve flattens and the [[grad:slope]] fades toward zero. In deep networks that slows learning, a problem called vanishing gradients.',
 			params: { act: 1, showDeriv: 1 },
 			controls: ['z'],
+			legend: ['Function output', 'Slope (derivative)'],
+			readouts: ['out', 'slope'],
 			deepDive: {
 				math: [
 					{ tex: '\\sigma(z) = \\frac{1}{1+e^{-z}}' },
@@ -75,6 +81,8 @@ const lesson: LessonDef = {
 				'Its [[grad:slope]] is steeper near the center, up to 1, so signals fade less than with sigmoid, though both still flatten at the ends.',
 			params: { act: 3, showDeriv: 1 },
 			controls: ['z'],
+			legend: ['Function output', 'Slope (derivative)'],
+			readouts: ['out', 'slope'],
 			deepDive: {
 				math: [{ tex: '\\tanh(z) = \\frac{e^{z}-e^{-z}}{e^{z}+e^{-z}}' }]
 			}
@@ -86,6 +94,8 @@ const lesson: LessonDef = {
 				'A unit stuck on the negative side stops learning. Leaky ReLU avoids that with a small slope there. Try both.',
 			params: { act: 2, showDeriv: 1 },
 			controls: ['z', 'act'],
+			legend: ['Function output', 'Slope (derivative)'],
+			readouts: ['out', 'slope'],
 			deepDive: {
 				math: [{ tex: '\\mathrm{ReLU}(z)=\\max(0,z)' }],
 				code: {
@@ -101,7 +111,9 @@ const lesson: LessonDef = {
 				'Each [[param:hidden unit]] contributes one bent piece. The output adds the pieces up, each scaled by a weight, to approach the target curve.\n\n' +
 				'Switch to Linear and the sum stays a straight line, however many units you add.',
 			params: { mode: 1, act: 2, units: 3 },
-			controls: ['units', 'act']
+			controls: ['units', 'act'],
+			legend: ['Function output', 'Hidden units', 'Target curve'],
+			readouts: ['err']
 		},
 		{
 			title: 'More units, finer shape',
@@ -109,7 +121,9 @@ const lesson: LessonDef = {
 				'More [[param:units]] means more bends to place, so the [[data:network output]] hugs the target more closely and the error drops.\n\n' +
 				'This is why networks with enough non-linear units can approximate very complicated functions. Try each activation and compare.',
 			params: { mode: 1, act: 3, units: 6 },
-			controls: ['units', 'act']
+			controls: ['units', 'act'],
+			legend: ['Function output', 'Hidden units', 'Target curve'],
+			readouts: ['err']
 		}
 	],
 	questions,

@@ -28,6 +28,7 @@ export const questions: Question[] = [
 			'The straight-line model is trained on the [[data:class A]] and [[neg:class B]] dots of the **XOR** data, where the two classes sit in opposite corners. About how many dots can it classify correctly?\n\nDecide first, then check with the **Data** control.',
 		params: { model: 0, dataset: 0, trained: 1 },
 		controls: ['dataset'],
+		readouts: ['acc'],
 		options: [
 			{
 				text: 'Almost all of them, because the classes sit in four tidy groups.',
