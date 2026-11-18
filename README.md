@@ -180,3 +180,8 @@ unsolved, and that each example solves its task with controls that are on screen
 - **Reduce motion** in the top bar stops decorative animation and makes transitions instant. It starts from
   the operating system's setting.
 - Progress, including which questions you solved, is stored in the browser only.
+
+## License
+
+The code is under the MIT License; see `LICENSE`. The word vectors and the model trained on TinyStories
+come from the sources named under "Data sources", and those sources' terms apply to them.
