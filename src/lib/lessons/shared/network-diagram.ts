@@ -3,6 +3,7 @@ import { Lines, bezier } from '../../gpu/primitives/lines.ts';
 import { Points } from '../../gpu/primitives/points.ts';
 import type { Label, SceneContext, Tone, View } from '../../gpu/types.ts';
 import type { WorldRect } from '../fit.ts';
+import { Pulses, type PulsePath } from './pulses.ts';
 
 export interface NodeState {
 	value: number;
@@ -21,6 +22,27 @@ export interface EdgeState {
 	label?: string;
 }
 
+export interface PulseOptions {
+	/** Defaults to 'data' going forward and 'grad' going backward. */
+	tone?: Tone;
+	/** Seconds one layer of edges takes. Default 0.55. */
+	layerDuration?: number;
+	/** Only run along these edge layers (0 = input to first hidden layer ...), still in travel order. Default all. */
+	edgeLayers?: number[];
+	/** Called as the pulse arrives at a layer of nodes (so values can appear as it lands). */
+	onLayer?: (nodeLayer: number) => void;
+	onDone?: () => void;
+}
+
+interface PulseRun {
+	elapsed: number;
+	layerDuration: number;
+	direction: 'forward' | 'backward';
+	steps: number[];
+	next: number;
+	onLayer?: (nodeLayer: number) => void;
+}
+
 const CURVE_SEGS = 24;
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 
@@ -35,6 +57,10 @@ export class NetworkDiagram {
 	private lines: Lines;
 	private rings: Points;
 	private discs: Points;
+	private pulses: Pulses;
+	private run: PulseRun | null = null;
+	/** Forward-direction polyline of each edge, as of the last commit(): [layer][from * n + to]. */
+	private edgePts: Array<Array<Array<[number, number]>>> = [];
 
 	constructor(
 		ctx: Pick<SceneContext, 'gpu' | 'target' | 'view' | 'reducedMotion'>,
@@ -63,6 +89,7 @@ export class NetworkDiagram {
 		this.lines = new Lines(ctx, { capacity: Math.max(1, edgeCount * CURVE_SEGS), blend: 'alpha' });
 		this.rings = new Points(ctx, { capacity: Math.max(1, nodeCount), blend: 'alpha' });
 		this.discs = new Points(ctx, { capacity: Math.max(1, nodeCount), blend: 'alpha' });
+		this.pulses = new Pulses(ctx as SceneContext, { capacity: Math.max(1, edgeCount) });
 	}
 
 	nodePos(layer: number, index: number): [number, number] {
@@ -99,7 +126,10 @@ export class NetworkDiagram {
 		const wpp = this.worldPerPx();
 		const inset = this.radius * wpp;
 		let n = 0;
+		this.edgePts = [];
 		for (let l = 0; l + 1 < this.sizes.length; l++) {
+			const layerPts: Array<Array<[number, number]>> = [];
+			this.edgePts.push(layerPts);
 			for (let i = 0; i < this.sizes[l]; i++) {
 				for (let j = 0; j < this.sizes[l + 1]; j++) {
 					const e = this.edge(l, i, j);
@@ -108,12 +138,13 @@ export class NetworkDiagram {
 					const sx = ax + inset;
 					const ex = bx - inset;
 					const mid = (ex - sx) * 0.5;
-					let pts = bezier([sx, ay], [sx + mid, ay], [ex - mid, by], [ex, by], CURVE_SEGS);
-					if (e.reverse) pts = pts.reverse();
+					const fwd = bezier([sx, ay], [sx + mid, ay], [ex - mid, by], [ex, by], CURVE_SEGS);
+					layerPts.push(fwd);
+					const pts = e.reverse ? fwd.slice().reverse() : fwd;
 					const t: Tone = e.tone ?? (e.weight < 0 ? 'neg' : 'param');
 					const width = clamp(1 + 3 * Math.abs(e.weight), 1, 7);
 					const f = e.emphasis;
-					// Continuous shader pulses are off in the paper look; discrete pulses come later.
+					// Edges stay static ink; moving signal is drawn by pulse().
 					n = this.lines.setPolyline(n, pts, {
 						width,
 						color: tone(t, 0.7 * f),
@@ -153,10 +184,74 @@ export class NetworkDiagram {
 		this.discs.upload();
 	}
 
+	/**
+	 * Run a discrete pulse layer by layer along the edges (all edges between layer k and k+1 together, then the
+	 * next layer). 'forward' goes input to output, 'backward' output to input. Uses the edge curves of the last
+	 * commit(). Needs update(dt) every frame. Under reduced motion nothing is drawn and onLayer/onDone fire on the
+	 * next update().
+	 */
+	pulse(direction: 'forward' | 'backward', opts: PulseOptions = {}): void {
+		const layerDuration = opts.layerDuration ?? 0.55;
+		const t: Tone = opts.tone ?? (direction === 'forward' ? 'data' : 'grad');
+		const nLayers = this.sizes.length - 1;
+		const steps: number[] = [];
+		for (let s = 0; s < nLayers; s++) {
+			const l = direction === 'forward' ? s : nLayers - 1 - s;
+			if (!opts.edgeLayers || opts.edgeLayers.includes(l)) steps.push(l);
+		}
+		const paths: PulsePath[] = [];
+		steps.forEach((l, s) => {
+			for (const pts of this.edgePts[l] ?? []) {
+				paths.push({
+					points: direction === 'forward' ? pts : pts.slice().reverse(),
+					tone: t,
+					delay: s * layerDuration
+				});
+			}
+		});
+		const run: PulseRun = { elapsed: 0, layerDuration, direction, steps, next: 0, onLayer: opts.onLayer };
+		this.run = run;
+		this.pulses.fire(paths, layerDuration, () => {
+			if (this.run !== run) return;
+			this.flushLayers(run, steps.length);
+			this.run = null;
+			opts.onDone?.();
+		});
+	}
+
+	get pulsing(): boolean {
+		return this.pulses.busy;
+	}
+
+	clearPulses(): void {
+		this.run = null;
+		this.pulses.clear();
+	}
+
+	private flushLayers(run: PulseRun, upTo: number): void {
+		while (run.next < upTo) {
+			const l = run.steps[run.next++];
+			run.onLayer?.(run.direction === 'forward' ? l + 1 : l);
+		}
+	}
+
+	/** Advance pulses. Call once per frame, after commit(). */
+	update(dt: number): void {
+		const run = this.run;
+		if (run) run.elapsed += dt;
+		this.pulses.update(dt);
+		const cur = this.run;
+		if (cur && cur === run) {
+			const arrived = Math.min(cur.steps.length, Math.floor(cur.elapsed / cur.layerDuration + 1e-6));
+			this.flushLayers(cur, arrived);
+		}
+	}
+
 	draw(pass: GPURenderPassEncoder): void {
 		this.lines.draw(pass);
 		this.discs.draw(pass);
 		this.rings.draw(pass);
+		this.pulses.draw(pass);
 	}
 
 	labels(view: View, prefix = 'net'): Label[] {
@@ -215,5 +310,6 @@ export class NetworkDiagram {
 		this.lines.destroy();
 		this.rings.destroy();
 		this.discs.destroy();
+		this.pulses.dispose();
 	}
 }

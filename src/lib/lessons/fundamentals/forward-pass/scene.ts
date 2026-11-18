@@ -133,6 +133,7 @@ export const createForwardPassScene: SceneFactory = () => {
 			}
 		}
 		diagram.commit();
+		diagram.update(dt);
 		const labels: Label[] = diagram.labels(v);
 
 		// ---- focus arithmetic ----
@@ -298,6 +299,9 @@ export const createForwardPassScene: SceneFactory = () => {
 		},
 		setParams(params) {
 			p = { ...params };
+			if (p.wave > lastParamWave && lastParamWave < 0.5 && (p.focus ?? -1) < 0 && !diagram.pulsing) {
+				diagram.pulse('forward', { layerDuration: 0.3 });
+			}
 			if (p.wave !== lastParamWave) {
 				lastParamWave = p.wave;
 				holdWave = null;
@@ -308,6 +312,7 @@ export const createForwardPassScene: SceneFactory = () => {
 			if (id !== 'send') return;
 			holdWave = 0;
 			sendT = 0;
+			diagram.pulse('forward', { layerDuration: SEND_SECONDS / 3 });
 		},
 		highlight(t) {
 			hl = t;

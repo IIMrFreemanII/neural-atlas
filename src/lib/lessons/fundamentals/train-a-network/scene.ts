@@ -248,7 +248,7 @@ export const createTrainScene: SceneFactory = () => {
 		});
 	}
 
-	function updateDiagram(): void {
+	function updateDiagram(dt: number): void {
 		if (!diagram) return;
 		const L = net.sizes.length;
 		const m = mul('param');
@@ -266,6 +266,7 @@ export const createTrainScene: SceneFactory = () => {
 			}
 		}
 		diagram.commit();
+		diagram.update(dt);
 	}
 
 	const scene: Scene = {
@@ -338,7 +339,7 @@ export const createTrainScene: SceneFactory = () => {
 			field.isoColor = tone('text', 1);
 			drawFrame();
 			drawDots();
-			updateDiagram();
+			updateDiagram(fr.dt);
 
 			const labels: Label[] = [];
 			drawChart(labels);
@@ -378,9 +379,11 @@ export const createTrainScene: SceneFactory = () => {
 				if (blewUp) return;
 				running = !running;
 				acc = 0;
+				if (running) diagram?.clearPulses();
 			} else if (id === 'step') {
 				running = false;
 				doStep();
+				diagram?.pulse('forward', { layerDuration: 0.3, onDone: () => diagram?.pulse('backward', { layerDuration: 0.3 }) });
 			} else if (id === 'reset') {
 				reset(true);
 			}

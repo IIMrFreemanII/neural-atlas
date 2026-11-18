@@ -87,6 +87,7 @@ const lesson: LessonDef = {
 		},
 		{
 			title: 'An activation decides what passes',
+			grid: false,
 			body: 'The sum z then goes through an **activation function**. ReLU passes a positive sum unchanged and outputs zero for a [[neg:negative]] one. Move the inputs until z crosses zero and watch the output switch off.\n\nWithout a non-linear activation, stacked neurons collapse into one linear function.',
 			params: { ...FULL, act: 2, b: 0 },
 			controls: ALL,
@@ -96,6 +97,7 @@ const lesson: LessonDef = {
 		},
 		{
 			title: 'Sigmoid squashes to a confidence',
+			grid: false,
 			body: 'Sigmoid maps any sum into the range 0 to 1. Large positive sums give values near 1, large negative sums give values near 0, and a sum of zero gives exactly 0.5.\n\nRead the [[data:output]] as how strongly the neuron fires for these inputs.',
 			params: { ...FULL, act: 1 },
 			controls: ALL,
@@ -106,6 +108,7 @@ const lesson: LessonDef = {
 		},
 		{
 			title: 'Make it fire',
+			grid: false,
 			body: 'The inputs are now fixed at 1 and [[neg:−1]]. Find [[param:weights]] and a [[param:bias]] that push the output above 0.9, then settings that push it below 0.1.\n\nThat search for good numbers is what learning means. A network is many of these units wired together, each one feeding the next.',
 			params: { ...FULL, act: 1, x1: 1, x2: -1, w1: 0, w2: 0, b: 0 },
 			controls: ['w1', 'w2', 'b', 'act']

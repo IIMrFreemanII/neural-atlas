@@ -17,9 +17,11 @@ const OUT_RING_PAD = 12;
 const TARGET_X = 2.05;
 /** World units of bar length per unit of error. */
 const ERR_SCALE = 1.0;
-const RUN_RATE = 6;
-/** Reduced motion: discrete steps, at most 3 per second. */
-const RUN_RATE_REDUCED = 3;
+/** One training lap: forward pulses (2 layers), backward pulses (2 layers), a short rest, then the weights update. */
+const LAYER_SECONDS = 0.4;
+const LAP_GAP = 0.45;
+/** Reduced motion: no pulses, so the laps are just updates, at most 3 per second. */
+const LAP_GAP_REDUCED = 1 / 3;
 const DONE_LOSS = 0.001;
 const WEIGHT_VIS = 0.6;
 const DIM = 0.35;
@@ -48,7 +50,6 @@ export const createBackpropScene: SceneFactory = () => {
 	let camera: Camera2D;
 	let diagram: NetworkDiagram;
 	let lines: Lines;
-	let glows: Points;
 	let dots: Points;
 
 	const initial: MLP = createMLP(SIZES, 'tanh', 'sigmoid', SEED);
@@ -64,7 +65,8 @@ export const createBackpropScene: SceneFactory = () => {
 
 	// simulation
 	let running = false;
-	let acc = 0;
+	let lapStage: 'fwd' | 'bwd' | 'gap' | null = null;
+	let gapT = 0;
 	let updates = 0;
 
 	// eased visibility values (0..1) and emphasis levels
@@ -79,8 +81,39 @@ export const createBackpropScene: SceneFactory = () => {
 	function reset() {
 		net = cloneMLP(initial);
 		running = false;
-		acc = 0;
+		lapStage = null;
+		diagram?.clearPulses();
 		updates = 0;
+	}
+
+	function stopRun() {
+		running = false;
+		lapStage = null;
+		diagram.clearPulses();
+	}
+
+	/** One lap of training: forward pulses, backward pulses, then the update and the readouts change. */
+	function startLap() {
+		lapStage = 'fwd';
+		diagram.pulse('forward', {
+			layerDuration: LAYER_SECONDS,
+			onDone: () => {
+				if (!running) return;
+				lapStage = 'bwd';
+				diagram.pulse('backward', {
+					layerDuration: LAYER_SECONDS,
+					onDone: () => {
+						if (!running) return;
+						updateOnce();
+						if (backward(net, forward(net, [x1, x2]), [target], 'mse').loss < DONE_LOSS) stopRun();
+						else {
+							lapStage = 'gap';
+							gapT = 0;
+						}
+					}
+				});
+			}
+		});
 	}
 
 	function updateOnce() {
@@ -97,7 +130,6 @@ export const createBackpropScene: SceneFactory = () => {
 			camera = new Camera2D();
 			diagram = new NetworkDiagram(c, SIZES, { nodeRadius: NODE_R });
 			lines = new Lines(c, { capacity: 16, blend: 'alpha' });
-			glows = new Points(c, { capacity: 8, blend: 'additive' });
 			dots = new Points(c, { capacity: 16, blend: 'alpha' });
 		},
 		setParams(p) {
@@ -107,6 +139,13 @@ export const createBackpropScene: SceneFactory = () => {
 			lr = p.lr ?? lr;
 			const next = Math.round(p.phase ?? phase);
 			if (next < phase) reset();
+			if (next !== phase) {
+				if (running) stopRun();
+				// A pulse where this step's picture computes something: values forward, blame backward.
+				if (next === 0) diagram.pulse('forward');
+				else if (next === 3) diagram.pulse('backward', { edgeLayers: [1] });
+				else if (next === 4) diagram.pulse('backward');
+			}
 			phase = next;
 		},
 		update(frame) {
@@ -114,19 +153,9 @@ export const createBackpropScene: SceneFactory = () => {
 			fitCamera(camera, v, WORLD, lessonInsets(v));
 			v.setViewProj(camera.matrix(v.aspect));
 
-			if (running && frame.dt > 0) {
-				acc += frame.dt * (ctx.reducedMotion ? RUN_RATE_REDUCED : RUN_RATE);
-				let n = Math.floor(acc);
-				acc -= n;
-				if (n > 5) {
-					n = 5;
-					acc = 0;
-				}
-				for (let i = 0; i < n && running; i++) {
-					updateOnce();
-					const l = backward(net, forward(net, [x1, x2]), [target], 'mse').loss;
-					if (l < DONE_LOSS) running = false;
-				}
+			if (running && lapStage === 'gap' && frame.dt > 0) {
+				gapT += frame.dt;
+				if (gapT >= (ctx.reducedMotion ? LAP_GAP_REDUCED : LAP_GAP)) startLap();
 			}
 
 			// ease visibility
@@ -216,14 +245,13 @@ export const createBackpropScene: SceneFactory = () => {
 				}
 			}
 			diagram.commit();
+			diagram.update(frame.dt);
 
 			// ---- overlay primitives
 			lines.count = 0;
-			glows.count = 0;
 			dots.count = 0;
 			let nl = 0;
 			let nd = 0;
-			let ng = 0;
 			// The ŷ node carries the largest highlight ring; push its name and value just outside it.
 			const labels: Label[] = [
 				...diagram.labels(v).map((lb) =>
@@ -248,17 +276,16 @@ export const createBackpropScene: SceneFactory = () => {
 					a: [ox + (NODE_R + 4) * wpp, oy],
 					b: [xt, oy],
 					width: 1,
-					color: tone('muted', 1, 0.45 * mk)
+					color: tone('muted', 0.45 * mk)
 				});
 				lines.set(nl++, {
 					a: [xt, oy],
 					b: [xt, ty],
 					width: 4,
-					color: tone('grad', 1.8, 0.95 * mGrad)
+					color: tone('grad', 0.95 * mGrad)
 				});
-				dots.set(nd++, { x: xt, y: oy, radius: 4.5, color: tone('data', 2, mData) });
-				glows.set(ng++, { x: xt, y: ty, radius: 34, softness: 1, color: tone('ok', 1.5, 0.45 * mOk) });
-				dots.set(nd++, { x: xt, y: ty, radius: 9, ring: 2.2, color: tone('ok', 1.8, mOk) });
+				dots.set(nd++, { x: xt, y: oy, radius: 4.5, color: tone('data', mData) });
+				dots.set(nd++, { x: xt, y: ty, radius: 9, ring: 2.2, color: tone('ok', mOk) });
 
 				const [tpx, tpy] = v.project(xt, ty);
 				const above = target >= pred;
@@ -288,8 +315,7 @@ export const createBackpropScene: SceneFactory = () => {
 			const haloAt = (x: number, y: number, delta: number, a: number) => {
 				if (a <= 0.02) return;
 				const r = NODE_R + 4 + 9 * clamp(Math.abs(delta) / 0.3, 0, 1);
-				glows.set(ng++, { x, y, radius: r * 2, softness: 1, color: tone('grad', 1.2, 0.3 * a) });
-				dots.set(nd++, { x, y, radius: r, ring: 2.4, color: tone('grad', 2, 0.9 * a) });
+				dots.set(nd++, { x, y, radius: r, ring: 2.4, color: tone('grad', 0.9 * a) });
 			};
 			const gOut = vis.haloOut * mulTone('grad');
 			const gHid = vis.haloHid * mulTone('grad');
@@ -324,10 +350,8 @@ export const createBackpropScene: SceneFactory = () => {
 
 			lines.count = nl;
 			dots.count = nd;
-			glows.count = ng;
 			lines.upload();
 			dots.upload();
-			glows.upload();
 			ctx.labels.set(labels);
 
 			if (pred !== lastPred) {
@@ -350,17 +374,16 @@ export const createBackpropScene: SceneFactory = () => {
 		draw(pass) {
 			diagram.draw(pass);
 			lines.draw(pass);
-			glows.draw(pass);
 			dots.draw(pass);
 		},
 		command(id) {
 			if (id === 'update') {
 				updateOnce();
 			} else if (id === 'run') {
-				if (running) running = false;
+				if (running) stopRun();
 				else {
 					running = true;
-					acc = 0;
+					startLap();
 				}
 			} else if (id === 'reset') {
 				reset();
@@ -372,7 +395,6 @@ export const createBackpropScene: SceneFactory = () => {
 		dispose() {
 			diagram.destroy();
 			lines.destroy();
-			glows.destroy();
 			dots.destroy();
 		}
 	};

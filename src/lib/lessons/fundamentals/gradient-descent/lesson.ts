@@ -42,6 +42,7 @@ const lesson: LessonDef = {
 			title: 'Learning is rolling downhill',
 			body: 'This curve shows the [[param:loss]] for every value of one weight. A high point means a bad guess, a low point means a good one.\n\nTraining means finding the lowest point. Press **Step** and watch the [[grad:ball]] move.',
 			params: { scenario: 1 },
+			grid: false,
 			controls: ['step', 'reset'],
 			legend: ['Plain gradient descent', 'Loss landscape']
 		},
@@ -49,6 +50,7 @@ const lesson: LessonDef = {
 			title: 'The slope points the way',
 			body: 'The [[grad:gradient]] is the slope of the curve at the current weight. It tells us which way is uphill, so we step the opposite way.\n\nA steep slope gives a big step and a flat one gives a small step, so the [[data:steps]] shrink near the bottom.',
 			params: { scenario: 2 },
+			grid: false,
 			controls: ['step', 'reset'],
 			legend: ['Plain gradient descent', 'Loss landscape'],
 			deepDive: {
@@ -69,6 +71,7 @@ const lesson: LessonDef = {
 			title: 'The learning rate sets the stride',
 			body: 'The [[grad:learning rate]] scales every step. With a small one the ball crawls and needs many steps to arrive.\n\nPress **Run**, then try raising the learning rate to see the ball move faster.',
 			params: { scenario: 3, lr: 0.08 },
+			grid: false,
 			controls: ['run', 'step', 'reset', 'lr'],
 			legend: ['Plain gradient descent', 'Loss landscape']
 		},
@@ -76,6 +79,7 @@ const lesson: LessonDef = {
 			title: 'Too big a stride overshoots',
 			body: 'With a large [[grad:learning rate]] the ball jumps across the valley and lands on the other side, bouncing back and forth.\n\nAbove 1.0 on this curve each jump lands higher than the last, and training **diverges**. Try it.',
 			params: { scenario: 4, lr: 0.93 },
+			grid: false,
 			controls: ['run', 'step', 'reset', 'lr'],
 			legend: ['Plain gradient descent', 'Loss landscape'],
 			deepDive: {
@@ -92,6 +96,7 @@ const lesson: LessonDef = {
 			title: 'Real models have many weights',
 			body: 'Now there are two weights. The map shows the [[param:loss as contour lines]], like a topographic map: the closer the lines, the steeper the ground.\n\nClick anywhere on the map to choose a starting point, then run.',
 			params: { scenario: 5, map: 1, surface: 0, lr: 0.1 },
+			grid: false,
 			controls: ['run', 'step', 'reset', 'lr'],
 			legend: ['Plain gradient descent', 'Loss landscape']
 		},
@@ -99,6 +104,7 @@ const lesson: LessonDef = {
 			title: 'Ravines cause zigzags',
 			body: 'In a narrow valley the [[grad:gradient]] points mostly across it, toward the nearest wall. Plain descent bounces between the walls and crawls along the floor.\n\nA smaller learning rate stops the bouncing but makes the crawl even slower.',
 			params: { scenario: 6, map: 1, surface: 1, lr: 0.42 },
+			grid: false,
 			controls: ['run', 'step', 'reset', 'lr', 'surface'],
 			legend: ['Plain gradient descent', 'Loss landscape']
 		},
@@ -106,6 +112,7 @@ const lesson: LessonDef = {
 			title: 'Momentum and Adam',
 			body: '[[data:Momentum]] keeps a running velocity, so zigzags cancel out while progress along the valley builds. [[ok:Adam]] also scales each weight\'s step by how large its recent gradients were.\n\nTry **Two valleys** and different starting points: optimizers can settle in different minima.',
 			params: { scenario: 7, map: 1, surface: 1, race: 1, lr: 0.1 },
+			grid: false,
 			deepDive: {
 				math: [
 					{

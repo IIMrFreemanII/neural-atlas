@@ -1,59 +1,57 @@
-import { Camera2D } from '../../../gpu/camera.ts';
-import { diverging, tone } from '../../../gpu/colors.ts';
+import { mat4 } from 'wgpu-matrix';
+import { OrbitRig, type Pose } from '../../../gpu/camera.ts';
+import { diverging, mixColor, sheetFill, tone } from '../../../gpu/colors.ts';
 import { Lines } from '../../../gpu/primitives/lines.ts';
-import { Quads } from '../../../gpu/primitives/quads.ts';
+import { Shadows } from '../../../gpu/primitives/shadows.ts';
+import { Sheets, type RGBA, type SheetSpec, type SheetTexture } from '../../../gpu/primitives/sheets.ts';
+import { easeInOut, intersectPlane, projectToFloor, rayFromCss, sub, dot, type Ray, type Vec3 } from '../../../gpu/space.ts';
 import type { Label, Scene, SceneContext, SceneFactory, ScenePointer, Tone } from '../../../gpu/types.ts';
 import { C1, C2, CLASSES, forward, receptiveField, type CnnTrace } from '../../../ml/cnn.ts';
 import { strokeSegment } from '../../../ml/raster.ts';
-import { fitCamera, lessonInsets, type WorldRect } from '../../fit.ts';
-import { cellAt, toPixel, writeGrid, type GridLayout } from '../shared/grid.ts';
+import { insetAspect, insetMatrix, lessonInsets } from '../../fit.ts';
+import { SceneOrbit } from '../../shared/orbit.ts';
 import { CLASS_NAMES, SAMPLES } from './data.ts';
 import { WEIGHTS } from './weights.ts';
-
-// The layout is budgeted in CSS px at the reference stage (about 118 px per world unit) and converted to world units.
-const S = 118;
-const px = (n: number) => n / S;
 
 const IMG = 16;
 const M1 = 14;
 const P1 = 7;
 const M2 = 5;
 
-// Column left edges and cell sizes in px (x measured from the stage-area center, y up).
-const X1 = -314;
-const CELL1 = 10; // drawing: 160 px
-const X2 = X1 + 16 * CELL1 + 20; // kernels
-const CELL2 = 8; // 24 px
-const X3 = X2 + 3 * CELL2 + 24; // feature maps
-const CELL3 = 5.5; // 77 px each
-const MAP_GAP = 22;
-const X4 = X3 + M1 * CELL3 + 24; // pooled maps
-const CELL4 = 6; // 42 px each
-const X5 = X4 + P1 * CELL4 + 24; // layer 2 maps, two columns
-const CELL5 = 8; // 40 px each
-const GAP5 = 8;
-const GAP5Y = 14;
-const X6 = X5 + 2 * M2 * CELL5 + GAP5 + 20; // answer
-const NAME_W = 46;
-const BAR_W = 46;
-const BAR_H = 14;
-const BAR_PITCH = 40;
+// World layout (y up). Every grid is an upright sheet facing +z; stages run left to right, the maps of a stage are fanned in depth.
+const YC = 1.05; // height of every sheet's center
+const EPS = 0.012; // lines on a sheet sit this far toward the camera
+const CELL_IN = 0.1;
+const CELL_K = 0.14;
+const CELL_M = 0.07;
+const CELL_P = 0.09;
+const CELL_2 = 0.09;
+const X_IN = 0;
+const X_KER = 1.6;
+const X_MAP = 3.4;
+const X_POOL = 5.4;
+const X_L2 = 7.2;
+const X_ANS = 9.4;
+const DZ = 0.9; // depth step of the four-map fans
+const DZ2 = 0.55; // depth step between the rows of layer-2 maps
+const L2_DX = 0.31; // half the distance between the two layer-2 columns
+const ANS_W = 2;
+const ANS_H = 1.2;
+// Answer texture: 4 class bands of 4 rows; bars start at column B0 and use BN columns for 100%.
+const SW = 60;
+const SH = 16;
+const B0 = 24;
+const BN = 34;
 
-const MAP_PITCH = M1 * CELL3 + MAP_GAP;
-const mapCenterY = (i: number) => ((C1 - 1) / 2 - i) * MAP_PITCH;
-const CAPTION_Y = (C1 * M1 * CELL3 + (C1 - 1) * MAP_GAP) / 2 + 20;
+const FLOOR_X: [number, number] = [-2, 12];
+const FLOOR_Z: [number, number] = [-3, 3];
 
 const clamp = (v: number, a: number, b: number) => Math.min(b, Math.max(a, v));
-
-/** Right edge (px) of the last column that is visible at each `show` level. */
-const RIGHT_EDGE = [0, X3 + M1 * CELL3, X4 + P1 * CELL4, X5 + 2 * M2 * CELL5 + GAP5, -X1];
-/** World rectangle around the visible columns: early steps zoom in and center instead of leaving half the stage empty. */
-function viewRect(show: number): WorldRect {
-	const half = px(CAPTION_Y + 22);
-	return { x0: px(X1) - 0.02, x1: px(RIGHT_EDGE[clamp(show, 1, 4)]) + 0.02, y0: -half, y1: half };
-}
+const zFan = (k: number, n: number, dz: number) => ((n - 1) / 2 - k) * dz;
+const CLEAR: RGBA = [0, 0, 0, 0];
 
 type Layer = 'a1' | 'p1' | 'a2';
+type Kind = 'img' | 'ker' | 'a1' | 'p1' | 'a2' | 'ans';
 interface Hover {
 	layer: Layer;
 	map: number;
@@ -61,11 +59,42 @@ interface Hover {
 	col: number;
 }
 
+/** One sheet: a grid of cells standing at (cx, YC, z), w wide and h tall. */
+interface Panel {
+	kind: Kind;
+	k: number;
+	/** Index into the stage alphas: 0 drawing, 1 kernels, 2 maps, 3 pooled, 4 layer 2, 5 answer. */
+	stage: number;
+	cx: number;
+	z: number;
+	w: number;
+	h: number;
+	cols: number;
+	rows: number;
+	tex: SheetTexture;
+}
+
+const STAGE_OF: Record<Kind, number> = { img: 0, ker: 1, a1: 2, p1: 3, a2: 4, ans: 5 };
+
 export const createCnnFeaturesScene: SceneFactory = () => {
 	let ctx: SceneContext;
-	let camera: Camera2D;
-	let quads: Quads;
-	let lines: Lines;
+	let rig: OrbitRig;
+	let orbit: SceneOrbit;
+	let sheets: Sheets;
+	let shadows: Shadows;
+	let floor: Lines;
+	/** Connection lines that draw in when their stage appears: 0 drawing > kernels > maps, 1 maps > pooled, 2 pooled > layer 2, 3 rings > answer. */
+	const groups: Lines[] = [];
+	let rf: Lines;
+	let vp: Float32Array = new Float32Array(16);
+
+	let imgP: Panel;
+	let ansP: Panel;
+	const kerP: Panel[] = [];
+	const a1P: Panel[] = [];
+	const p1P: Panel[] = [];
+	const a2P: Panel[] = [];
+	let panels: Panel[] = [];
 
 	// params
 	let sample = 1;
@@ -83,8 +112,7 @@ export const createCnnFeaturesScene: SceneFactory = () => {
 	let stroking = false;
 	let last: [number, number] = [0, 0];
 	let hover: Hover | null = null;
-	let needsDraw = true;
-	let rect: WorldRect | null = null;
+	let linesDirty = true;
 
 	// what is on screen (eased toward the trace)
 	const dImg = new Float32Array(IMG * IMG);
@@ -92,49 +120,39 @@ export const createCnnFeaturesScene: SceneFactory = () => {
 	const dP1 = new Float32Array(C1 * P1 * P1);
 	const dA2 = new Float32Array(C2 * M2 * M2);
 	const dProb = new Float32Array(CLASSES);
-	const colA = [1, 1, 1, 0, 0, 0]; // per column alpha, columns 1..6
+	const colA = [1, 1, 1, 0, 0, 0]; // per stage alpha
+	const revT = [0, 0, 0, 0]; // per connection group clock: draw-in runs after a short delay
+	const texDirty: Record<Kind, boolean> = { img: true, ker: true, a1: true, p1: true, a2: true, ans: true };
 
+	let poseKey = '';
+	let poseAspect = 0;
 	let lastGuess = '';
 	let empty = true;
 
 	const mul = (t: Tone) => (hl === null || hl === t ? 1 : 0.3);
 
-	// Grids
-	const gImg: GridLayout = { x: px(X1), y: px(8 * CELL1), cell: px(CELL1), cols: IMG, rows: IMG, gap: 0.06 };
-	const gKernel = (k: number): GridLayout => ({
-		x: px(X2),
-		y: px(mapCenterY(k) + 1.5 * CELL2),
-		cell: px(CELL2),
-		cols: 3,
-		rows: 3,
-		gap: 0.08
-	});
-	const gA1 = (k: number): GridLayout => ({
-		x: px(X3),
-		y: px(mapCenterY(k) + 7 * CELL3),
-		cell: px(CELL3),
-		cols: M1,
-		rows: M1,
-		gap: 0.06
-	});
-	const gP1 = (k: number): GridLayout => ({
-		x: px(X4),
-		y: px(mapCenterY(k) + 3.5 * CELL4),
-		cell: px(CELL4),
-		cols: P1,
-		rows: P1,
-		gap: 0.07
-	});
-	const block5H = 4 * M2 * CELL5 + 3 * GAP5Y;
-	const gA2 = (k: number): GridLayout => ({
-		x: px(X5 + (k % 2) * (M2 * CELL5 + GAP5)),
-		y: px(block5H / 2 - Math.floor(k / 2) * (M2 * CELL5 + GAP5Y)),
-		cell: px(CELL5),
-		cols: M2,
-		rows: M2,
-		gap: 0.07
-	});
-	const barY = (c: number) => (1.5 - c) * BAR_PITCH;
+	// ---- geometry helpers
+	const originOf = (p: Panel): Vec3 => [p.cx - p.w / 2, YC - p.h / 2, p.z];
+	const leftOf = (p: Panel): Vec3 => [p.cx - p.w / 2, YC, p.z + EPS];
+	const rightOf = (p: Panel): Vec3 => [p.cx + p.w / 2, YC, p.z + EPS];
+	const cellCenter3 = (p: Panel, r: number, c: number): Vec3 => [
+		p.cx - p.w / 2 + ((c + 0.5) * p.w) / p.cols,
+		YC + p.h / 2 - ((r + 0.5) * p.h) / p.rows,
+		p.z + EPS
+	];
+	/** Closed outline of cells r0..r1, c0..c1 lying on a sheet's face (TL, TR, BR, BL, TL). */
+	function rectPts(p: Panel, r0: number, c0: number, r1: number, c1: number): Vec3[] {
+		const cw = p.w / p.cols;
+		const ch = p.h / p.rows;
+		const x0 = p.cx - p.w / 2 + c0 * cw;
+		const x1 = p.cx - p.w / 2 + (c1 + 1) * cw;
+		const y0 = YC + p.h / 2 - r0 * ch;
+		const y1 = YC + p.h / 2 - (r1 + 1) * ch;
+		const z = p.z + EPS;
+		return [[x0, y0, z], [x1, y0, z], [x1, y1, z], [x0, y1, z], [x0, y0, z]];
+	}
+	const panelOf = (h: Hover): Panel => (h.layer === 'a1' ? a1P[h.map] : h.layer === 'p1' ? p1P[h.map] : a2P[h.map]);
+	const stageShown = (stage: number) => [true, true, true, show >= 2, show >= 3, show >= 4][stage];
 
 	function loadSample() {
 		image.set(SAMPLES[clamp(sample - 1, 0, SAMPLES.length - 1)]);
@@ -152,7 +170,8 @@ export const createCnnFeaturesScene: SceneFactory = () => {
 		let top = 0;
 		for (let c = 1; c < CLASSES; c++) if (trace.probs[c] > trace.probs[top]) top = c;
 		empty = total < 2;
-		needsDraw = true;
+		linesDirty = true;
+		texDirty.ans = true;
 		const guess = total < 2 ? '—' : `${CLASS_NAMES[top]} ${Math.round(trace.probs[top] * 100)}%`;
 		if (guess !== lastGuess) {
 			lastGuess = guess;
@@ -181,33 +200,235 @@ export const createCnnFeaturesScene: SceneFactory = () => {
 		return m;
 	}
 
-	function hit(wx: number, wy: number): Hover | null {
-		if (show >= 1 && colA[2] > 0.5) {
-			for (let k = 0; k < C1; k++) {
-				const c = cellAt(gA1(k), wx, wy);
-				if (c) return { layer: 'a1', map: k, ...c };
-			}
-		}
-		if (show >= 2 && colA[3] > 0.5) {
-			for (let k = 0; k < C1; k++) {
-				const c = cellAt(gP1(k), wx, wy);
-				if (c) return { layer: 'p1', map: k, ...c };
-			}
-		}
-		if (show >= 3 && colA[4] > 0.5) {
-			for (let k = 0; k < C2; k++) {
-				const c = cellAt(gA2(k), wx, wy);
-				if (c) return { layer: 'a2', map: k, ...c };
-			}
-		}
-		return null;
+	/** Map activation as ink, normalised to the map's own peak. */
+	const ink = (v: number, m: number, mul: number): RGBA => tone('data', v > 0.002 ? 0.12 + 0.88 * Math.min(1, v / m) : 0.03, mul);
+
+	// ---- textures: one texel per cell, row 0 of the grid is the top of the sheet (texel y runs upward)
+	function fillGrid(p: Panel, vals: ArrayLike<number>, off: number, color: (v: number) => RGBA) {
+		const { cols, rows } = p;
+		p.tex.write((x, y) => color(vals[off + (rows - 1 - y) * cols + x]));
 	}
 
-	function paint(wx: number, wy: number, fresh: boolean) {
-		const [x, y] = toPixel(gImg, wx, wy);
-		if (fresh) last = [x, y];
-		strokeSegment(image, IMG, last[0], last[1], x, y, 0.7);
-		last = [x, y];
+	function writeTextures() {
+		const mT = mul('text');
+		const mP = mul('param');
+		const mD = mul('data');
+		if (texDirty.img) fillGrid(imgP, dImg, 0, (v) => tone('text', 0.02 + 0.8 * v, mT));
+		if (texDirty.ker) {
+			for (let k = 0; k < C1; k++) {
+				const w = WEIGHTS.w1.subarray(k * 9, k * 9 + 9);
+				let m = 1e-6;
+				for (let i = 0; i < 9; i++) m = Math.max(m, Math.abs(w[i]));
+				fillGrid(kerP[k], w, 0, (v) => diverging(v / m, 0.85, mP));
+			}
+		}
+		if (texDirty.a1) {
+			for (let k = 0; k < C1; k++) {
+				const m = maxOf(dA1.subarray(k * M1 * M1, (k + 1) * M1 * M1), 1.5);
+				fillGrid(a1P[k], dA1, k * M1 * M1, (v) => ink(v, m, mD));
+			}
+		}
+		if (texDirty.p1) {
+			for (let k = 0; k < C1; k++) {
+				const m = maxOf(dP1.subarray(k * P1 * P1, (k + 1) * P1 * P1), 1.5);
+				fillGrid(p1P[k], dP1, k * P1 * P1, (v) => ink(v, m, mD));
+			}
+		}
+		if (texDirty.a2) {
+			for (let k = 0; k < C2; k++) {
+				const m = maxOf(dA2.subarray(k * M2 * M2, (k + 1) * M2 * M2), 6);
+				fillGrid(a2P[k], dA2, k * M2 * M2, (v) => ink(v, m, mD));
+			}
+		}
+		if (texDirty.ans) {
+			let top = 0;
+			for (let c = 1; c < CLASSES; c++) if (dProb[c] > dProb[top]) top = c;
+			const dim = empty ? 0.3 : 1;
+			const track = tone('muted', 0.22, mD * dim);
+			const barTop = tone('ok', 0.8, mul('ok') * dim);
+			const barOther = tone('data', 0.45, mD * dim);
+			ansP.tex.write((x, y) => {
+				const r = SH - 1 - y;
+				const c = r >> 2;
+				const within = r & 3;
+				if (within === 0 || within === 3 || x < B0 || c >= CLASSES) return CLEAR;
+				const frac = clamp(dProb[c] * BN - (x - B0), 0, 1);
+				return frac > 0 ? mixColor(track, c === top ? barTop : barOther, frac) : track;
+			});
+		}
+		for (const k of Object.keys(texDirty) as Kind[]) texDirty[k] = false;
+	}
+
+	// ---- connection lines
+	function buildStatic() {
+		let m = 0;
+		const g = groups[0];
+		const cMuted = tone('muted', 1, 0.45);
+		const link = (l: Lines, at: number, a: Vec3, b: Vec3) => l.set(at, { a, b, width: 1, color: cMuted });
+		for (let k = 0; k < C1; k++) {
+			link(g, m++, rightOf(imgP), leftOf(kerP[k]));
+			link(g, m++, rightOf(kerP[k]), leftOf(a1P[k]));
+		}
+		g.count = m;
+		g.upload();
+
+		const g2 = groups[1];
+		m = 0;
+		for (let k = 0; k < C1; k++) link(g2, m++, rightOf(a1P[k]), leftOf(p1P[k]));
+		g2.count = m;
+		g2.upload();
+
+		const g3 = groups[2];
+		m = 0;
+		const entry: Vec3 = [X_L2 - L2_DX - (CELL_2 * M2) / 2 - 0.05, YC, EPS];
+		for (let k = 0; k < C1; k++) link(g3, m++, rightOf(p1P[k]), entry);
+		g3.count = m;
+		g3.upload();
+
+		m = 0;
+		for (let i = FLOOR_X[0]; i <= FLOOR_X[1]; i++) {
+			floor.set(m++, { a: [i, 0, FLOOR_Z[0]], b: [i, 0, FLOOR_Z[1]], width: 1, color: tone('text', 0.1) });
+		}
+		for (let j = FLOOR_Z[0]; j <= FLOOR_Z[1]; j++) {
+			floor.set(m++, { a: [FLOOR_X[0], 0, j], b: [FLOOR_X[1], 0, j], width: 1, color: tone('text', 0.1) });
+		}
+		floor.count = m;
+		floor.upload();
+	}
+
+	/** The rings on the strongest layer-2 cells and their lines to the answer. Rebuilt whenever the network or the dimming changes. */
+	function buildAnswerLines() {
+		const g = groups[3];
+		let m = 0;
+		const mO = mul('ok') * (empty ? 0.3 : 1);
+		const gmax = Math.max(1e-6, ...Array.from(trace.g));
+		const target = leftOf(ansP);
+		for (let k = 0; k < C2; k++) {
+			const gv = trace.g[k];
+			if (gv < 1e-6) continue;
+			const p = a2P[k];
+			const idx = trace.gArg[k] - k * M2 * M2;
+			const r = Math.floor(idx / M2);
+			const c = idx % M2;
+			m = g.setPolyline(m, rectPts(p, r, c, r, c), { width: 1.2, color: tone('ok', 1, 0.6 * mO) });
+			g.set(m++, { a: cellCenter3(p, r, c), b: target, width: 1, color: tone('ok', 1, (0.08 + 0.42 * (gv / gmax)) * mO) });
+		}
+		g.count = m;
+		g.upload();
+	}
+
+	/** Receptive field of the hovered cell on the drawing, or faintly that of the strongest layer-2 cell. */
+	function buildReceptive() {
+		let m = 0;
+		const mOk = mul('ok');
+		if (hover) {
+			const p = panelOf(hover);
+			const cell = rectPts(p, hover.row, hover.col, hover.row, hover.col);
+			const f = receptiveField(hover.layer, hover.row, hover.col);
+			const field = rectPts(imgP, f.r0, f.c0, f.r1, f.c1);
+			m = rf.setPolyline(m, cell, { width: 1.5, color: tone('text', 1, 0.65) });
+			m = rf.setPolyline(m, field, { width: 2, color: tone('ok', 1, 0.9 * mOk) });
+			for (let j = 0; j < 4; j++) rf.set(m++, { a: field[j], b: cell[j], width: 1, color: tone('ok', 1, 0.35 * mOk) });
+		} else if (show >= 3 && colA[4] > 0.5 && !empty) {
+			const k = Math.floor(strongest / (M2 * M2));
+			const idx = strongest - k * M2 * M2;
+			const f = receptiveField('a2', Math.floor(idx / M2), idx % M2);
+			m = rf.setPolyline(m, rectPts(imgP, f.r0, f.c0, f.r1, f.c1), { width: 2, color: tone('ok', 1, 0.35 * mOk * colA[4]) });
+		}
+		rf.count = m;
+		rf.upload();
+	}
+
+	// ---- camera: an orthographic pose per `show`, fitted to the sheets that are visible
+	function fitPose(asp: number): Pose {
+		const drawing = scenario >= 6;
+		const az = drawing ? 0.36 : [0.5, 0.6, 0.65, 0.7][clamp(show, 1, 4) - 1];
+		const el = drawing ? 0.42 : 0.5;
+		const sa = Math.sin(az);
+		const ca = Math.cos(az);
+		const se = Math.sin(el);
+		const ce = Math.cos(el);
+		let r0 = Infinity;
+		let r1 = -Infinity;
+		let u0 = Infinity;
+		let u1 = -Infinity;
+		for (const p of panels) {
+			if (!stageShown(p.stage)) continue;
+			for (const dx of [-0.5, 0.5]) {
+				for (const dy of [-0.5, 0.5]) {
+					const sheet: Vec3 = [p.cx + dx * p.w, YC + dy * p.h, p.z];
+					for (const q of [sheet, projectToFloor(sheet, 0)]) {
+						const r = q[0] * ca - q[2] * sa;
+						const u = -q[0] * sa * se + q[1] * ce - q[2] * ca * se;
+						r0 = Math.min(r0, r);
+						r1 = Math.max(r1, r);
+						u0 = Math.min(u0, u);
+						u1 = Math.max(u1, u);
+					}
+				}
+			}
+		}
+		// room for the captions above and the shadows below
+		r0 -= 0.1;
+		r1 += 0.1;
+		u0 -= 0.1;
+		u1 += 0.45;
+		const cr = (r0 + r1) / 2;
+		const cu = (u0 + u1) / 2;
+		const target: Vec3 = [cr * ca - cu * sa * se, cu * ce, -cr * sa - cu * ca * se];
+		return { target, azimuth: az, elevation: el, distance: Math.max(u1 - u0, (r1 - r0) / Math.max(0.2, asp)), ortho: true };
+	}
+
+	function updatePose(asp: number) {
+		const key = `${clamp(show, 1, 4)}|${scenario >= 6 ? 1 : 0}`;
+		if (key !== poseKey) {
+			poseKey = key;
+			poseAspect = asp;
+			orbit.stepPose(fitPose(asp));
+		} else if (!rig.moved && Math.abs(asp / poseAspect - 1) > 0.04) {
+			// the stage area changed shape (resize, card folded): refit
+			poseAspect = asp;
+			orbit.stepPose(fitPose(asp));
+		}
+	}
+
+	// ---- picking
+	const rayAt = (e: { x: number; y: number }): Ray => rayFromCss(vp, ctx.view.width, ctx.view.height, e.x, e.y);
+
+	/** Continuous cell coordinates (col, row) where a ray meets a sheet's plane, and the distance along the ray. */
+	function planeHit(p: Panel, ray: Ray): { fx: number; fy: number; t: number } | null {
+		const hit = intersectPlane(ray, [0, 0, p.z], [0, 0, 1]);
+		if (!hit) return null;
+		return {
+			fx: ((hit[0] - (p.cx - p.w / 2)) / p.w) * p.cols,
+			fy: ((YC + p.h / 2 - hit[1]) / p.h) * p.rows,
+			t: dot(sub(hit, ray.origin), ray.dir)
+		};
+	}
+
+	/** The front-most visible map cell under the pointer. */
+	function hit(ray: Ray): Hover | null {
+		let best: Hover | null = null;
+		let bestT = Infinity;
+		const scan = (layer: Layer, list: Panel[], stage: number) => {
+			if (colA[stage] <= 0.5 || !stageShown(stage)) return;
+			list.forEach((p, map) => {
+				const h = planeHit(p, ray);
+				if (!h || h.fx < 0 || h.fx >= p.cols || h.fy < 0 || h.fy >= p.rows || h.t >= bestT) return;
+				bestT = h.t;
+				best = { layer, map, row: Math.floor(h.fy), col: Math.floor(h.fx) };
+			});
+		};
+		scan('a1', a1P, 2);
+		scan('p1', p1P, 3);
+		scan('a2', a2P, 4);
+		return best;
+	}
+
+	function paint(fx: number, fy: number, fresh: boolean) {
+		if (fresh) last = [fx, fy];
+		strokeSegment(image, IMG, last[0], last[1], fx, fy, 0.7);
+		last = [fx, fy];
 		netDirty = true;
 	}
 
@@ -215,163 +436,45 @@ export const createCnnFeaturesScene: SceneFactory = () => {
 		return a === b || (a && b && a.layer === b.layer && a.map === b.map && a.row === b.row && a.col === b.col);
 	}
 
-	function drawScene() {
-		needsDraw = false;
-		const mT = mul('text');
-		const mP = mul('param');
-		const mD = mul('data');
-		let n = 0;
-
-		// 1. drawing
-		n = writeGrid(quads, n, dImg, gImg, (v) => tone('text', 0.08 + 0.7 * v, mT * colA[0]));
-
-		// 2. kernels
-		for (let k = 0; k < C1; k++) {
-			let m = 1e-6;
-			for (let i = 0; i < 9; i++) m = Math.max(m, Math.abs(WEIGHTS.w1[k * 9 + i]));
-			n = writeGrid(quads, n, WEIGHTS.w1.subarray(k * 9, k * 9 + 9), gKernel(k), (v) => diverging(v / m, 0.85, mP * colA[1]));
-		}
-
-		// 3. feature maps (a1), pooled (p1), layer 2 (a2): comparable inside a layer
-		const m1 = maxOf(dA1, 4);
-		for (let k = 0; k < C1; k++) {
-			const vals = dA1.subarray(k * M1 * M1, (k + 1) * M1 * M1);
-			n = writeGrid(quads, n, vals, gA1(k), (v) => tone('data', 0.06 + 0.72 * Math.min(1, v / m1), mD * colA[2]));
-		}
-		const mp = maxOf(dP1, 4);
-		for (let k = 0; k < C1; k++) {
-			const vals = dP1.subarray(k * P1 * P1, (k + 1) * P1 * P1);
-			n = writeGrid(quads, n, vals, gP1(k), (v) => tone('data', 0.06 + 0.72 * Math.min(1, v / mp), mD * colA[3]));
-		}
-		const m2 = maxOf(dA2, 25);
-		for (let k = 0; k < C2; k++) {
-			const vals = dA2.subarray(k * M2 * M2, (k + 1) * M2 * M2);
-			n = writeGrid(quads, n, vals, gA2(k), (v) => tone('data', 0.06 + 0.72 * Math.min(1, v / m2), mD * colA[4]));
-		}
-
-		// 4. answer bars
-		let top = 0;
-		for (let c = 1; c < CLASSES; c++) if (dProb[c] > dProb[top]) top = c;
-		const mO = mul('ok') * (empty ? 0.3 : 1);
-		const mB = mD * (empty ? 0.3 : 1);
-		for (let c = 0; c < CLASSES; c++) {
-			const x0 = px(X6 + NAME_W + 4);
-			const y = px(barY(c));
-			quads.set(n++, {
-				x: x0 + px(BAR_W) / 2,
-				y,
-				w: px(BAR_W),
-				h: px(BAR_H),
-				color: tone('muted', 0.5, 0.35 * colA[5] * mD),
-				radius: 2
-			});
-			const w = Math.max(px(1), px(BAR_W) * dProb[c]);
-			const isTop = c === top;
-			quads.set(n++, {
-				x: x0 + w / 2,
-				y,
-				w,
-				h: px(BAR_H),
-				color: isTop ? tone('ok', 0.75, colA[5] * mO) : tone('data', 0.4, colA[5] * mB),
-				radius: 2
-			});
-		}
-		quads.count = n;
-		quads.upload();
-
-		// Outlines and connectors
-		let m = 0;
-		const rect = (g: GridLayout, r0: number, c0: number, r1: number, c1: number, color: [number, number, number, number], width: number) => {
-			const x0 = g.x + c0 * g.cell;
-			const x1 = g.x + (c1 + 1) * g.cell;
-			const y0 = g.y - r0 * g.cell;
-			const y1 = g.y - (r1 + 1) * g.cell;
-			m = lines.setPolyline(m, [[x0, y0], [x1, y0], [x1, y1], [x0, y1], [x0, y0]], { width, color });
-		};
-		const link = (ax: number, ay: number, bx: number, by: number, color: [number, number, number, number]) => {
-			lines.set(m++, { a: [px(ax), px(ay)], b: [px(bx), px(by)], width: 1, color });
-		};
-
-		rect(gImg, 0, 0, IMG - 1, IMG - 1, tone('muted', 1, 0.5 * mT), 1);
-		const c1 = (a: number, k: number) => tone('muted', 1, 0.45 * Math.min(a, 1) * k);
-		for (let k = 0; k < C1; k++) {
-			const y = mapCenterY(k);
-			link(X1 + 16 * CELL1, 0, X2, y, c1(colA[1], 1));
-			link(X2 + 3 * CELL2, y, X3, y, c1(colA[2], 1));
-			link(X3 + M1 * CELL3, y, X4, y, c1(colA[3], 1));
-			link(X4 + P1 * CELL4, y, X5, 0, c1(colA[4], 1));
-		}
-
-		if (colA[5] > 0.01) {
-			const gmax = Math.max(1e-6, ...Array.from(trace.g));
-			for (let k = 0; k < C2; k++) {
-				const gv = trace.g[k];
-				if (gv < 1e-6) continue;
-				const g = gA2(k);
-				const idx = trace.gArg[k] - k * M2 * M2;
-				const r = Math.floor(idx / M2);
-				const c = idx % M2;
-				const al = colA[5] * mO;
-				rect(g, r, c, r, c, tone('ok', 1, 0.6 * al), 1.2);
-				lines.set(m++, {
-					a: [g.x + (c + 0.5) * g.cell, g.y - (r + 0.5) * g.cell],
-					b: [px(X6 - 4), px(0)],
-					width: 1,
-					color: tone('ok', 1, (0.08 + 0.42 * (gv / gmax)) * al)
-				});
-			}
-		}
-
-		// Receptive field of the hovered cell, or faintly that of the strongest layer-2 cell
-		const mOk = mul('ok');
-		if (hover) {
-			const g = hover.layer === 'a1' ? gA1(hover.map) : hover.layer === 'p1' ? gP1(hover.map) : gA2(hover.map);
-			rect(g, hover.row, hover.col, hover.row, hover.col, tone('text', 1, 0.65), 1.5);
-			const f = receptiveField(hover.layer, hover.row, hover.col);
-			rect(gImg, f.r0, f.c0, f.r1, f.c1, tone('ok', 1, 0.9 * mOk), 2);
-		} else if (show >= 3 && colA[4] > 0.5 && !empty) {
-			const k = Math.floor(strongest / (M2 * M2));
-			const idx = strongest - k * M2 * M2;
-			const f = receptiveField('a2', Math.floor(idx / M2), idx % M2);
-			rect(gImg, f.r0, f.c0, f.r1, f.c1, tone('ok', 1, 0.35 * mOk * colA[4]), 2);
-		}
-		lines.count = m;
-		lines.upload();
-	}
-
 	function buildLabels(): Label[] {
 		const v = ctx.view;
 		const out: Label[] = [];
-		const at = (x: number, y: number) => v.project(px(x), px(y));
-		const cap = (id: string, text: string, cx: number, a: number) => {
-			const [x, y] = at(cx, CAPTION_Y);
-			out.push({ id, x, y, text, tone: 'muted', opacity: a });
+		const cap = (id: string, text: string, ps: Panel[], a: number) => {
+			if (a < 0.02) return;
+			let top = Infinity;
+			let sx = 0;
+			for (const p of ps) {
+				const [x, y] = v.project(p.cx, YC + p.h / 2, p.z);
+				sx += x;
+				top = Math.min(top, y);
+			}
+			out.push({ id, x: sx / ps.length, y: top - 16, text, tone: 'muted', opacity: a });
 		};
-		const mT = mul('text');
-		const mP = mul('param');
-		const mD = mul('data');
-		cap('cap1', 'drawing', X1 + 8 * CELL1, colA[0] * mT);
-		cap('cap2', 'kernels', X2 + 1.5 * CELL2, colA[1] * mP);
-		cap('cap3', 'feature maps', X3 + 7 * CELL3, colA[2] * mD);
-		cap('cap4', 'pooled', X4 + 3.5 * CELL4, colA[3] * mD);
-		cap('cap5', 'layer 2 maps', X5 + M2 * CELL5 + GAP5 / 2, colA[4] * mD);
-		cap('cap6', 'answer', X6 + (NAME_W + BAR_W + 36) / 2, colA[5] * mul('ok'));
-		if (colA[5] > 0.01) {
+		cap('cap1', 'drawing', [imgP], colA[0] * mul('text'));
+		cap('cap2', 'kernels', kerP, colA[1] * mul('param'));
+		cap('cap3', 'feature maps', a1P, colA[2] * mul('data'));
+		cap('cap4', 'pooled', p1P, colA[3] * mul('data'));
+		cap('cap5', 'layer 2 maps', a2P, colA[4] * mul('data'));
+		cap('cap6', 'answer', [ansP], colA[5] * mul('ok'));
+		if (colA[5] > 0.02) {
+			const op = colA[5] * mul('ok') * (empty ? 0.3 : 1);
 			for (let c = 0; c < CLASSES; c++) {
-				const [nx, ny] = at(X6 + NAME_W, barY(c));
-				out.push({ id: `name${c}`, x: nx, y: ny, text: CLASS_NAMES[c], tone: 'muted', align: 'right', size: 11, opacity: colA[5] * mul('ok') * (empty ? 0.3 : 1) });
-				const [bx, by] = at(X6 + NAME_W + 4 + BAR_W + 4, barY(c));
-				out.push({ id: `pct${c}`, x: bx, y: by, text: `${Math.round(dProb[c] * 100)}%`, tone: 'text', mono: true, align: 'left', size: 11, opacity: colA[5] * mul('ok') * (empty ? 0.3 : 1) });
+				const y = YC + ANS_H / 2 - ((c + 0.5) * ANS_H) / 4;
+				const [nx, ny] = v.project(X_ANS - ANS_W / 2 + 0.07, y, ansP.z);
+				out.push({ id: `name${c}`, x: nx, y: ny, text: CLASS_NAMES[c], tone: 'muted', align: 'left', size: 11, opacity: op });
+				const [bx, by] = v.project(X_ANS + ANS_W / 2 + 0.07, y, ansP.z);
+				out.push({ id: `pct${c}`, x: bx, y: by, text: `${Math.round(dProb[c] * 100)}%`, tone: 'text', mono: true, align: 'left', size: 11, opacity: op });
 			}
 		}
 		if (hover) {
 			const { layer, map, row, col } = hover;
-			const g = layer === 'a1' ? gA1(map) : layer === 'p1' ? gP1(map) : gA2(map);
+			const p = panelOf(hover);
 			const arr = layer === 'a1' ? dA1 : layer === 'p1' ? dP1 : dA2;
 			const side = layer === 'a1' ? M1 : layer === 'p1' ? P1 : M2;
 			const value = arr[map * side * side + row * side + col];
-			const [x, y] = v.project(g.x + (col + 0.5) * g.cell, g.y - side * g.cell);
-			out.push({ id: 'hover', x, y: y + 9, text: value.toFixed(2), tone: 'text', mono: true, size: 11 });
+			const c = cellCenter3(p, row, col);
+			const [x, y] = v.project(c[0], c[1] + p.h / p.rows / 2, c[2]);
+			out.push({ id: 'hover', x, y: y - 10, text: value.toFixed(2), tone: 'text', mono: true, size: 11 });
 		}
 		return out;
 	}
@@ -379,9 +482,32 @@ export const createCnnFeaturesScene: SceneFactory = () => {
 	const scene: Scene = {
 		init(c) {
 			ctx = c;
-			camera = new Camera2D();
-			quads = new Quads(c, { capacity: 1536 });
-			lines = new Lines(c, { capacity: 160, blend: 'alpha' });
+			rig = new OrbitRig();
+			orbit = new SceneOrbit(c, rig);
+			sheets = new Sheets(c, { capacity: 22 });
+			shadows = new Shadows(c, { capacity: 22 });
+			floor = new Lines(c, { capacity: 32, depthTest: true });
+			groups.push(new Lines(c, { capacity: 8, depthTest: true }));
+			groups.push(new Lines(c, { capacity: 4, depthTest: true }));
+			groups.push(new Lines(c, { capacity: 4, depthTest: true }));
+			groups.push(new Lines(c, { capacity: 48, depthTest: true }));
+			rf = new Lines(c, { capacity: 24, depthTest: true });
+
+			const add = (kind: Kind, k: number, cx: number, z: number, cell: number, cols: number, rows: number, w = cell * cols, h = cell * rows) => {
+				const p: Panel = { kind, k, stage: STAGE_OF[kind], cx, z, w, h, cols, rows, tex: sheets.createTexture(cols, rows) };
+				panels.push(p);
+				return p;
+			};
+			imgP = add('img', 0, X_IN, 0, CELL_IN, IMG, IMG);
+			for (let k = 0; k < C1; k++) kerP.push(add('ker', k, X_KER, zFan(k, C1, DZ), CELL_K, 3, 3));
+			for (let k = 0; k < C1; k++) a1P.push(add('a1', k, X_MAP, zFan(k, C1, DZ), CELL_M, M1, M1));
+			for (let k = 0; k < C1; k++) p1P.push(add('p1', k, X_POOL, zFan(k, C1, DZ), CELL_P, P1, P1));
+			for (let k = 0; k < C2; k++) {
+				const row = Math.floor(k / 2);
+				a2P.push(add('a2', k, X_L2 + ((k % 2) - 0.5) * 2 * L2_DX, zFan(row, 4, DZ2), CELL_2, M2, M2));
+			}
+			ansP = add('ans', 0, X_ANS, 0, 0, SW, SH, ANS_W, ANS_H);
+			buildStatic();
 			loadSample();
 		},
 		setParams(p) {
@@ -391,31 +517,20 @@ export const createCnnFeaturesScene: SceneFactory = () => {
 			scenario = Math.round(p.scenario ?? scenario);
 			if (!paramsSeen || prev.sample !== sample || prev.scenario !== scenario) loadSample();
 			paramsSeen = true;
-			needsDraw = true;
 		},
 		update(fr) {
 			const v = ctx.view;
-			const target = viewRect(show);
-			const kr = ctx.reducedMotion || !rect ? 1 : 1 - Math.exp(-fr.dt / 0.18);
-			if (!rect) rect = { ...target };
-			rect.x0 += (target.x0 - rect.x0) * kr;
-			rect.x1 += (target.x1 - rect.x1) * kr;
-			rect.y0 += (target.y0 - rect.y0) * kr;
-			rect.y1 += (target.y1 - rect.y1) * kr;
-			fitCamera(camera, v, rect, lessonInsets(v));
-			v.setViewProj(camera.matrix(v.aspect));
-
 			if (netDirty) runNet();
 
 			const instant = ctx.reducedMotion || snap;
 			const k = instant ? 1 : 1 - Math.exp(-fr.dt / 0.04);
-			let moving = false;
-			moving = ease(dImg, image, k) || moving;
-			moving = ease(dA1, trace.a1, k) || moving;
-			moving = ease(dP1, trace.p1, k) || moving;
-			moving = ease(dA2, trace.a2, k) || moving;
-			moving = ease(dProb, trace.probs, k) || moving;
-			snap = false;
+			if (ease(dImg, image, k)) texDirty.img = true;
+			if (ease(dA1, trace.a1, k)) texDirty.a1 = true;
+			if (ease(dP1, trace.p1, k)) texDirty.p1 = true;
+			if (ease(dA2, trace.a2, k)) texDirty.a2 = true;
+			if (ease(dProb, trace.probs, k)) texDirty.ans = true;
+
+			// stage fade, and the clocks that draw each stage's connection lines in
 			const ka = instant ? 1 : 1 - Math.exp(-fr.dt / 0.09);
 			const targets = [1, 1, 1, show >= 2 ? 1 : 0, show >= 3 ? 1 : 0, show >= 4 ? 1 : 0];
 			for (let i = 0; i < 6; i++) {
@@ -423,67 +538,136 @@ export const createCnnFeaturesScene: SceneFactory = () => {
 				if (Math.abs(dv) < 0.002) {
 					if (dv !== 0) {
 						colA[i] = targets[i];
-						moving = true; // redraw once at the exact target so no residual alpha stays on screen
+						linesDirty = true;
 					}
 				} else {
 					colA[i] += dv * ka;
-					moving = true;
+					linesDirty = true;
 				}
 			}
-			if (moving || needsDraw) drawScene();
+			const DELAY = 0.25;
+			const DRAW = 0.9;
+			for (let i = 0; i < 4; i++) {
+				const t = targets[i + 2];
+				if (instant) revT[i] = t * (DELAY + DRAW);
+				else revT[i] = clamp(revT[i] + (t ? fr.dt : -fr.dt * 3), 0, DELAY + DRAW);
+				groups[i].setReveal(easeInOut((revT[i] - DELAY) / DRAW));
+			}
+			snap = false;
+
+			// camera
+			const ins = lessonInsets(v);
+			const asp = insetAspect(v, ins);
+			updatePose(asp);
+			orbit.update(fr.dt);
+			vp = mat4.multiply(insetMatrix(v, ins), rig.matrix(asp)) as Float32Array;
+			v.setViewProj(vp);
+
+			if (texDirty.img || texDirty.ker || texDirty.a1 || texDirty.p1 || texDirty.a2 || texDirty.ans) writeTextures();
+			if (linesDirty) {
+				linesDirty = false;
+				buildAnswerLines();
+				buildReceptive();
+			}
+
+			// shadows, then the sheets back to front
+			const eye = rig.eye();
+			const live = panels.filter((p) => colA[p.stage] > 0.01);
+			let n = 0;
+			for (const p of live) {
+				const o = originOf(p);
+				const corners = [o, [o[0] + p.w, o[1], o[2]], [o[0] + p.w, o[1] + p.h, o[2]], [o[0], o[1] + p.h, o[2]]].map((q) => projectToFloor(q as Vec3, 0));
+				shadows.quad(n++, { corners: corners as [Vec3, Vec3, Vec3, Vec3], blur: 0.1, alpha: colA[p.stage] });
+			}
+			shadows.count = n;
+			const depth = (p: Panel) => Math.hypot(p.cx - eye[0], YC - eye[1], p.z - eye[2]);
+			live.sort((a, b) => depth(b) - depth(a));
+			live.forEach((p, i) => {
+				const spec: SheetSpec = {
+					origin: originOf(p),
+					u: [p.w, 0, 0],
+					v: [0, p.h, 0],
+					fill: sheetFill(),
+					edge: tone('muted', 0.6),
+					edgePx: 1,
+					texture: p.tex,
+					opacity: colA[p.stage]
+				};
+				sheets.set(i, spec);
+			});
+			sheets.count = live.length;
+
 			ctx.labels.set(buildLabels());
 		},
 		draw(pass) {
-			quads.draw(pass);
-			lines.draw(pass);
+			floor.draw(pass);
+			shadows.draw(pass);
+			sheets.draw(pass);
+			for (const g of groups) g.draw(pass);
+			rf.draw(pass);
 		},
 		command(id) {
+			if (orbit.command(id)) return;
 			if (id === 'clear') {
 				image.fill(0);
 				netDirty = true;
-				needsDraw = true;
 			}
 		},
 		highlight(t) {
 			hl = t;
-			needsDraw = true;
+			for (const k of Object.keys(texDirty) as Kind[]) texDirty[k] = true;
+			linesDirty = true;
 		},
 		pointer(e: ScenePointer) {
 			if (e.type === 'leave' || e.type === 'up') {
 				stroking = false;
+				orbit.pointer(e);
 				if (e.type === 'leave' && hover) {
 					hover = null;
-					needsDraw = true;
+					linesDirty = true;
 				}
 				return;
 			}
-			const [wx, wy] = ctx.view.unproject(e.x, e.y);
+			const ray = rayAt(e);
 			if (e.type === 'down') {
-				const m = 0.5 * gImg.cell;
-				const inside =
-					wx >= gImg.x - m && wx <= gImg.x + IMG * gImg.cell + m && wy <= gImg.y + m && wy >= gImg.y - IMG * gImg.cell - m;
-				if (inside) {
+				const h = planeHit(imgP, ray);
+				const m = 0.5;
+				if (h && h.fx >= -m && h.fx <= IMG + m && h.fy >= -m && h.fy <= IMG + m) {
 					stroking = true;
-					paint(wx, wy, true);
-					if (hover) hover = null;
-					needsDraw = true;
+					paint(h.fx, h.fy, true);
+					if (hover) {
+						hover = null;
+						linesDirty = true;
+					}
+				} else {
+					orbit.pointer(e);
 				}
 				return;
 			}
 			if (stroking) {
-				paint(wx, wy, false);
-				needsDraw = true;
+				const h = planeHit(imgP, ray);
+				if (h) paint(h.fx, h.fy, false);
 				return;
 			}
-			const h = hit(wx, wy);
+			if (orbit.pointer(e) === 'drag') {
+				if (hover) {
+					hover = null;
+					linesDirty = true;
+				}
+				return;
+			}
+			const h = hit(ray);
 			if (!sameHover(h, hover)) {
 				hover = h;
-				needsDraw = true;
+				linesDirty = true;
 			}
 		},
 		dispose() {
-			quads.destroy();
-			lines.destroy();
+			sheets.dispose();
+			shadows.dispose();
+			floor.destroy();
+			for (const g of groups) g.destroy();
+			rf.destroy();
 		}
 	};
 	return scene;
