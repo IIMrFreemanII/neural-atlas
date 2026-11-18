@@ -1,4 +1,5 @@
 import type { LessonDef } from '../../types.ts';
+import { questions } from './questions.ts';
 import { createTrainScene } from './scene.ts';
 
 const lesson: LessonDef = {
@@ -110,6 +111,7 @@ const lesson: LessonDef = {
 			params: { scenario: 6 }
 		}
 	],
+	questions,
 	createScene: createTrainScene
 };
 

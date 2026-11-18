@@ -1,5 +1,6 @@
 import type { LessonDef } from '../../types.ts';
 import { bestLine } from './model.ts';
+import { questions } from './questions.ts';
 import { createLossLandscapeScene } from './scene.ts';
 
 const snap = (v: number) => Number((Math.round(v / 0.02) * 0.02).toFixed(2));
@@ -91,6 +92,7 @@ const lesson: LessonDef = {
 			params: { resid: 1, surface: 1, model: 1, w: 0.4, b: 0.3 }
 		}
 	],
+	questions,
 	createScene: createLossLandscapeScene
 };
 

@@ -1,4 +1,5 @@
 import type { LessonDef } from '../../types.ts';
+import { questions } from './questions.ts';
 import { createKMeansScene } from './scene.ts';
 
 const lesson: LessonDef = {
@@ -120,6 +121,7 @@ for (let round = 0; round < maxRounds; round++) {
 			params: { scenario: 8, dataset: 2, k: 2, init: 1, live: 1, autorun: 1 }
 		}
 	],
+	questions,
 	createScene: createKMeansScene
 };
 

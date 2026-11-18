@@ -1,4 +1,5 @@
 import type { LessonDef } from '../../types.ts';
+import { questions } from './questions.ts';
 import { createForwardPassScene } from './scene.ts';
 
 const FORWARD_CODE = `type Layer = { W: number[][]; b: number[]; f: (z: number) => number };
@@ -107,6 +108,7 @@ Switch between layers to see each weight grid and how it turns its inputs into t
 			params: { wave: 3, matrix: 1, layer: 1 }
 		}
 	],
+	questions,
 	createScene: createForwardPassScene
 };
 

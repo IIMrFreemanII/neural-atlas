@@ -1,5 +1,6 @@
 import type { LessonDef } from '../../types.ts';
 import { DEFAULT_TEXT, MAX_MERGES, TRAIN_MAX } from './data.ts';
+import { questions } from './questions.ts';
 import { createTokenizationScene } from './scene.ts';
 
 const lesson: LessonDef = {
@@ -98,6 +99,7 @@ while (merges.length < maxMerges) {
 			controls: ['text', 'mode']
 		}
 	],
+	questions,
 	createScene: createTokenizationScene
 };
 

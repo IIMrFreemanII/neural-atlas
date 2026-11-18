@@ -1,4 +1,5 @@
 import type { LessonDef } from '../../types.ts';
+import { questions } from './questions.ts';
 import { createGradientDescentScene } from './scene.ts';
 
 const lesson: LessonDef = {
@@ -118,6 +119,7 @@ const lesson: LessonDef = {
 			}
 		}
 	],
+	questions,
 	createScene: createGradientDescentScene
 };
 

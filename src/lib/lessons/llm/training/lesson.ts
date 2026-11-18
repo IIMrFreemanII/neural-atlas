@@ -1,6 +1,7 @@
 import type { LessonDef } from '../../types.ts';
 import { LM_TRAINING } from '../shared/lm-meta.ts';
 import { LAST, LOG, choices, nearestCheckpoint } from './data.ts';
+import { questions } from './questions.ts';
 import { createTrainingScene } from './scene.ts';
 
 const FINAL = LOG.checkpoints[LAST];
@@ -122,6 +123,7 @@ const lesson: LessonDef = {
 			}
 		}
 	],
+	questions,
 	createScene: createTrainingScene
 };
 

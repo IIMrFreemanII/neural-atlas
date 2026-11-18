@@ -1,4 +1,5 @@
 import type { LessonDef } from '../../types.ts';
+import { questions } from './questions.ts';
 import { createDecisionBoundariesScene } from './scene.ts';
 
 const lesson: LessonDef = {
@@ -112,6 +113,7 @@ const lesson: LessonDef = {
 			params: { scenario: 7, model: 2, dataset: 2, depth: 4 }
 		}
 	],
+	questions,
 	createScene: createDecisionBoundariesScene
 };
 

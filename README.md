@@ -18,6 +18,10 @@ Twenty lessons in four tracks:
   next-token sampling, watching a model learn.
 - **Vision and generative**: convolution, CNN feature maps, diffusion.
 
+Every lesson ends with three questions that check your understanding. Some ask you to pick an answer, and each
+answer explains why it is right or wrong. Others are tasks you solve in the live visual, and the page notices
+when you get there.
+
 Plus a constellation map of the lessons on the home page and a glossary of the terms they use.
 
 The models are small on purpose so the mechanism stays visible, and the math on screen is really computed in
@@ -129,7 +133,8 @@ src/
   lib/
     gpu/                        the WebGPU engine
     ml/                         models and math, unit-tested
-    lessons/<track>/<lesson>/   lesson.ts (steps, narration, controls) and scene.ts (the visual)
+    lessons/<track>/<lesson>/   lesson.ts (steps, narration, controls), scene.ts (the visual) and
+                                questions.ts (the questions after the last step)
     lessons/types.ts            the lesson contract
     content/                    curriculum, constellation layout, glossary
     components/lesson/          lesson page: stage, narration, controls
@@ -144,6 +149,11 @@ parameters for that step, plus a scene factory. The scene implements `Scene` (`s
 lesson, create its folder and register it in `src/lib/content/curriculum.ts`, give it a position in
 `src/lib/content/constellation.ts`, and add its terms to `src/lib/content/glossary.ts`.
 
+A lesson's questions are a list of `Question` objects (`src/lib/lessons/types.ts`). A task question has a
+`goal` function over the lesson's params, readouts and typed text, and an `example` of control settings that
+reach it. `src/lib/lessons/questions.spec.ts` checks every lesson's questions: the texts, that each task starts
+unsolved, and that each example solves its task with controls that are on screen.
+
 ## Using a lesson
 
 - Left and right arrow keys change the step. The space bar presses the lesson's main action (Run, Train,
@@ -151,4 +161,4 @@ lesson, create its folder and register it in `src/lib/content/curriculum.ts`, gi
 - Hover a colored term in the narration to highlight the matching parts of the visual.
 - **Reduce motion** in the top bar stops decorative animation and makes transitions instant. It starts from
   the operating system's setting.
-- Progress is stored in the browser only.
+- Progress, including which questions you solved, is stored in the browser only.

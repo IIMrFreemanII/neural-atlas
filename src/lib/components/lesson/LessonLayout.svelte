@@ -3,6 +3,7 @@
 	import type { Tone } from '../../gpu/types.ts';
 	import type { LessonDef, LessonMeta, Params, Track } from '../../lessons/types.ts';
 	import { lessonKey } from '../../content/curriculum.ts';
+	import { initialTexts, questionControls, questionParams } from '../../lessons/questions.ts';
 	import { progress } from '../../state/progress.svelte.ts';
 	import { settings } from '../../state/settings.svelte.ts';
 	import Icon from '../shell/Icon.svelte';
@@ -31,8 +32,14 @@
 		if (c.kind === 'toggle' || c.kind === 'select') discrete.add(c.key);
 	}
 
-	const targetFor = (i: number): Params => ({ ...lesson.defaults, ...lesson.steps[i].params });
-	const clamp = (i: number) => Math.min(Math.max(0, Math.floor(i) || 0), lesson.steps.length - 1);
+	const S = untrack(() => lesson.steps.length);
+	const Q = untrack(() => lesson.questions?.length ?? 0);
+	/** Page i is step i for i < S, else question i - S. */
+	const targetFor = (i: number): Params =>
+		i < S
+			? { ...lesson.defaults, ...lesson.steps[i].params }
+			: questionParams(lesson, lesson.questions![i - S]);
+	const clamp = (i: number) => Math.min(Math.max(0, Math.floor(i) || 0), S + Q - 1);
 
 	let stepIndex = $state(untrack(() => clamp(progress.getStep(key))));
 	let params = $state.raw<Params>(untrack(() => targetFor(stepIndex)));
@@ -56,10 +63,12 @@
 		readoutValues = {};
 	});
 
-	if (untrack(() => stepIndex === lesson.steps.length - 1)) progress.complete(key);
+	if (untrack(() => stepIndex >= S - 1)) progress.complete(key);
 
 	// Tweening
 	let tween: { start: number; items: Map<string, [number, number]> } | null = null;
+	/** Mirrors `tween !== null`, so the task goal can wait for the tween to end. */
+	let tweening = $state(false);
 	let raf = 0;
 
 	const ease = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
@@ -68,6 +77,7 @@
 		cancelAnimationFrame(raf);
 		raf = 0;
 		tween = null;
+		tweening = false;
 	}
 
 	function tick(now: number) {
@@ -79,6 +89,7 @@
 		params = next;
 		if (t >= 1 || tween.items.size === 0) {
 			tween = null;
+			tweening = false;
 			raf = 0;
 		} else {
 			raf = requestAnimationFrame(tick);
@@ -98,6 +109,7 @@
 		params = next;
 		if (items.size) {
 			tween = { start: performance.now(), items };
+			tweening = true;
 			raf = requestAnimationFrame(tick);
 		}
 	}
@@ -107,7 +119,7 @@
 		if (n === stepIndex) return;
 		stepIndex = n;
 		progress.setStep(key, n);
-		if (n === lesson.steps.length - 1) progress.complete(key);
+		if (n >= S - 1) progress.complete(key);
 		applyStep(n);
 	}
 
@@ -128,13 +140,69 @@
 		readoutValues = { ...readoutValues, [k]: v };
 	}
 
+	const question = $derived(stepIndex >= S ? lesson.questions![stepIndex - S] : null);
 	const visibleControls = $derived(
-		lesson.steps[stepIndex].controls === undefined
-			? lesson.controls
-			: lesson.controls.filter((c) =>
-					lesson.steps[stepIndex].controls!.includes('id' in c ? c.id : c.key)
-				)
+		question
+			? questionControls(lesson, question)
+			: lesson.steps[stepIndex].controls === undefined
+				? lesson.controls
+				: lesson.controls.filter((c) =>
+						lesson.steps[stepIndex].controls!.includes('id' in c ? c.id : c.key)
+					)
 	);
+
+	const solved = $derived(
+		(lesson.questions ?? []).map((_, j) => progress.isSolved(key, j))
+	);
+
+	// Task questions: solved the first time the goal holds after the learner touched the stage.
+	let touched = $state(false);
+	$effect(() => {
+		void stepIndex;
+		touched = false;
+	});
+	let stageCell: HTMLDivElement | undefined = $state();
+	$effect(() => {
+		const el = stageCell;
+		if (!el) return;
+		const touch = () => {
+			touched = true;
+		};
+		el.addEventListener('pointerdown', touch, true);
+		el.addEventListener('keydown', touch, true);
+		return () => {
+			el.removeEventListener('pointerdown', touch, true);
+			el.removeEventListener('keydown', touch, true);
+		};
+	});
+	/**
+	 * The goal has to hold this long before it counts, so dragging a slider across the target on the way
+	 * to somewhere else does not solve the task.
+	 */
+	const HOLD_MS = 400;
+	let hold: ReturnType<typeof setTimeout> | undefined;
+	$effect(() => {
+		const q = question;
+		const j = stepIndex - S;
+		let reached = false;
+		if (q && q.kind === 'task' && touched && !tweening && !untrack(() => progress.isSolved(key, j))) {
+			try {
+				reached = q.goal({ params, readouts: readoutValues, texts: { ...initialTexts(lesson), ...texts } });
+			} catch {
+				reached = false;
+			}
+		}
+		if (!reached) {
+			clearTimeout(hold);
+			hold = undefined;
+		} else if (hold === undefined) {
+			hold = setTimeout(() => {
+				hold = undefined;
+				progress.solve(key, j);
+			}, HOLD_MS);
+		}
+	});
+	$effect(() => () => clearTimeout(hold));
 
 	/** The action the space bar presses: the first visible one with a play icon. */
 	const mainAction = $derived(
@@ -160,6 +228,7 @@
 			if (t?.closest('input:not([type="range"]), select, textarea, button, a, summary, [contenteditable]'))
 				return;
 			e.preventDefault();
+			touched = true;
 			stage?.command(mainAction.id);
 		}
 	}
@@ -175,7 +244,7 @@
 		<Sidebar currentKey={key} onclose={() => (collapsed = true)} />
 	</div>
 
-	<div class="stage-cell" id="lesson-stage" tabindex="-1">
+	<div class="stage-cell" id="lesson-stage" tabindex="-1" bind:this={stageCell}>
 		{#key settings.reducedMotion}
 			<Stage
 				bind:this={stage}
@@ -219,6 +288,8 @@
 		{track}
 		{next}
 		{stepIndex}
+		{solved}
+		onsolve={(j) => progress.solve(key, j)}
 		onstep={goTo}
 		onhighlight={(t) => (highlight = t)}
 	/>

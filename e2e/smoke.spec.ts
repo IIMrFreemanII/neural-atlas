@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { allLessons, lessonHref } from '../src/lib/content/curriculum.ts';
+import { questions } from '../src/lib/lessons/fundamentals/neuron/questions.ts';
 
 /**
  * Smoke test: every page loads without console errors, and every lesson's visual starts, draws
@@ -99,7 +100,7 @@ for (const meta of allLessons) {
 		// The first step draws something.
 		await expect.poll(() => litFraction(page), { timeout: 15_000 }).toBeGreaterThan(0.002);
 
-		// Walk to the last step with the keyboard; the Next button is replaced by a link there.
+		// Walk to the last page (steps, then questions) with the keyboard; the Next button is replaced by a link there.
 		const next = page.locator('button[aria-keyshortcuts="ArrowRight"]');
 		const rail = page.locator('.rail .label');
 		for (let i = 0; i < 20 && (await next.count()) > 0; i++) {
@@ -114,3 +115,45 @@ for (const meta of allLessons) {
 		expect(errors).toEqual([]);
 	});
 }
+
+test('questions can be answered and are remembered', async ({ page }) => {
+	const errors = watchErrors(page);
+	await page.goto('/learn/fundamentals/neuron');
+	await expect(page.getByRole('heading', { level: 1 })).toHaveText('The neuron');
+
+	const label = page.locator('.rail .label');
+	const card = page.locator('.question');
+	const [q1, , q3] = questions;
+	if (q1.kind !== 'choice' || q3.kind !== 'task') throw new Error('unexpected question kinds');
+
+	await page.getByRole('button', { name: 'Go to question 1' }).click();
+	await expect(label).toHaveText('Question 1 of 3');
+	await expect(card).toHaveAttribute('data-solved', 'false');
+
+	const wrongIndex = q1.options.findIndex((o) => !o.correct);
+	const rightIndex = q1.options.findIndex((o) => o.correct);
+	await card.locator(`[data-option="${wrongIndex}"]`).click();
+	await expect(page.getByText(q1.options[wrongIndex].why)).toBeVisible();
+	await expect(card).toHaveAttribute('data-solved', 'false');
+
+	await card.locator(`[data-option="${rightIndex}"]`).click();
+	await expect(card).toHaveAttribute('data-solved', 'true');
+	await expect(page.getByText(q1.options[rightIndex].why)).toBeVisible();
+
+	await page.reload();
+	await expect(label).toHaveText('Question 1 of 3');
+	await expect(card).toHaveAttribute('data-solved', 'true');
+
+	// The task: set the bias with the only visible slider. No WebGPU is needed for this.
+	await page.getByRole('button', { name: 'Go to question 3' }).click();
+	await expect(label).toHaveText('Question 3 of 3');
+	await expect(card).toHaveAttribute('data-solved', 'false');
+	const slider = page.getByRole('slider');
+	// fill() sends no pointer or key event, so touch the slider first, as a learner would.
+	await slider.click();
+	await slider.fill(String(q3.example?.params?.b));
+	await expect(card).toHaveAttribute('data-solved', 'true');
+	await expect(page.getByText(q3.solved.slice(0, 30))).toBeVisible();
+
+	expect(errors.filter((e) => !/webgpu/i.test(e))).toEqual([]);
+});

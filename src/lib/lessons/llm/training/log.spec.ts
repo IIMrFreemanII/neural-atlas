@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { LM_TRAINING, LM_VOCAB } from '../shared/lm-meta.ts';
 import { PROMPTS } from '../sampling/data.ts';
+import { curveLossAt } from './data.ts';
 import { TRAIN_LOG as log } from './log.ts';
 
 const vocab = new Set(LM_VOCAB);
@@ -135,5 +136,18 @@ describe('what the narration says about this training run', () => {
 	});
 	it('step 6: the loss on unseen stories stays close to the training loss', () => {
 		for (const c of log.checkpoints) expect(Math.abs(c.validLoss - c.trainLoss)).toBeLessThan(0.15);
+	});
+});
+
+describe('what the questions say about this training run', () => {
+	it('question 2: the loss is below 4 by step 200 but not by step 100', () => {
+		expect(curveLossAt(100)).toBeGreaterThan(4.1);
+		expect(curveLossAt(200)).toBeLessThan(3.95);
+	});
+	it('question 2: the loss is about 7.9 at the start, 3.3 at step 400 and 2.4 at the end', () => {
+		expect(curveLossAt(0)).toBeGreaterThan(7.85);
+		expect(curveLossAt(0)).toBeLessThan(8);
+		expect(Math.abs(curveLossAt(400) - 3.3)).toBeLessThan(0.05);
+		expect(Math.abs(curveLossAt(LM_TRAINING.steps) - 2.4)).toBeLessThan(0.05);
 	});
 });

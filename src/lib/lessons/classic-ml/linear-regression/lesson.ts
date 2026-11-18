@@ -1,4 +1,5 @@
 import type { LessonDef } from '../../types.ts';
+import { questions } from './questions.ts';
 import { createLinearRegressionScene } from './scene.ts';
 
 const lesson: LessonDef = {
@@ -96,6 +97,7 @@ const lesson: LessonDef = {
 			params: { show: 3, best: 1, scenario: 3 }
 		}
 	],
+	questions,
 	createScene: createLinearRegressionScene
 };
 

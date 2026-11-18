@@ -1,4 +1,5 @@
 import type { LessonDef } from '../../types.ts';
+import { questions } from './questions.ts';
 import { createCnnFeaturesScene } from './scene.ts';
 
 const lesson: LessonDef = {
@@ -89,6 +90,7 @@ const lesson: LessonDef = {
 			controls: ['sample', 'clear']
 		}
 	],
+	questions,
 	createScene: createCnnFeaturesScene
 };
 

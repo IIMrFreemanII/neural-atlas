@@ -2,9 +2,10 @@
 	import type { Tone } from '../../gpu/types.ts';
 	import type { LessonDef, LessonMeta, Track } from '../../lessons/types.ts';
 	import { lessonHref } from '../../content/curriculum.ts';
-	import { parseBody } from '../../lessons/markup.ts';
 	import DeepDive from './DeepDive.svelte';
 	import LessonTerms from './LessonTerms.svelte';
+	import Prose from './Prose.svelte';
+	import QuestionCard from './QuestionCard.svelte';
 	import StepRail from './StepRail.svelte';
 
 	interface Props {
@@ -12,15 +13,22 @@
 		track: Track;
 		next: LessonMeta | null;
 		stepIndex: number;
+		/** Whether each question is solved, by question index. */
+		solved: boolean[];
+		onsolve: (questionIndex: number) => void;
 		onstep: (i: number) => void;
 		onhighlight: (tone: Tone | null) => void;
 	}
 
-	let { lesson, track, next, stepIndex, onstep, onhighlight }: Props = $props();
+	let { lesson, track, next, stepIndex, solved, onsolve, onstep, onhighlight }: Props = $props();
 
-	const step = $derived(lesson.steps[stepIndex]);
-	const paragraphs = $derived(parseBody(step.body));
-	const last = $derived(stepIndex === lesson.steps.length - 1);
+	const stepCount = $derived(lesson.steps.length);
+	const questions = $derived(lesson.questions ?? []);
+	/** Index of the open question, or -1 on a step page. */
+	const qIndex = $derived(stepIndex - stepCount);
+	const step = $derived(qIndex < 0 ? lesson.steps[stepIndex] : null);
+	const question = $derived(qIndex >= 0 ? questions[qIndex] : null);
+	const last = $derived(stepIndex === stepCount + questions.length - 1);
 
 	let scroller: HTMLDivElement | undefined = $state();
 	$effect(() => {
@@ -35,38 +43,30 @@
 		<h1>{lesson.title}</h1>
 	</header>
 	<StepRail
-		count={lesson.steps.length}
+		count={stepCount}
 		index={stepIndex}
 		titles={lesson.steps.map((s) => s.title)}
 		onselect={onstep}
+		questions={questions.length}
+		{solved}
 	/>
 	<div class="scroll" bind:this={scroller}>
-		<h2>{step.title}</h2>
-		{#each paragraphs as para, i (i)}
-			<p>
-				{#each para as run, j (j)}
-					{#if run.kind === 'bold'}
-						<strong>{run.text}</strong>
-					{:else if run.kind === 'term'}
-						<button
-							type="button"
-							class="term"
-							data-term
-							style:--tone="var(--c-{run.tone})"
-							onpointerenter={() => onhighlight(run.tone)}
-							onpointerleave={() => onhighlight(null)}
-							onfocus={() => onhighlight(run.tone)}
-							onblur={() => onhighlight(null)}>{run.text}</button
-						>
-					{:else}
-						{run.text}
-					{/if}
-				{/each}
-			</p>
-		{/each}
-		{#key stepIndex}
-			{#if step.deepDive}<DeepDive dive={step.deepDive} />{/if}
-		{/key}
+		{#if step}
+			<h2>{step.title}</h2>
+			<Prose text={step.body} {onhighlight} />
+			{#key stepIndex}
+				{#if step.deepDive}<DeepDive dive={step.deepDive} />{/if}
+			{/key}
+		{:else if question}
+			{#key qIndex}
+				<QuestionCard
+					{question}
+					solved={solved[qIndex] === true}
+					onsolve={() => onsolve(qIndex)}
+					{onhighlight}
+				/>
+			{/key}
+		{/if}
 		<LessonTerms lessonKey={`${lesson.track}/${lesson.id}`} />
 	</div>
 	<footer>
@@ -88,7 +88,7 @@
 				aria-keyshortcuts="ArrowRight"
 				onclick={() => onstep(stepIndex + 1)}
 			>
-				Next <span class="key" aria-hidden="true">→</span>
+				{stepIndex === stepCount - 1 ? 'Questions' : 'Next'} <span class="key" aria-hidden="true">→</span>
 			</button>
 		{:else if next}
 			<a class="btn primary" href={lessonHref(next)}>Next lesson</a>
@@ -126,25 +126,6 @@
 	h2 {
 		font-size: 17px;
 		margin-bottom: 12px;
-	}
-	.scroll p {
-		color: var(--c-text-2);
-		margin-bottom: 12px;
-	}
-	strong {
-		font-weight: 600;
-		color: var(--c-text);
-	}
-	.term {
-		display: inline;
-		padding: 0;
-		border: 0;
-		background: transparent;
-		font: inherit;
-		color: var(--tone);
-		text-decoration: underline dotted;
-		text-underline-offset: 3px;
-		cursor: help;
 	}
 	.key {
 		font-family: var(--font-mono);

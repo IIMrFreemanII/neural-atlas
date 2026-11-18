@@ -1,5 +1,6 @@
 import type { LessonDef } from '../../types.ts';
 import { LM_CONFIG, LM_TRAINING } from '../shared/lm-meta.ts';
+import { questions } from './questions.ts';
 import { createAttentionScene } from './scene.ts';
 import { TRAINED_TEXTS } from './trained.ts';
 
@@ -137,6 +138,7 @@ const lesson: LessonDef = {
 			}
 		}
 	],
+	questions,
 	createScene: createAttentionScene
 };
 

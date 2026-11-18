@@ -1,4 +1,5 @@
 import type { LessonDef } from '../../types.ts';
+import { questions } from './questions.ts';
 import { createOverfittingScene } from './scene.ts';
 
 const lesson: LessonDef = {
@@ -100,6 +101,7 @@ const lesson: LessonDef = {
 			}
 		}
 	],
+	questions,
 	createScene: createOverfittingScene
 };
 

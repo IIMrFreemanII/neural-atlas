@@ -1,5 +1,6 @@
 import type { LessonDef } from '../../types.ts';
 import { LM_CONFIG, LM_TRAINING } from '../shared/lm-meta.ts';
+import { questions } from './questions.ts';
 import { createSamplingScene } from './scene.ts';
 
 const WORDS = LM_CONFIG.vocab.toLocaleString('en-US');
@@ -111,6 +112,7 @@ const lesson: LessonDef = {
 			controls: ['temperature', 'topP', 'run', 'reset']
 		}
 	],
+	questions,
 	createScene: createSamplingScene
 };
 

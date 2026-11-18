@@ -1,4 +1,5 @@
 import type { LessonDef } from '../../types.ts';
+import { questions } from './questions.ts';
 import { createNeuronScene } from './scene.ts';
 
 const NEURON_CODE = `function neuron(x: number[], w: number[], b: number): number {
@@ -110,6 +111,7 @@ const lesson: LessonDef = {
 			controls: ['w1', 'w2', 'b', 'act']
 		}
 	],
+	questions,
 	createScene: createNeuronScene
 };
 

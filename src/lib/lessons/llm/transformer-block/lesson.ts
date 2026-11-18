@@ -1,4 +1,5 @@
 import type { LessonDef } from '../../types.ts';
+import { questions } from './questions.ts';
 import { createTransformerBlockScene } from './scene.ts';
 
 const lesson: LessonDef = {
@@ -86,6 +87,7 @@ const lesson: LessonDef = {
 			}
 		}
 	],
+	questions,
 	createScene: createTransformerBlockScene
 };
 

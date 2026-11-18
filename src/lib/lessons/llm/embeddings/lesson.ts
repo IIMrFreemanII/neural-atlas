@@ -1,5 +1,6 @@
 import type { LessonDef } from '../../types.ts';
 import { indexOf } from './data.ts';
+import { questions } from './questions.ts';
 import { createEmbeddingsScene } from './scene.ts';
 
 const CAT = indexOf('cat');
@@ -126,6 +127,7 @@ const lesson: LessonDef = {
 			controls: ['neighbors', 'relation', 'spin']
 		}
 	],
+	questions,
 	createScene: createEmbeddingsScene
 };
 

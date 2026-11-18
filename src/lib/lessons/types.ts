@@ -78,6 +78,53 @@ export interface Step {
 	deepDive?: DeepDive;
 }
 
+/** What a task question's goal can look at. */
+export interface QuizState {
+	/** The lesson params right now (what the controls show). */
+	params: Params;
+	/** Latest value of each readout the scene has emitted, by Readout.key. A key is missing until the scene emits it. */
+	readouts: Record<string, number | string>;
+	/** Current content of each 'text' control, by id. */
+	texts: Record<string, string>;
+}
+
+interface QuestionBase {
+	/** The question, in the narration markup of Step.body. */
+	prompt: string;
+	/** Params while this question is open = { ...lesson.defaults, ...params }, exactly like a step. */
+	params?: Params;
+	/** Visible controls while this question is open, like Step.controls. Undefined = all. */
+	controls?: string[];
+}
+
+/** Pick one answer. The visual stays live, so the learner can try things out before answering. */
+export interface ChoiceQuestion extends QuestionBase {
+	kind: 'choice';
+	/**
+	 * 3 or 4 options, exactly one with `correct: true`. `why` is shown when the option is picked: for the
+	 * correct one it gives the reason, for a wrong one it says what is wrong with that idea.
+	 */
+	options: { text: string; correct?: true; why: string }[];
+}
+
+/** Reach a state in the visual. Solved the first time `goal` is true after the learner touched something. */
+export interface TaskQuestion extends QuestionBase {
+	kind: 'task';
+	/** Must be false in the question's starting state and must not throw when readouts are missing. */
+	goal: (s: QuizState) => boolean;
+	/** Shown when the learner asks for a hint. Points the way without giving the settings. */
+	hint: string;
+	/** Shown once the goal is reached: why it worked. */
+	solved: string;
+	/**
+	 * Control settings that reach the goal from the starting state. Required when `goal` reads only params
+	 * and texts (a unit test then proves the task can be solved). Leave it out only when `goal` reads readouts.
+	 */
+	example?: { params?: Params; texts?: Record<string, string> };
+}
+
+export type Question = ChoiceQuestion | TaskQuestion;
+
 export interface LessonDef {
 	/** URL slug, unique within its track, e.g. 'neuron'. */
 	id: string;
@@ -94,6 +141,8 @@ export interface LessonDef {
 	readouts?: Readout[];
 	legend?: { tone: Tone; label: string }[];
 	steps: Step[];
+	/** "Check your understanding": 2 or 3 questions, each shown on its own page after the last step. */
+	questions?: Question[];
 	createScene: SceneFactory;
 }
 

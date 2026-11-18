@@ -1,4 +1,5 @@
 import type { LessonDef } from '../../types.ts';
+import { questions } from './questions.ts';
 import { createBackpropScene } from './scene.ts';
 
 const BACKWARD_CODE = `// A 2-2-1 network: tanh hidden layer, sigmoid output, loss L = 0.5 * (yHat - y)^2.
@@ -113,6 +114,7 @@ const lesson: LessonDef = {
 			params: { phase: 5 }
 		}
 	],
+	questions,
 	createScene: createBackpropScene
 };
 
