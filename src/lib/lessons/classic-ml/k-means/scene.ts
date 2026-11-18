@@ -4,10 +4,11 @@ import { ParticleCloud } from '../../../gpu/compute/particles.ts';
 import { Lines } from '../../../gpu/primitives/lines.ts';
 import { Points } from '../../../gpu/primitives/points.ts';
 import type { Label, Scene, SceneContext, SceneFactory, ScenePointer, Tone } from '../../../gpu/types.ts';
-import { assign, initCenters, runKMeans, updateCenters } from '../../../ml/kmeans.ts';
+import { assign, initCenters, updateCenters } from '../../../ml/kmeans.ts';
 import { mulberry32 } from '../../../ml/rng.ts';
 import { fitCamera, lessonInsets, type WorldRect } from '../../fit.ts';
 import { N, makeCloud } from './data.ts';
+import { elbowCurve } from './elbow.ts';
 
 const DATA_SEED = 1;
 const EXTENT = 1.5; // the map covers [-EXTENT, EXTENT] on both axes
@@ -23,7 +24,6 @@ const STEP_SECONDS = 0.6;
 const GRAB_PX = 16;
 const LIVE_REFRESH = 0.1;
 const CONVERGED = 1e-4;
-const ELBOW_SAMPLE = 2000;
 const INSTANT_DT = 100; // seconds fed to the particle easing so it lands on its target in one frame
 
 const clamp = (v: number, a: number, b: number) => Math.min(b, Math.max(a, v));
@@ -181,16 +181,7 @@ export const createKMeansScene: SceneFactory = () => {
 
 	function computeElbow() {
 		elbowDataset = datasetId;
-		const stride = Math.floor(N / ELBOW_SAMPLE);
-		const sub = new Float64Array(ELBOW_SAMPLE * 2);
-		for (let i = 0; i < ELBOW_SAMPLE; i++) {
-			sub[i * 2] = points[i * stride * 2];
-			sub[i * 2 + 1] = points[i * stride * 2 + 1];
-		}
-		for (let kk = 1; kk <= MAX_K; kk++) {
-			const r = runKMeans(sub, initCenters(sub, kk, 11, 'plusplus'), 60, 1e-5);
-			elbow[kk - 1] = r.inertia;
-		}
+		elbow.set(elbowCurve(points, MAX_K));
 	}
 
 	function setCloudStyle() {
@@ -331,7 +322,7 @@ export const createKMeansScene: SceneFactory = () => {
 				id: 'chart-now',
 				x: ex + 12,
 				y: ey - 12,
-				text: (elbow[clamp(k, 1, MAX_K) - 1] * (N / ELBOW_SAMPLE)).toFixed(0),
+				text: elbow[clamp(k, 1, MAX_K) - 1].toFixed(0),
 				tone: 'grad',
 				mono: true,
 				align: 'left',
