@@ -155,5 +155,19 @@ test('questions can be answered and are remembered', async ({ page }) => {
 	await expect(card).toHaveAttribute('data-solved', 'true');
 	await expect(page.getByText(q3.solved.slice(0, 30))).toBeVisible();
 
+	// The two solved questions show on the lesson list and on the home map.
+	const solvedText = '2 of 3 questions solved';
+	const row = 'a[href="/learn/fundamentals/neuron"]';
+	await page.goto('/learn');
+	await expect(page.locator(`${row} .pips`)).toHaveAttribute('aria-label', solvedText);
+	await expect(page.locator(`${row} .pip.solved`)).toHaveCount(2);
+	await expect(page.getByText('2 of 21 questions solved')).toBeVisible();
+	await page.goto('/');
+	await expect(page.locator(`a.star[href="/learn/fundamentals/neuron"]`)).toHaveAttribute(
+		'aria-label',
+		new RegExp(solvedText)
+	);
+	await expect(page.getByText('2 of 60 questions solved')).toBeVisible();
+
 	expect(errors.filter((e) => !/webgpu/i.test(e))).toEqual([]);
 });

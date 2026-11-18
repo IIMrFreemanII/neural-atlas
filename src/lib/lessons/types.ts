@@ -156,6 +156,8 @@ export interface LessonMeta {
 	status: 'ready' | 'soon';
 	/** Lesson keys in the form '<track>/<id>'. */
 	prerequisites: string[];
+	/** How many questions follow the lesson's last step. 0 when status is 'soon'. */
+	questions: number;
 	/** Present only when status is 'ready'. */
 	load?: () => Promise<{ default: LessonDef }>;
 }

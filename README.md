@@ -20,7 +20,8 @@ Twenty lessons in four tracks:
 
 Every lesson ends with three questions that check your understanding. Some ask you to pick an answer, and each
 answer explains why it is right or wrong. Others are tasks you solve in the live visual, and the page notices
-when you get there.
+when you get there. The lesson list and the map on the home page show how many questions of each lesson you
+have solved.
 
 Plus a constellation map of the lessons on the home page and a glossary of the terms they use.
 

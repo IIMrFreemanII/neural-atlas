@@ -1,15 +1,23 @@
 <script lang="ts">
-	import { tracks, lessonKey, lessonHref } from '../../content/curriculum.ts';
+	import { tracks, lessonKey, lessonHref, questionTotal } from '../../content/curriculum.ts';
 	import { progress } from '../../state/progress.svelte.ts';
+	import QuestionPips from './QuestionPips.svelte';
 </script>
 
 <div class="grid">
 	{#each tracks as track (track.id)}
 		{@const done = track.lessons.filter((l) => progress.isComplete(lessonKey(l.track, l.id))).length}
+		{@const solved = track.lessons.reduce(
+			(n, l) => n + progress.solvedCount(lessonKey(l.track, l.id), l.questions),
+			0
+		)}
 		<section class="card glass" style:--tone="var(--c-{track.tone})">
 			<h2>{track.title}</h2>
 			<p class="blurb">{track.blurb}</p>
-			<p class="count num">{done} of {track.lessons.length} complete</p>
+			<p class="count num">
+				{done} of {track.lessons.length} complete<br />
+				{solved} of {questionTotal(track.lessons)} questions solved
+			</p>
 			<ul>
 				{#each track.lessons as l (l.id)}
 					{@const complete = progress.isComplete(lessonKey(l.track, l.id))}
@@ -18,7 +26,10 @@
 							<a class="row" href={lessonHref(l)}>
 								<span class="dot" class:complete></span>
 								<span class="title">{l.title}</span>
-								<span class="min num">{l.minutes} min</span>
+								<span class="side">
+									<span class="min num">{l.minutes} min</span>
+									<QuestionPips lessonKey={lessonKey(l.track, l.id)} count={l.questions} />
+								</span>
 							</a>
 						{:else}
 							<div class="row soon">
@@ -60,6 +71,7 @@
 	}
 	.count {
 		font-size: 12px;
+		line-height: 1.6;
 		color: var(--c-muted);
 		margin: 10px 8px 12px;
 	}
@@ -110,5 +122,16 @@
 	.min {
 		font-size: 12px;
 		color: var(--c-muted);
+	}
+	/* Minutes, with the lesson's question bars under them, so the title keeps its width. */
+	.side {
+		flex: none;
+		display: flex;
+		flex-direction: column;
+		align-items: flex-end;
+		gap: 2px;
+	}
+	.side .min {
+		line-height: 1.3;
 	}
 </style>

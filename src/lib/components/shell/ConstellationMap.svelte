@@ -1,6 +1,6 @@
 <script lang="ts">
 	import Stage from '../lesson/Stage.svelte';
-	import { allLessons, lessonHref, lessonKey, tracks } from '../../content/curriculum.ts';
+	import { allLessons, lessonHref, lessonKey, questionTotal, tracks } from '../../content/curriculum.ts';
 	import { MAP_H, MAP_W, TRACK_LABELS, doneMask, nextUp, stars } from '../../content/constellation.ts';
 	import { createConstellationScene } from '../../lessons/home/constellation-scene.ts';
 	import { progress } from '../../state/progress.svelte.ts';
@@ -34,6 +34,10 @@
 	const next = $derived(nextUp(done));
 	const completeCount = $derived(stars.filter((s) => (done & (1 << s.index)) !== 0).length);
 	const params = $derived({ done, hover, next });
+	/** Solved questions of each lesson, by star index. */
+	const solved = $derived(allLessons.map((l) => progress.solvedCount(lessonKey(l.track, l.id), l.questions)));
+	const solvedCount = $derived(solved.reduce((a, b) => a + b, 0));
+	const questionCount = questionTotal(allLessons);
 
 	const hovered = $derived(hover >= 0 ? stars[hover] : null);
 	const hoveredMeta = $derived(hover >= 0 ? allLessons[hover] : null);
@@ -63,7 +67,9 @@
 	<header>
 		<h2 id="atlas-title">The map</h2>
 		<p>Every star is a lesson and every line shows what builds on what. Lessons you finish glow.</p>
-		<p class="count num">{completeCount} of {allLessons.length} complete</p>
+		<p class="count num">
+			{completeCount} of {allLessons.length} complete · {solvedCount} of {questionCount} questions solved
+		</p>
 	</header>
 
 	<div class="map">
@@ -90,7 +96,9 @@
 				href={lessonHref(meta)}
 				style:left="{(s.x / MAP_W) * 100}%"
 				style:top="{(s.y / MAP_H) * 100}%"
-				aria-label="{meta.title}, {trackById.get(meta.track)?.title}, {complete ? 'complete' : 'not started'}"
+				aria-label="{meta.title}, {trackById.get(meta.track)?.title}, {complete
+					? 'complete'
+					: 'not started'}{meta.questions > 0 ? `, ${solved[i]} of ${meta.questions} questions solved` : ''}"
 				onpointerenter={() => (hover = i)}
 				onpointerleave={() => (hover = -1)}
 				onfocus={() => (hover = i)}
@@ -107,6 +115,11 @@
 				<p class="title">{hoveredMeta.title}</p>
 				<p class="summary">{hoveredMeta.summary}</p>
 				<p class="meta num">{hoveredMeta.minutes} min · {hoveredStatus}</p>
+				{#if hoveredMeta.questions > 0}
+					<p class="questions num" class:all={solved[hover] === hoveredMeta.questions}>
+						{solved[hover]} of {hoveredMeta.questions} questions solved
+					</p>
+				{/if}
 				{#if hoveredMeta.prerequisites.length > 0}
 					<p class="builds">
 						Builds on: {hoveredMeta.prerequisites.map((k) => titleByKey.get(k) ?? k).join(', ')}
@@ -250,6 +263,14 @@
 		font-size: 12px;
 		color: var(--c-muted);
 		margin-top: 8px;
+	}
+	.card .questions {
+		font-size: 12px;
+		color: var(--c-muted);
+		margin-top: 4px;
+	}
+	.card .questions.all {
+		color: var(--c-ok);
 	}
 	.card .builds {
 		font-size: 12px;

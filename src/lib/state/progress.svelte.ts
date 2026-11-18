@@ -61,6 +61,10 @@ export const progress = {
 	isSolved(key: string, index: number): boolean {
 		return data.solved[key]?.includes(index) === true;
 	},
+	/** How many of a lesson's `total` questions are solved. */
+	solvedCount(key: string, total: number): number {
+		return (data.solved[key] ?? []).filter((i) => i < total).length;
+	},
 	solve(key: string, index: number): void {
 		const list = data.solved[key] ?? [];
 		if (list.includes(index)) return;

@@ -14,4 +14,15 @@ describe('progress questions', () => {
 		expect(progress.isSolved('a/b', 1)).toBe(false);
 		expect(progress.isSolved('a/c', 0)).toBe(false);
 	});
+
+	it('counts the solved questions of a lesson', async () => {
+		const { progress } = await import('./progress.svelte.ts');
+		expect(progress.solvedCount('x/y', 3)).toBe(0);
+		progress.solve('x/y', 1);
+		progress.solve('x/y', 2);
+		expect(progress.solvedCount('x/y', 3)).toBe(2);
+		// A question that the lesson no longer has does not count.
+		expect(progress.solvedCount('x/y', 2)).toBe(1);
+		expect(progress.solvedCount('x/z', 3)).toBe(0);
+	});
 });

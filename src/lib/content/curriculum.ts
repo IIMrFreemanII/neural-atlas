@@ -17,6 +17,14 @@ const CROSS_TRACK: Record<string, string[]> = {
 	'llm/training': ['fundamentals/train-a-network']
 };
 
+/**
+ * How many questions a ready lesson has. Written here, not read from the lesson, so that the lists and the
+ * map can show a count without loading any lesson. `questions.spec.ts` checks it against every lesson.
+ */
+const QUESTIONS = 3;
+/** Lessons whose number of questions is not QUESTIONS, by lesson key. */
+const QUESTION_COUNT: Record<string, number> = {};
+
 function build(track: TrackId, seeds: Seed[], ready: Record<string, LessonMeta['load']>): LessonMeta[] {
 	return seeds.map(([id, title, summary, minutes], i) => {
 		const load = ready[id];
@@ -30,7 +38,8 @@ function build(track: TrackId, seeds: Seed[], ready: Record<string, LessonMeta['
 			prerequisites: [
 				...(i > 0 ? [`${track}/${seeds[i - 1][0]}`] : []),
 				...(CROSS_TRACK[`${track}/${id}`] ?? [])
-			]
+			],
+			questions: load ? (QUESTION_COUNT[`${track}/${id}`] ?? QUESTIONS) : 0
 		};
 		if (load) meta.load = load;
 		return meta;
@@ -151,6 +160,11 @@ export function nextReadyLesson(track: TrackId, id: string): LessonMeta | null {
 
 /** Every lesson of every track, in curriculum order. */
 export const allLessons: LessonMeta[] = tracks.flatMap((t) => t.lessons);
+
+/** How many questions these lessons have together. */
+export function questionTotal(lessons: LessonMeta[]): number {
+	return lessons.reduce((sum, l) => sum + l.questions, 0);
+}
 
 export function lessonHref(meta: LessonMeta): string {
 	return `/learn/${meta.track}/${meta.id}`;

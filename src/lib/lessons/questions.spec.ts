@@ -10,6 +10,8 @@ const REQUIRE_ALL = true;
 describe.each(allLessons.map((m) => [lessonKey(m.track, m.id), m] as const))('questions of %s', (_key, meta) => {
 	test('are well formed', async () => {
 		const def = (await meta.load!()).default;
+		// The lists and the map show this count without loading the lesson.
+		expect(meta.questions, 'the count in curriculum.ts').toBe(def.questions?.length ?? 0);
 		if (!def.questions) {
 			expect(REQUIRE_ALL, 'this lesson has no questions').toBe(false);
 			return;
