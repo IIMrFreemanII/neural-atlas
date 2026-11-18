@@ -75,7 +75,7 @@ const lesson: LessonDef = {
 		},
 		{
 			title: 'Every setting has a loss',
-			body: 'Try every pair of [[param:weight and bias]] and record the [[grad:loss]] of each. The result is a surface: each point on the floor is one setting, and its height is how bad that setting is.\n\nThe glowing [[grad:ball]] is the current setting. Drag the surface to rotate it.',
+			body: 'Try every pair of [[param:weight and bias]] and record the [[grad:loss]] of each. The result is a surface: each point on the floor is one setting, and its height is how bad that setting is.\n\nThe [[grad:ball]] is the current setting. Drag the surface to rotate it.',
 			params: { resid: 1, surface: 1, pose: 1 },
 			grid: false,
 			controls: ['w', 'b'],

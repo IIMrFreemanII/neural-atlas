@@ -75,7 +75,7 @@ const lesson: LessonDef = {
 		},
 		{
 			title: 'Training bends the boundary',
-			body: 'Each step runs a forward pass on every dot, measures the [[grad:loss]], sends the error backward, and nudges the [[param:weights]] a little to make it smaller.\n\nPress **Train** and watch the white boundary wrap around the inner group while the loss curve falls.',
+			body: 'Each step runs a forward pass on every dot, measures the [[grad:loss]], sends the error backward, and nudges the [[param:weights]] a little to make it smaller.\n\nPress **Train** and watch the boundary line wrap around the inner group while the loss curve falls.',
 			params: { scenario: 2 },
 			controls: ['run', 'step', 'reset']
 		},

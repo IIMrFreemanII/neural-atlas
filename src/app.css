@@ -35,14 +35,6 @@
 	--c-neg: var(--neg);
 	--c-ok: var(--ok);
 
-	/* Legacy aliases: remove once every component uses the paper tokens. */
-	--bg-void: var(--pg);
-	--bg-panel: var(--sheet);
-	--glass: var(--sheet);
-	--glass-strong: var(--sheet);
-	--line: var(--rule);
-	--line-strong: var(--rule-2);
-
 	--font-display: 'Newsreader Variable', Georgia, serif;
 	--font-body: 'Inter Variable', system-ui, sans-serif;
 	--font-mono: 'JetBrains Mono Variable', ui-monospace, monospace;
@@ -145,13 +137,6 @@ pre {
 	font-variant-numeric: tabular-nums;
 }
 
-.glass {
-	background: var(--sheet);
-	border: 1px solid var(--rule);
-	box-shadow: var(--shadow);
-	border-radius: var(--r-md);
-}
-
 :focus-visible {
 	outline: 2px solid var(--ink);
 	outline-offset: 2px;
@@ -212,8 +197,8 @@ pre {
 	z-index: 100;
 	padding: 8px 14px;
 	border-radius: var(--r-sm);
-	background: var(--bg-panel);
-	border: 1px solid var(--line-strong);
+	background: var(--sheet);
+	border: 1px solid var(--rule-2);
 	font-size: 14px;
 }
 .skip-link:focus {

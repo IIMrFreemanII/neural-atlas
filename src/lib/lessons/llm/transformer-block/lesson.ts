@@ -24,7 +24,7 @@ const lesson: LessonDef = {
 	steps: [
 		{
 			title: 'One lane per token',
-			body: 'Each token of "she loved to play with" gets its own lane. Its [[data:vector]] of 64 numbers travels up the lane, drawn as an 8 by 8 tile of cells: cyan for positive numbers, rose for negative, brighter for larger. This running vector is called the residual stream, and a block reads it and writes small changes back.\n\nThese are the real weights of a small transformer trained on simple children\'s stories. Click a lane to inspect it, then press **Send the tokens through**.',
+			body: 'Each token of "she loved to play with" gets its own lane. Its [[data:vector]] of 64 numbers travels up the lane, drawn as an 8 by 8 tile of cells: cyan for positive numbers, rose for negative, stronger for larger. This running vector is called the residual stream, and a block reads it and writes small changes back.\n\nThese are the real weights of a small transformer trained on simple children\'s stories. Click a lane to inspect it, then press **Send the tokens through**.',
 			params: { focus: 1, zoom: 0, scenario: 1 },
 			controls: ['play'],
 			legend: ['Vectors', 'Layers']

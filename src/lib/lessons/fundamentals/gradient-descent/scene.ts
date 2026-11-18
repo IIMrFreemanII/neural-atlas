@@ -54,7 +54,7 @@ type MapPose = 5 | 6 | 7;
 const POSES: Record<MapPose, Pose> = {
 	5: { target: [0, 0.4, 0], azimuth: 0.55, elevation: 0.85, distance: DIST },
 	6: { target: [0, 0.35, 0], azimuth: -1.05, elevation: 0.5, distance: DIST },
-	7: { target: [0, 0.4, 0], azimuth: 0.5, elevation: 0.75, distance: DIST }
+	7: { target: [0, 0.35, 0], azimuth: -1.05, elevation: 0.62, distance: DIST }
 };
 
 interface Racer {

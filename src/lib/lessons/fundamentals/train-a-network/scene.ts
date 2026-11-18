@@ -23,6 +23,12 @@ const WORLD: WorldRect = { x0: -3.7, x1: 3.65, y0: -1.62, y1: 1.55 };
 const DIAGRAM: WorldRect = { x0: 0.2, x1: 3.3, y0: 0.2, y1: 1.2 };
 const CHART = { x0: 0.25, x1: 3.0, y0: -1.3, y1: -0.15 };
 
+// Free mode (the playground): no in-scene loss chart, the network diagram on the left and the map on the right,
+// both centred vertically. The map (2.8 wide) mirrors the lesson layout's, so the world is the same width.
+const FREE_MAP_OX = 1.9;
+const FREE_WORLD: WorldRect = { x0: -3.7, x1: 3.65, y0: -1.62, y1: 1.55 };
+const FREE_DIAGRAM: WorldRect = { x0: -3.4, x1: -0.2, y0: -0.9, y1: 0.9 };
+
 const clamp = (v: number, a: number, b: number) => Math.min(b, Math.max(a, v));
 
 export const createTrainScene: SceneFactory = () => {
@@ -43,6 +49,7 @@ export const createTrainScene: SceneFactory = () => {
 	let lr = 0.3;
 	let noise = 0.05;
 	let scenario = 1;
+	let free = 0;
 	let paramsSeen = false;
 	let noiseUsed = 0.05;
 	let hl: Tone | null = null;
@@ -66,6 +73,12 @@ export const createTrainScene: SceneFactory = () => {
 	let lastLoss = NaN;
 	let lastAcc = '';
 	let lastSteps = -1;
+	let lastRunning = -1;
+
+	/** The active layout: the lesson's, or the free one. */
+	const mapOx = () => (free ? FREE_MAP_OX : MAP_OX);
+	const worldRect = () => (free ? FREE_WORLD : WORLD);
+	const diagramRect = () => (free ? FREE_DIAGRAM : DIAGRAM);
 
 	const mul = (t: Tone) => (hl === null || hl === t ? 1 : 0.3);
 
@@ -133,7 +146,7 @@ export const createTrainScene: SceneFactory = () => {
 		if (!diagram || diagram.sizes.join() !== net.sizes.join()) {
 			diagram?.destroy();
 			diagram = new NetworkDiagram(ctx, net.sizes, { nodeRadius: 8 });
-			diagram.rect = DIAGRAM;
+			diagram.rect = diagramRect();
 			const last = net.sizes.length - 1;
 			for (let l = 0; l <= last; l++) {
 				for (let i = 0; i < net.sizes[l]; i++) {
@@ -149,6 +162,7 @@ export const createTrainScene: SceneFactory = () => {
 		lastLoss = NaN;
 		lastAcc = '';
 		lastSteps = -1;
+		lastRunning = -1;
 	}
 
 	function doStep() {
@@ -177,7 +191,7 @@ export const createTrainScene: SceneFactory = () => {
 				const cls = data.y[k] >= 0.5;
 				const t: Tone = cls ? 'data' : 'neg';
 				const m = cls ? mData : mNeg;
-				const x = data.x[k * 2] + MAP_OX;
+				const x = data.x[k * 2] + mapOx();
 				const y = data.x[k * 2 + 1];
 				if (pass === 0) {
 					// thin paper ring under the ink dot so it reads on top of the wash
@@ -194,8 +208,8 @@ export const createTrainScene: SceneFactory = () => {
 	}
 
 	function drawFrame(): void {
-		const x0 = MAP_OX - EXTENT;
-		const x1 = MAP_OX + EXTENT;
+		const x0 = mapOx() - EXTENT;
+		const x1 = mapOx() + EXTENT;
 		const c = tone('muted', 0.6);
 		const pts: Array<[number, number]> = [
 			[x0, -EXTENT],
@@ -274,7 +288,7 @@ export const createTrainScene: SceneFactory = () => {
 			ctx = c;
 			camera = new Camera2D();
 			field = new Field(c, { cols: FIELD_N, rows: FIELD_N });
-			field.rect = [MAP_OX - EXTENT, -EXTENT, MAP_OX + EXTENT, EXTENT];
+			field.rect = [mapOx() - EXTENT, -EXTENT, mapOx() + EXTENT, EXTENT];
 			field.iso = 0.5;
 			fieldB = new Field(c, { cols: FIELD_N, rows: FIELD_N });
 			fieldB.rect = field.rect;
@@ -287,6 +301,8 @@ export const createTrainScene: SceneFactory = () => {
 		},
 		setParams(p) {
 			const prev = { datasetId, hidden, layers, act, scenario };
+			const prevFree = free;
+			free = Math.round(p.free ?? 0);
 			datasetId = Math.round(p.dataset ?? datasetId);
 			hidden = Math.round(p.hidden ?? hidden);
 			layers = Math.round(p.layers ?? layers);
@@ -301,12 +317,18 @@ export const createTrainScene: SceneFactory = () => {
 				prev.act !== act ||
 				prev.scenario !== scenario ||
 				Math.abs(noise - noiseUsed) > 0.001;
+			if (prevFree !== free && field) {
+				// Layout switched after init: move the map and the diagram to the active layout.
+				field.rect = [mapOx() - EXTENT, -EXTENT, mapOx() + EXTENT, EXTENT];
+				fieldB.rect = field.rect;
+				if (diagram) diagram.rect = diagramRect();
+			}
 			if (!paramsSeen || changed) reset(false);
 			paramsSeen = true;
 		},
 		update(fr) {
 			const v = ctx.view;
-			fitCamera(camera, v, WORLD, lessonInsets(v));
+			fitCamera(camera, v, worldRect(), lessonInsets(v));
 			v.setViewProj(camera.matrix(v.aspect));
 
 			if (running && fr.dt > 0) {
@@ -342,12 +364,16 @@ export const createTrainScene: SceneFactory = () => {
 			updateDiagram(fr.dt);
 
 			const labels: Label[] = [];
-			drawChart(labels);
-			const [mx, my] = v.project(MAP_OX, -EXTENT);
+			if (!free) drawChart(labels);
+			else {
+				chart.count = 0;
+				chart.upload();
+			}
+			const [mx, my] = v.project(mapOx(), -EXTENT);
 			labels.push({ id: 'map-caption', x: mx, y: my + 16, text: 'what the network predicts', tone: 'muted' });
 			if (diagram) labels.push(...diagram.labels(v));
 			if (blewUp) {
-				const [cx, cy] = v.project(MAP_OX, 0);
+				const [cx, cy] = v.project(mapOx(), 0);
 				labels.push({ id: 'blowup', x: cx, y: cy, text: 'Training blew up — press Reset', tone: 'neg' });
 			}
 			ctx.labels.set(labels);
@@ -364,6 +390,11 @@ export const createTrainScene: SceneFactory = () => {
 			if (steps !== lastSteps) {
 				lastSteps = steps;
 				ctx.emit('steps', steps);
+			}
+			const runFlag = running ? 1 : 0;
+			if (runFlag !== lastRunning) {
+				lastRunning = runFlag;
+				ctx.emit('running', runFlag);
 			}
 		},
 		draw(pass) {
