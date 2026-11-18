@@ -41,6 +41,7 @@ const STEP: Record<string, number> = {
 	'llm/embeddings': 2,
 	'llm/attention': 8,
 	'llm/training': 6,
+	'vision/vit': 5,
 	'vision/autoencoder': 7
 };
 

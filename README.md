@@ -10,7 +10,7 @@ Try it at <https://iimrfreemanii.github.io/neural-atlas/>.
 
 ## What is in it
 
-Twenty-two lessons in four tracks:
+Twenty-three lessons in four tracks:
 
 - **Neural net fundamentals**: the neuron, activation functions, forward pass, loss landscape, gradient
   descent, backpropagation, train a network.
@@ -18,7 +18,8 @@ Twenty-two lessons in four tracks:
   underfitting, decision trees and random forests.
 - **LLMs and transformers**: tokenization, embedding space, self-attention, inside a transformer block,
   next-token sampling, watching a model learn.
-- **Vision and generative**: convolution, CNN feature maps, latent space (an autoencoder), diffusion.
+- **Vision and generative**: convolution, CNN feature maps, vision transformer, latent space (an
+  autoencoder), diffusion.
 
 Every lesson ends with three questions that check your understanding. Some ask you to pick an answer, and each
 answer explains why it is right or wrong. Others are tasks you solve in the live visual, and the page notices
@@ -124,6 +125,21 @@ uv run --no-project --with torch python scripts/train-autoencoder.py
 Unlike the other scripts, a GPU run is not repeatable bit for bit, so a rerun gives slightly different
 weights. The tests in `src/lib/lessons/vision/autoencoder/` check that any new weights still separate the
 four shapes on the map, rebuild drawings well, and agree with what the narration says.
+
+`scripts/train-vit.py` trains the small vision transformer of the vision transformer lesson the same way
+(PyTorch, about 90 seconds on an Apple GPU) on the CNN lesson's generated drawings, and rewrites
+`src/lib/lessons/vision/vit/weights.ts`. The browser runs the model in TypeScript (`src/lib/ml/vit.ts`);
+the weights file also holds PyTorch's answers for four drawings, and a test checks that the TypeScript
+model gives the same ones. It trains with label smoothing, which is why the lesson's model never claims
+more than about 92%:
+
+```sh
+uv run --no-project --with torch python scripts/train-vit.py
+```
+
+As with the autoencoder, a GPU rerun gives slightly different weights. `trained.spec.ts` in the lesson's
+folder pins what the narration says about the model (how much it relies on position vectors, and which
+head of the class token looks at the ink).
 
 `scripts/train-tinystories.ts` trains the transformer in plain TypeScript on 8 worker threads (about 40 minutes
 on a 16-core machine) and writes `src/lib/lessons/llm/shared/tinystories.bin` and `lm-meta.ts`. It needs

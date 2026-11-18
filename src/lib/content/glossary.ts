@@ -47,7 +47,7 @@ const entries: GlossaryEntry[] = [
 		aliases: ['head'],
 		definition:
 			'One copy of the attention mechanism with its own weights. A layer runs several side by side, and each head can look for a different kind of link between tokens.',
-		lessons: ['llm/attention', 'llm/transformer-block'],
+		lessons: ['llm/attention', 'llm/transformer-block', 'vision/vit'],
 		related: ['self-attention']
 	},
 	{
@@ -154,6 +154,16 @@ const entries: GlossaryEntry[] = [
 		related: ['training', 'weight']
 	},
 	{
+		id: 'class-token',
+		term: 'class token',
+		aliases: ['CLS token', 'cls'],
+		definition:
+			'An extra token that belongs to no patch. It starts the same for every image, gathers information from the patches by attention, and its final vector is turned into the answer.',
+		tone: 'param',
+		lessons: ['vision/vit'],
+		related: ['patch', 'token', 'self-attention']
+	},
+	{
 		id: 'classification',
 		term: 'classification',
 		aliases: ['classifier', 'class'],
@@ -255,7 +265,7 @@ const entries: GlossaryEntry[] = [
 		aliases: ['embedding space'],
 		definition:
 			'The vector a model looks up for each token. Tokens that mean similar things get similar vectors, so they sit near each other in embedding space.',
-		lessons: ['llm/embeddings'],
+		lessons: ['llm/embeddings', 'vision/vit'],
 		related: ['vector', 'token', 'cosine-similarity']
 	},
 	{
@@ -646,6 +656,14 @@ const entries: GlossaryEntry[] = [
 		related: ['weight', 'bias']
 	},
 	{
+		id: 'patch',
+		term: 'patch',
+		definition:
+			'A small square piece of an image, such as 4 x 4 pixels. A vision transformer cuts an image into a grid of patches and turns each one into a token.',
+		lessons: ['vision/vit'],
+		related: ['vision-transformer', 'token', 'pixel']
+	},
+	{
 		id: 'penalty',
 		term: 'penalty',
 		aliases: ['regularization', 'ridge regression'],
@@ -678,6 +696,16 @@ const entries: GlossaryEntry[] = [
 			'Shrinking a feature map by keeping one number from each small block, usually the largest. A small shift in the image then changes the result very little.',
 		lessons: ['vision/cnn-features'],
 		related: ['feature-map', 'stride']
+	},
+	{
+		id: 'position-embedding',
+		term: 'position embedding',
+		aliases: ['position vector', 'positional embedding'],
+		definition:
+			'A learned vector added to a token to say where it is. Attention does not know order by itself, so without it a model could not tell the top of an image from the bottom.',
+		tone: 'param',
+		lessons: ['vision/vit'],
+		related: ['embedding', 'patch', 'self-attention']
 	},
 	{
 		id: 'probability',
@@ -764,7 +792,7 @@ const entries: GlossaryEntry[] = [
 		aliases: ['attention'],
 		definition:
 			'The step where every token looks at the others and takes in a share of each, weighted by how well they match. It is how tokens exchange information.',
-		lessons: ['llm/attention', 'llm/transformer-block', 'llm/embeddings'],
+		lessons: ['llm/attention', 'llm/transformer-block', 'llm/embeddings', 'vision/vit'],
 		related: ['query', 'key', 'value']
 	},
 	{
@@ -785,7 +813,7 @@ const entries: GlossaryEntry[] = [
 		term: 'softmax',
 		definition:
 			'A function that turns a list of scores into shares that add up to 100%, giving the highest score the biggest share.',
-		lessons: ['llm/attention', 'llm/sampling', 'llm/transformer-block', 'vision/cnn-features'],
+		lessons: ['llm/attention', 'llm/sampling', 'llm/transformer-block', 'vision/cnn-features', 'vision/vit'],
 		related: ['logits', 'probability', 'self-attention']
 	},
 	{
@@ -849,7 +877,8 @@ const entries: GlossaryEntry[] = [
 			'llm/attention',
 			'llm/transformer-block',
 			'llm/sampling',
-			'llm/training'
+			'llm/training',
+			'vision/vit'
 		],
 		related: ['tokenization', 'vocabulary', 'embedding']
 	},
@@ -910,7 +939,7 @@ const entries: GlossaryEntry[] = [
 		term: 'transformer',
 		definition:
 			'A network design for sequences, built from a stack of identical blocks. Each block lets tokens exchange information through attention and then refines each token on its own.',
-		lessons: ['llm/transformer-block'],
+		lessons: ['llm/transformer-block', 'vision/vit'],
 		related: ['transformer-block', 'self-attention']
 	},
 	{
@@ -955,6 +984,15 @@ const entries: GlossaryEntry[] = [
 			'A list of numbers. A model represents a token as a vector, and the numbers place it as a point in a space.',
 		lessons: ['llm/embeddings', 'llm/attention', 'llm/transformer-block'],
 		related: ['embedding', 'cosine-similarity']
+	},
+	{
+		id: 'vision-transformer',
+		term: 'vision transformer',
+		aliases: ['ViT'],
+		definition:
+			'A transformer that reads an image as a sequence of patches instead of words. Every patch can attend to every other, and a class token gathers the answer.',
+		lessons: ['vision/vit'],
+		related: ['transformer', 'patch', 'class-token']
 	},
 	{
 		id: 'vocabulary',
