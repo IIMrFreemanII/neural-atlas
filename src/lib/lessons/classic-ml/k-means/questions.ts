@@ -1,12 +1,13 @@
 import { shown } from '../../questions.ts';
 import type { Question } from '../../types.ts';
 
+// Every question has its own `scenario` number (steps use 1 to 8), so the scene starts it afresh.
 export const questions: Question[] = [
 	{
 		kind: 'choice',
 		prompt:
 			'Every point is colored by its nearest [[text:center]]. You press **Move centers** and then **Assign**. What happens to the [[grad:spread]] shown?\n\nDecide first, then check with the two buttons.',
-		params: { scenario: 4, prep: 2, spokes: 1 },
+		params: { scenario: 9, prep: 2, spokes: 1 },
 		controls: ['move', 'assign'],
 		options: [
 			{
@@ -28,7 +29,7 @@ export const questions: Question[] = [
 		kind: 'task',
 		prompt:
 			'Five blobs, five [[text:centers]]. Get the [[grad:spread]] below 900.',
-		params: { scenario: 6, dataset: 1, k: 5, init: 0, seed: 1 },
+		params: { scenario: 10, dataset: 1, k: 5, init: 0, seed: 1 },
 		controls: ['run', 'reseed', 'init'],
 		goal: ({ readouts }) => shown(readouts.inertia, 1) < 900,
 		hint: 'Every round lowers the spread, but a run only goes downhill from where it started. If it stops high, more rounds will not help. Think about where the centers begin.',
@@ -39,7 +40,7 @@ export const questions: Question[] = [
 		kind: 'choice',
 		prompt:
 			'K-means with k = 2 runs on the moons, two curved bands that wind around each other. It cuts across both bands instead of giving each band one color. Why?',
-		params: { scenario: 8, dataset: 2, k: 2, init: 1, live: 1, autorun: 1 },
+		params: { scenario: 11, dataset: 2, k: 2, init: 1, live: 1, autorun: 1 },
 		controls: ['run', 'k', 'reseed', 'init'],
 		options: [
 			{

@@ -457,7 +457,9 @@ export const createKMeansScene: SceneFactory = () => {
 				prev.seedParam !== seedParam ||
 				prev.prep !== prep;
 			if (!paramsSeen || changed) {
-				if (!paramsSeen) reseeds = 0;
+				// `scenario` is different on every step and question. A page opens from its own start,
+				// whatever "New start" did on the pages before it.
+				if (!paramsSeen || prev.scenario !== scenario) reseeds = 0;
 				reset(paramsSeen && kOnly && autorun === 1);
 			}
 			paramsSeen = true;
