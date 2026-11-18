@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { onMount, tick } from 'svelte';
 	import { page } from '$app/state';
-	import { allLessons, lessonHref, tracks } from '#lib/content/curriculum.ts';
+	import { allLessons, tracks } from '#lib/content/curriculum.ts';
+	import { lessonLink } from '#lib/link.ts';
 	import { findEntry, glossary, searchGlossary } from '#lib/content/glossary.ts';
 	import { settings } from '#lib/state/settings.svelte.ts';
 
@@ -12,7 +13,7 @@
 			`${l.track}/${l.id}`,
 			{
 				title: l.title,
-				href: lessonHref(l),
+				href: lessonLink(l),
 				tone: tracks.find((t) => t.id === l.track)?.tone ?? 'data'
 			}
 		])

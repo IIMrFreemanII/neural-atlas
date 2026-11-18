@@ -166,6 +166,7 @@ export function questionTotal(lessons: LessonMeta[]): number {
 	return lessons.reduce((sum, l) => sum + l.questions, 0);
 }
 
+/** The lesson's route, from the root of the app. For an `href` use `lessonLink` from `link.ts`. */
 export function lessonHref(meta: LessonMeta): string {
 	return `/learn/${meta.track}/${meta.id}`;
 }

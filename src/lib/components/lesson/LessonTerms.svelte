@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { tick } from 'svelte';
+	import { resolve } from '$app/paths';
 	import { termsForLesson } from '../../content/glossary.ts';
 	import { settings } from '../../state/settings.svelte.ts';
 
@@ -48,7 +49,7 @@
 		<div class="panel" bind:this={panel} class:filled={open} aria-live="polite">
 			{#if open}
 				<p>{open.definition}</p>
-				<a href="/glossary#{open.id}">Open in glossary</a>
+				<a href="{resolve('/glossary')}#{open.id}">Open in glossary</a>
 			{/if}
 		</div>
 	</section>

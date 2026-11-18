@@ -1,11 +1,12 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { settings } from '../../state/settings.svelte.ts';
 
 	const links = [
-		{ href: '/learn', label: 'Learn' },
-		{ href: '/playground', label: 'Playground' },
-		{ href: '/glossary', label: 'Glossary' }
+		{ href: resolve('/learn'), label: 'Learn' },
+		{ href: resolve('/playground'), label: 'Playground' },
+		{ href: resolve('/glossary'), label: 'Glossary' }
 	];
 
 	const path = $derived(page.url.pathname);
@@ -17,7 +18,7 @@
 
 <header class="bar">
 	<div class="left">
-		<a class="brand" href="/">
+		<a class="brand" href={resolve('/')}>
 			<svg width="22" height="22" viewBox="0 0 32 32" fill="none" aria-hidden="true">
 				<circle cx="16" cy="16" r="11" stroke="var(--c-data)" stroke-width="2.5" />
 				<circle cx="16" cy="16" r="3.2" fill="var(--c-data)" />

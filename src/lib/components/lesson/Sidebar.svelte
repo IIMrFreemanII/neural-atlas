@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { tracks, lessonKey, lessonHref } from '../../content/curriculum.ts';
+	import { tracks, lessonKey } from '../../content/curriculum.ts';
+	import { lessonLink } from '../../link.ts';
 	import { progress } from '../../state/progress.svelte.ts';
 	import Icon from '../shell/Icon.svelte';
 
@@ -30,7 +31,7 @@
 							<a
 								class="row"
 								class:current
-								href={lessonHref(l)}
+								href={lessonLink(l)}
 								aria-current={current ? 'page' : undefined}
 							>
 								<span

@@ -1,7 +1,8 @@
 <script lang="ts">
 	import type { Tone } from '../../gpu/types.ts';
 	import type { LessonDef, LessonMeta, Track } from '../../lessons/types.ts';
-	import { lessonHref } from '../../content/curriculum.ts';
+	import { resolve } from '$app/paths';
+	import { lessonLink } from '../../link.ts';
 	import DeepDive from './DeepDive.svelte';
 	import LessonTerms from './LessonTerms.svelte';
 	import Prose from './Prose.svelte';
@@ -91,9 +92,9 @@
 				{stepIndex === stepCount - 1 ? 'Questions' : 'Next'} <span class="key" aria-hidden="true">→</span>
 			</button>
 		{:else if next}
-			<a class="btn primary" href={lessonHref(next)}>Next lesson</a>
+			<a class="btn primary" href={lessonLink(next)}>Next lesson</a>
 		{:else}
-			<a class="btn primary" href="/learn">All lessons</a>
+			<a class="btn primary" href={resolve('/learn')}>All lessons</a>
 		{/if}
 	</footer>
 </aside>

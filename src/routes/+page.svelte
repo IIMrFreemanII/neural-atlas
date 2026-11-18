@@ -1,6 +1,7 @@
 <script lang="ts">
 	import Stage from '#lib/components/lesson/Stage.svelte';
 	import ConstellationMap from '#lib/components/shell/ConstellationMap.svelte';
+	import { resolve } from '$app/paths';
 	import { createHeroScene } from '#lib/lessons/home/hero-scene.ts';
 	import { settings } from '#lib/state/settings.svelte.ts';
 </script>
@@ -19,8 +20,8 @@
 			a time.
 		</p>
 		<div class="actions">
-			<a class="btn primary" href="/learn/fundamentals/neuron">Start with the neuron</a>
-			<a class="btn" href="/learn">Browse all lessons</a>
+			<a class="btn primary" href={resolve('/learn/[track]/[lesson]', { track: 'fundamentals', lesson: 'neuron' })}>Start with the neuron</a>
+			<a class="btn" href={resolve('/learn')}>Browse all lessons</a>
 		</div>
 	</div>
 </section>

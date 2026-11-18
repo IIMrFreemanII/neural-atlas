@@ -1,0 +1,36 @@
+#!/bin/sh
+# Builds the site for GitHub Pages and publishes it: `npm run deploy`.
+#
+# GitHub Pages serves this project at https://<user>.github.io/<repository>/, so the site is built with
+# the repository's name as its base path. The result goes to the `gh-pages` branch of `origin` as a single
+# commit that replaces the previous one (the branch holds build output only, never history worth keeping).
+set -eu
+cd "$(dirname "$0")/.."
+
+if [ -n "$(git status --porcelain)" ]; then
+	echo "There are uncommitted changes. Commit first, so that the published site matches a commit." >&2
+	exit 1
+fi
+
+remote=$(git remote get-url origin)
+repo=$(basename "$remote" .git)
+commit=$(git rev-parse --short HEAD)
+name=$(git config user.name)
+email=$(git config user.email)
+
+BASE_PATH="/$repo" npm run build
+
+# The app is a single page app with one HTML file. GitHub Pages answers every address it has no file for
+# with 404.html, so a copy of the app there makes links straight to a lesson work.
+cp build/index.html build/404.html
+
+out=$(mktemp -d)
+trap 'rm -rf "$out"' EXIT
+cp -R build/. "$out"
+cd "$out"
+git init -q -b gh-pages
+git add -A
+git -c user.name="$name" -c user.email="$email" commit -q -m "Deploy $commit"
+git push -q -f "$remote" gh-pages
+
+echo "Published $commit to the gh-pages branch of $remote"

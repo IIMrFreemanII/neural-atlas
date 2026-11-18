@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { tracks, lessonKey, lessonHref, questionTotal } from '../../content/curriculum.ts';
+	import { tracks, lessonKey, questionTotal } from '../../content/curriculum.ts';
+	import { lessonLink } from '../../link.ts';
 	import { progress } from '../../state/progress.svelte.ts';
 	import QuestionPips from './QuestionPips.svelte';
 </script>
@@ -23,7 +24,7 @@
 					{@const complete = progress.isComplete(lessonKey(l.track, l.id))}
 					<li>
 						{#if l.status === 'ready'}
-							<a class="row" href={lessonHref(l)}>
+							<a class="row" href={lessonLink(l)}>
 								<span class="dot" class:complete></span>
 								<span class="title">{l.title}</span>
 								<span class="side">

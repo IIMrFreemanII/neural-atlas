@@ -1,6 +1,8 @@
 <script lang="ts">
 	import Stage from '../lesson/Stage.svelte';
-	import { allLessons, lessonHref, lessonKey, questionTotal, tracks } from '../../content/curriculum.ts';
+	import { resolve } from '$app/paths';
+	import { allLessons, lessonKey, questionTotal, tracks } from '../../content/curriculum.ts';
+	import { lessonLink } from '../../link.ts';
 	import { MAP_H, MAP_W, TRACK_LABELS, doneMask, nextUp, stars } from '../../content/constellation.ts';
 	import { createConstellationScene } from '../../lessons/home/constellation-scene.ts';
 	import { progress } from '../../state/progress.svelte.ts';
@@ -93,7 +95,7 @@
 			<a
 				class="star {SIDES[s.key] ?? 'below'}"
 				class:complete
-				href={lessonHref(meta)}
+				href={lessonLink(meta)}
 				style:left="{(s.x / MAP_W) * 100}%"
 				style:top="{(s.y / MAP_H) * 100}%"
 				aria-label="{meta.title}, {trackById.get(meta.track)?.title}, {complete
@@ -129,7 +131,7 @@
 		{/if}
 	</div>
 
-	<p class="list-link"><a href="/learn">Browse lessons as a list</a></p>
+	<p class="list-link"><a href={resolve('/learn')}>Browse lessons as a list</a></p>
 </section>
 
 <style>
