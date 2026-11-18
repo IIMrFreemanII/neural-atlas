@@ -1,13 +1,15 @@
 import type { LessonDef } from '../../types.ts';
+import { LM_CONFIG, LM_TRAINING } from '../shared/lm-meta.ts';
 import { createAttentionScene } from './scene.ts';
+import { TRAINED_TEXTS } from './trained.ts';
 
 const lesson: LessonDef = {
 	id: 'attention',
 	track: 'llm',
 	title: 'Self-attention',
 	summary: 'See how every token looks at the other tokens, and how that lets a model work out what a word refers to.',
-	defaults: { sentence: 0, head: 0, causal: 0, sharp: 1, arcs: 1, mech: 0, matrix: 0, token: 8, scenario: 1 },
-	discrete: ['arcs', 'mech', 'matrix', 'token', 'scenario'],
+	defaults: { sentence: 0, head: 0, causal: 0, sharp: 1, arcs: 1, mech: 0, matrix: 0, token: 8, scenario: 1, trained: 0, tsentence: 0, tblock: 0, thead: 0 },
+	discrete: ['arcs', 'mech', 'matrix', 'token', 'scenario', 'trained', 'tsentence', 'tblock', 'thead'],
 	controls: [
 		{
 			kind: 'select',
@@ -27,6 +29,25 @@ const lesson: LessonDef = {
 				{ value: 1, label: 'Previous word' },
 				{ value: 2, label: 'Same word' }
 			]
+		},
+		{
+			kind: 'select',
+			key: 'tsentence',
+			label: 'Sentence',
+			// The chips show the whole sentence, so the buttons only need its first words.
+			options: TRAINED_TEXTS.map((text, value) => ({ value, label: `${text.split(' ').slice(0, 3).join(' ')} ...` }))
+		},
+		{
+			kind: 'select',
+			key: 'tblock',
+			label: 'Block',
+			options: [0, 1, 2, 3].map((value) => ({ value, label: String(value + 1) }))
+		},
+		{
+			kind: 'select',
+			key: 'thead',
+			label: 'Head',
+			options: [0, 1, 2, 3].map((value) => ({ value, label: String(value + 1) }))
 		},
 		{ kind: 'toggle', key: 'causal', label: 'Hide later words' },
 		{ kind: 'slider', key: 'sharp', label: 'Sharpness', min: 0.25, max: 3, step: 0.05, tone: 'data', digits: 2 }
@@ -97,7 +118,7 @@ const lesson: LessonDef = {
 			params: { scenario: 7, matrix: 1, head: 1, token: 4 },
 			controls: ['head', 'sentence'],
 			deepDive: {
-				note: 'The toy uses whole words as tokens so the grid is easy to read. Real models use subword tokens. The three heads here were designed by hand. In a trained model the heads are found by training, and most of them do jobs that are harder to name.'
+				note: 'The toy uses whole words as tokens so the grid is easy to read. Real models use subword tokens. The three heads here were designed by hand. In a trained model the heads are found by training, and most of them do jobs that are harder to name. The last step shows the heads of a real trained model.'
 			}
 		},
 		{
@@ -105,6 +126,15 @@ const lesson: LessonDef = {
 			body: 'A model that predicts the next token must not see it. So each token may only look at itself and earlier tokens, and the upper triangle goes dark.\n\nTurn **Hide later words** on and off and see how the rows change.',
 			params: { scenario: 8, matrix: 1, head: 0, causal: 1, token: 8 },
 			controls: ['causal', 'head']
+		},
+		{
+			title: 'What training finds',
+			body: `These grids are not hand-made. They come from a small transformer that was trained on children's stories to predict the next word. Nobody designed its heads. It has ${LM_CONFIG.layers} blocks with ${LM_CONFIG.heads} heads each. Pick a **Block** and a **Head**, then follow a row.\n\nBlock 2, head 3 looks back at who the sentence is about: "he" looks at "tom". Switch to head 1: \"his\" and \"ball\" look at the latest verb, \"lost\". Block 1, head 1 mostly looks at the word just before. Many other heads have no job you can put a name to, and that is normal. Each token only looks back, because the model was trained to predict what comes next.`,
+			params: { scenario: 9, trained: 1, matrix: 1, tsentence: 1, tblock: 1, thead: 2, token: 5 },
+			controls: ['tsentence', 'tblock', 'thead'],
+			deepDive: {
+				note: `The model is a decoder-only transformer with ${LM_CONFIG.layers} blocks of ${LM_CONFIG.heads} heads, vectors of ${LM_CONFIG.d} numbers and about ${Math.round(LM_TRAINING.parameters / 1000)} thousand weights. It was trained on TinyStories, ${LM_TRAINING.stories.toLocaleString('en-US')} short stories written for young children. Its tokens are whole words, from a vocabulary of ${LM_CONFIG.vocab.toLocaleString('en-US')} entries, so every chip is one word or one punctuation mark.`
+			}
 		}
 	],
 	createScene: createAttentionScene

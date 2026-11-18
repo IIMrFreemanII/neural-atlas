@@ -23,12 +23,13 @@ const POSITIONS: Record<string, [x: number, y: number]> = {
 	'fundamentals/gradient-descent': [530, 350],
 	'fundamentals/backpropagation': [635, 360],
 	'fundamentals/train-a-network': [645, 275],
-	// A zigzag in the upper right, ending toward the middle.
+	// A zigzag in the upper right, ending above the dipper.
 	'llm/tokenization': [930, 75],
 	'llm/embeddings': [850, 120],
 	'llm/attention': [915, 195],
 	'llm/transformer-block': [790, 210],
 	'llm/sampling': [745, 100],
+	'llm/training': [655, 165],
 	// A shallow arc along the bottom.
 	'vision/convolution': [390, 445],
 	'vision/cnn-features': [760, 395],

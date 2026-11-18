@@ -19,6 +19,7 @@
 		'fundamentals/train-a-network': 'right',
 		'fundamentals/neuron': 'left',
 		'llm/sampling': 'left',
+		'llm/training': 'right',
 		'llm/tokenization': 'above',
 		'llm/embeddings': 'right',
 		'vision/cnn-features': 'right'

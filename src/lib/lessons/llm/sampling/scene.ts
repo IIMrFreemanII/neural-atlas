@@ -4,13 +4,14 @@ import { Lines } from '../../../gpu/primitives/lines.ts';
 import { Points } from '../../../gpu/primitives/points.ts';
 import { Quads } from '../../../gpu/primitives/quads.ts';
 import type { Label, Scene, SceneContext, SceneFactory, Tone } from '../../../gpu/types.ts';
-import { nextLogits } from '../../../ml/ngram.ts';
 import { mulberry32 } from '../../../ml/rng.ts';
 import { distribution, sampleIndex } from '../../../ml/sampling.ts';
 import { softmax } from '../../../ml/vec.ts';
 import { fitCamera, lessonInsets, type WorldRect } from '../../fit.ts';
-import { layoutChips, pxPerWorld, showToken, textWidthPx } from '../shared/chips.ts';
-import { MODEL, promptIds } from './data.ts';
+import { layoutChips, pxPerWorld, textWidthPx } from '../shared/chips.ts';
+import { END } from '../../../ml/wordtok.ts';
+import { loadLm, type Lm } from '../shared/lm.ts';
+import { nextScores, promptIds, tokenText } from './data.ts';
 
 const WORLD: WorldRect = { x0: -2.6, x1: 2.6, y0: -2.1, y1: 2.1 };
 
@@ -72,6 +73,7 @@ interface Pick {
 
 export const createSamplingScene: SceneFactory = () => {
 	let ctx: SceneContext;
+	let lm: Lm;
 	let camera: Camera2D;
 	let quads: Quads;
 	let lines: Lines;
@@ -88,8 +90,8 @@ export const createSamplingScene: SceneFactory = () => {
 	let hl: Tone | null = null;
 
 	// state
-	let tokens: number[] = promptIds(0);
-	let promptLen = tokens.length;
+	let tokens: number[] = [];
+	let promptLen = 0;
 	let generated = 0;
 	let seedCount = 0;
 	let rand = mulberry32(1);
@@ -126,7 +128,7 @@ export const createSamplingScene: SceneFactory = () => {
 	const mul = (t: Tone) => (hl === null || hl === t ? 1 : 0.3);
 
 	function recomputeLogits() {
-		logits = nextLogits(MODEL, tokens);
+		logits = nextScores(lm, tokens);
 		order = Array.from({ length: logits.length }, (_, i) => i);
 		order.sort((a, b) => logits[b] - logits[a] || a - b);
 		refreshTargets();
@@ -154,9 +156,9 @@ export const createSamplingScene: SceneFactory = () => {
 			tPre[r] = sum(pre, r);
 			tFinal[r] = sum(probs, r);
 			tCut[r] = tFinal[r] <= 0 && tPre[r] > 0 ? 1 : 0;
-			rowNames[r] = r < SHOWN ? showToken(MODEL.vocab[order[r]]) : `all ${Math.max(0, V - SHOWN)} others`;
+			rowNames[r] = r < SHOWN ? tokenText(lm, order[r]) : `all ${Math.max(0, V - SHOWN)} others`;
 		}
-		topText = `${showToken(MODEL.vocab[best])} ${percent(probs[best]).replace('<1%', '1%')}`;
+		topText = `${tokenText(lm, best)} ${percent(probs[best]).replace('<1%', '1%')}`;
 		dirty = true;
 	}
 
@@ -169,7 +171,7 @@ export const createSamplingScene: SceneFactory = () => {
 		pick = null;
 		needleFade = 0;
 		generated = 0;
-		tokens = promptIds(prompt);
+		tokens = promptIds(lm, prompt);
 		promptLen = tokens.length;
 		recomputeLogits();
 	}
@@ -199,6 +201,7 @@ export const createSamplingScene: SceneFactory = () => {
 	function append(id: number) {
 		tokens = [...tokens, id];
 		generated++;
+		if (id === END) running = false;
 		recomputeLogits();
 	}
 
@@ -229,7 +232,7 @@ export const createSamplingScene: SceneFactory = () => {
 		const ids = extra === null ? tokens : [...tokens, extra];
 		let start = 0;
 		for (;;) {
-			const texts = (start > 0 ? ['…'] : []).concat(ids.slice(start).map((i) => MODEL.vocab[i]));
+			const texts = (start > 0 ? ['…'] : []).concat(ids.slice(start).map((i) => lm.vocab.words[i]));
 			const boxes = layoutChips(texts, {
 				x0: TEXT_X0,
 				x1: TEXT_X1,
@@ -448,7 +451,7 @@ export const createSamplingScene: SceneFactory = () => {
 				const target = textLayout(ppw, pick.id);
 				const end = target[target.length - 1].box;
 				const k = easeInOut(tt);
-				const text = showToken(MODEL.vocab[pick.id]);
+				const text = tokenText(lm, pick.id);
 				const w = Math.max(textWidthPx(text, CHIP_FONT), textWidthPx('..', CHIP_FONT)) + 12;
 				const ww = w / ppw;
 				const sx = TOKEN_X - ww / 2 - 0.05;
@@ -471,8 +474,9 @@ export const createSamplingScene: SceneFactory = () => {
 	}
 
 	const scene: Scene = {
-		init(c) {
+		async init(c) {
 			ctx = c;
+			lm = await loadLm();
 			camera = new Camera2D();
 			quads = new Quads(c, { capacity: 220, blend: 'alpha' });
 			lines = new Lines(c, { capacity: 24, blend: 'alpha' });

@@ -38,7 +38,7 @@ const entries: GlossaryEntry[] = [
 		term: 'Adam',
 		definition:
 			'An optimizer that keeps a running velocity like momentum and also scales each weight\'s step by how large its recent gradients were.',
-		lessons: ['fundamentals/gradient-descent'],
+		lessons: ['fundamentals/gradient-descent', 'llm/training'],
 		related: ['optimizer', 'momentum']
 	},
 	{
@@ -56,8 +56,16 @@ const entries: GlossaryEntry[] = [
 		aliases: ['backprop', 'backward pass'],
 		definition:
 			'The method that finds the gradient of every weight in one backward sweep, passing each neuron\'s share of the blame from the output back toward the inputs.',
-		lessons: ['fundamentals/backpropagation', 'fundamentals/train-a-network'],
+		lessons: ['fundamentals/backpropagation', 'fundamentals/train-a-network', 'llm/training'],
 		related: ['chain-rule', 'gradient', 'forward-pass']
+	},
+	{
+		id: 'batch',
+		term: 'batch',
+		definition:
+			'A group of training examples used together in one training step. The loss and the gradients are averaged over the batch, which gives a steadier nudge than a single example.',
+		lessons: ['llm/training'],
+		related: ['training', 'gradient-descent']
 	},
 	{
 		id: 'bias',
@@ -121,6 +129,14 @@ const entries: GlossaryEntry[] = [
 		related: ['pixel', 'convolution']
 	},
 	{
+		id: 'checkpoint',
+		term: 'checkpoint',
+		definition:
+			'A saved copy of a model\'s weights at one moment of training. Comparing checkpoints from different steps shows how the model changed while it learned.',
+		lessons: ['llm/training'],
+		related: ['training', 'weight']
+	},
+	{
 		id: 'classification',
 		term: 'classification',
 		aliases: ['classifier', 'class'],
@@ -171,7 +187,7 @@ const entries: GlossaryEntry[] = [
 		definition:
 			'A loss for classifiers. It is small when the model gives a high probability to the correct class and large when it gives that class a low probability.',
 		tone: 'grad',
-		lessons: ['classic-ml/decision-boundaries'],
+		lessons: ['classic-ml/decision-boundaries', 'llm/training'],
 		related: ['loss', 'logistic-regression']
 	},
 	{
@@ -290,7 +306,8 @@ const entries: GlossaryEntry[] = [
 			'fundamentals/gradient-descent',
 			'fundamentals/backpropagation',
 			'classic-ml/linear-regression',
-			'fundamentals/train-a-network'
+			'fundamentals/train-a-network',
+			'llm/training'
 		],
 		related: ['gradient', 'learning-rate', 'optimizer']
 	},
@@ -299,7 +316,7 @@ const entries: GlossaryEntry[] = [
 		term: 'greedy decoding',
 		definition:
 			'Always picking the most likely next token. The text is predictable, but it often falls into a loop and repeats itself.',
-		lessons: ['llm/sampling'],
+		lessons: ['llm/sampling', 'llm/training'],
 		related: ['sampling', 'temperature']
 	},
 	{
@@ -367,7 +384,7 @@ const entries: GlossaryEntry[] = [
 		term: 'language model',
 		definition:
 			'A model that gives a probability to every possible next token, given the text so far. Chat models write by picking from these probabilities one token at a time.',
-		lessons: ['llm/tokenization', 'llm/sampling', 'llm/transformer-block'],
+		lessons: ['llm/tokenization', 'llm/sampling', 'llm/transformer-block', 'llm/training'],
 		related: ['token', 'sampling', 'transformer']
 	},
 	{
@@ -403,7 +420,8 @@ const entries: GlossaryEntry[] = [
 		lessons: [
 			'fundamentals/backpropagation',
 			'fundamentals/gradient-descent',
-			'fundamentals/train-a-network'
+			'fundamentals/train-a-network',
+			'llm/training'
 		],
 		related: ['gradient-descent', 'optimizer']
 	},
@@ -461,7 +479,8 @@ const entries: GlossaryEntry[] = [
 			'fundamentals/gradient-descent',
 			'fundamentals/backpropagation',
 			'fundamentals/train-a-network',
-			'classic-ml/decision-boundaries'
+			'classic-ml/decision-boundaries',
+			'llm/training'
 		],
 		related: ['mean-squared-error', 'loss-landscape', 'error']
 	},
@@ -569,7 +588,7 @@ const entries: GlossaryEntry[] = [
 		aliases: ['overfit'],
 		definition:
 			'When a model is so flexible that it chases the noise in its training data. Its training error is low, but it does badly on data it has not seen.',
-		lessons: ['classic-ml/overfitting', 'classic-ml/decision-boundaries'],
+		lessons: ['classic-ml/overfitting', 'classic-ml/decision-boundaries', 'llm/training'],
 		related: ['underfitting', 'test-set', 'model-complexity']
 	},
 	{
@@ -598,6 +617,14 @@ const entries: GlossaryEntry[] = [
 			'An extra cost for large coefficients that keeps a fitted curve smooth. It is one way to fight overfitting without collecting more data.',
 		lessons: ['classic-ml/overfitting'],
 		related: ['overfitting', 'model-complexity']
+	},
+	{
+		id: 'perplexity',
+		term: 'perplexity',
+		definition:
+			'A language model\'s loss written as a number of choices: e raised to the loss. A model with a perplexity of 12 is as unsure as someone choosing evenly among 12 tokens.',
+		lessons: ['llm/training'],
+		related: ['loss', 'cross-entropy', 'language-model']
 	},
 	{
 		id: 'pixel',
@@ -675,7 +702,7 @@ const entries: GlossaryEntry[] = [
 		term: 'sampling',
 		definition:
 			'Picking from a set of options at random, with each chance set by its probability. A model that samples its next token can give a different text on every run.',
-		lessons: ['llm/sampling', 'vision/diffusion'],
+		lessons: ['llm/sampling', 'vision/diffusion', 'llm/training'],
 		related: ['temperature', 'top-k', 'greedy-decoding']
 	},
 	{
@@ -763,7 +790,7 @@ const entries: GlossaryEntry[] = [
 		definition:
 			'Examples kept out of the fitting and used only to check how a model does on data it has never seen. The error on them is the test error.',
 		tone: 'ok',
-		lessons: ['classic-ml/overfitting'],
+		lessons: ['classic-ml/overfitting', 'llm/training'],
 		related: ['training-set', 'overfitting']
 	},
 	{
@@ -776,7 +803,8 @@ const entries: GlossaryEntry[] = [
 			'llm/embeddings',
 			'llm/attention',
 			'llm/transformer-block',
-			'llm/sampling'
+			'llm/sampling',
+			'llm/training'
 		],
 		related: ['tokenization', 'vocabulary', 'embedding']
 	},
@@ -817,7 +845,8 @@ const entries: GlossaryEntry[] = [
 			'fundamentals/loss-landscape',
 			'fundamentals/gradient-descent',
 			'fundamentals/backpropagation',
-			'fundamentals/train-a-network'
+			'fundamentals/train-a-network',
+			'llm/training'
 		],
 		related: ['gradient-descent', 'loss', 'backpropagation']
 	},
@@ -887,7 +916,7 @@ const entries: GlossaryEntry[] = [
 		term: 'vocabulary',
 		definition:
 			'The set of all tokens a model knows, each with an ID. When the model predicts what comes next, it gives a probability to every one of them.',
-		lessons: ['llm/tokenization', 'llm/sampling', 'llm/transformer-block'],
+		lessons: ['llm/tokenization', 'llm/sampling', 'llm/transformer-block', 'llm/training'],
 		related: ['token', 'tokenization']
 	},
 	{
@@ -907,7 +936,8 @@ const entries: GlossaryEntry[] = [
 			'fundamentals/train-a-network',
 			'llm/attention',
 			'llm/transformer-block',
-			'vision/convolution'
+			'vision/convolution',
+			'llm/training'
 		],
 		related: ['bias', 'neuron', 'parameter']
 	}

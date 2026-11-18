@@ -28,10 +28,11 @@ const lesson: LessonDef = {
 			label: 'Direction',
 			options: [
 				{ value: 0, label: 'None' },
-				{ value: 1, label: 'Man to woman' },
-				{ value: 2, label: 'Country to capital' },
-				{ value: 3, label: 'Present to past' },
-				{ value: 4, label: 'Adult to young' }
+				{ value: 1, label: 'To woman' },
+				{ value: 2, label: 'To capital' },
+				{ value: 3, label: 'To past' },
+				{ value: 4, label: 'To young' },
+				{ value: 5, label: 'To bigger' }
 			]
 		},
 		{
@@ -42,7 +43,8 @@ const lesson: LessonDef = {
 				{ value: 0, label: 'royalty' },
 				{ value: 1, label: 'capitals' },
 				{ value: 2, label: 'verbs' },
-				{ value: 3, label: 'animals' }
+				{ value: 3, label: 'animals' },
+				{ value: 4, label: 'a miss' }
 			]
 		},
 		{ kind: 'action', id: 'play', label: 'Play', icon: 'play' },
@@ -63,19 +65,19 @@ const lesson: LessonDef = {
 	steps: [
 		{
 			title: 'A token ID means nothing by itself',
-			body: 'A token ID is just a row number. The model looks that row up in a table and gets a vector: a list of numbers, 10 here, shown in the panel as a strip of cells.\n\nEach dot is one word, placed by its vector. The numbers were set by hand so the pattern is easy to read. A real model learns them from text. Hover and click dots.',
+			body: 'A token ID is just a row number. The model looks that row up in a table and gets a vector: a list of numbers, 100 here, shown in the panel as a grid of cells.\n\nEach dot is one word, placed by its vector. These are real GloVe vectors, learned from Wikipedia and news text by counting which words appear near which. Only 74 words are shown. Hover and click dots.',
 			params: { colors: 0, word: CAT },
 			controls: ['spin']
 		},
 		{
 			title: 'Similar words land close together',
-			body: 'Now color shows the kind of word: [[param:people]], [[ok:animals]], [[grad:food]], [[data:places]], [[neg:actions]] and [[text:sizes]].\n\nNobody told the layout what the kinds are. Words that mean similar things simply have similar numbers, so they sit near each other.',
+			body: 'Now color shows the kind of word: [[param:people]], [[ok:animals]], [[grad:food]], [[data:places]], [[neg:actions]] and [[text:sizes]].\n\nNobody told the layout what the kinds are. Words that mean similar things simply have similar numbers, so they sit near each other. The colors are ours: the vectors never saw them, and a few words sit between kinds.',
 			params: { colors: 1 },
 			controls: ['spin']
 		},
 		{
 			title: 'Nearest neighbors',
-			body: 'Lines reach from the selected word to its closest [[data:neighbors]]. Slide **Neighbors** to show more of them, and click any dot to ask the same question about another word.\n\nCloseness is measured by the angle between two vectors, not by distance on screen.',
+			body: 'Lines reach from the selected word to its closest [[data:neighbors]]. Slide **Neighbors** to show more of them, and click any dot to ask the same question about another word. Only the 74 words shown are searched.\n\nCloseness is measured by the angle between two vectors, not by distance on screen.',
 			params: { word: CAT, neighbors: 5 },
 			controls: ['neighbors', 'spin'],
 			deepDive: {
@@ -90,13 +92,13 @@ const lesson: LessonDef = {
 		},
 		{
 			title: 'Directions carry meaning',
-			body: 'Pick a **Direction**. Every arrow from a male word to its female partner points the same way and has about the same length, so "more female" is a direction in this space.\n\nTry the other directions: country to capital, present to past, adult to young.',
+			body: 'Pick a **Direction**. The arrows from a male word to its female partner mostly point the same way, so "more female" is roughly a direction in this space. They are not identical: in all 100 numbers they mostly agree, but this 3D picture flattens some of them, so a few look short or tilted.\n\nTry the other directions: country to capital, present to past, adult to young, big to bigger.',
 			params: { word: indexOf('man'), relation: 1 },
 			controls: ['relation', 'spin']
 		},
 		{
 			title: 'Arithmetic on meaning',
-			body: 'Take [[param:king]], subtract man, add woman, and you land next to [[ok:queen]]. The [[param:arrows]] show the same step being copied from one pair of words to another.\n\nPress **Play**, then pick another **Analogy**.',
+			body: 'Take [[param:king]], subtract man, add woman, and you land close to [[ok:queen]], the nearest of the 74 words. It is a close call, not an exact hit. The [[param:arrows]] show the same step being copied from one pair of words to another.\n\nPress **Play**, then pick another **Analogy**. The last one, man is to boy as king is to ?, misses: it lands on queen, not prince. That is normal for real vectors. They are noisy, and some relations are weaker than others.',
 			params: { word: indexOf('queen'), analogy: 0, showAnalogy: 1 },
 			controls: ['play', 'analogy'],
 			deepDive: {
@@ -110,11 +112,11 @@ const lesson: LessonDef = {
 		},
 		{
 			title: 'A shadow of a bigger space',
-			body: 'The picture shows 3 directions, chosen to keep as much of the spread as possible. Each word really has 10 numbers here, and a real model uses hundreds or thousands.\n\nNeighbors are found with all 10, which is why a line sometimes reaches past a dot that looks closer.',
+			body: 'The picture shows 3 directions, chosen to keep as much of the spread as possible. They keep only about a third of it. Each word really has 100 numbers, and bigger models use more.\n\nNeighbors are found with all 100, which is why a line sometimes reaches past a dot that looks closer.',
 			params: { word: CAT, neighbors: 5 },
 			controls: ['neighbors', 'spin'],
 			deepDive: {
-				note: 'The 3D picture is a principal component analysis. It centers all the vectors, finds the 3 directions along which they vary the most (the top eigenvectors of their covariance matrix), and reports each word\'s coordinates along them. The picture keeps about 79% of the total variance in this table; the rest is flattened away.'
+				note: 'The 3D picture is a principal component analysis. It centers all the vectors, finds the 3 directions along which they vary the most (the top eigenvectors of their covariance matrix), and reports each word\'s coordinates along them. The picture keeps about a third (33%) of the total variance in this table; the rest is flattened away.'
 			}
 		},
 		{

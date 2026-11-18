@@ -5,12 +5,12 @@ const lesson: LessonDef = {
 	id: 'transformer-block',
 	track: 'llm',
 	title: 'Inside a transformer block',
-	summary: 'Follow one block step by step: normalize, attention, add, feed-forward, add. Then stack many of them.',
+	summary: 'Follow one block of a small trained transformer step by step: normalize, attention, add, feed-forward, add. Then stack four of them.',
 	defaults: { focus: 1, depth: 1, zoom: 0, column: 4, scenario: 1 },
 	discrete: ['focus', 'column', 'scenario'],
 	controls: [
 		{ kind: 'action', id: 'play', label: 'Send the tokens through', icon: 'play' },
-		{ kind: 'slider', key: 'depth', label: 'Blocks', min: 1, max: 12, step: 1, tone: 'param', digits: 0 }
+		{ kind: 'slider', key: 'depth', label: 'Blocks', min: 1, max: 4, step: 1, tone: 'param', digits: 0 }
 	],
 	readouts: [
 		{ key: 'inspect', label: 'Inspecting' }
@@ -23,13 +23,13 @@ const lesson: LessonDef = {
 	steps: [
 		{
 			title: 'One lane per token',
-			body: 'Each token of "the cat sat on the" gets its own lane. Its [[data:vector]] of 8 numbers travels up the lane. This running vector is called the residual stream, and a block reads it and writes small changes back.\n\nThe weights here are random, so the numbers are real arithmetic but carry no meaning. A real model learns them from text. Click a lane to inspect it, then press **Send the tokens through**.',
+			body: 'Each token of "she loved to play with" gets its own lane. Its [[data:vector]] of 64 numbers travels up the lane, drawn as an 8 by 8 tile of cells: cyan for positive numbers, rose for negative, brighter for larger. This running vector is called the residual stream, and a block reads it and writes small changes back.\n\nThese are the real weights of a small transformer trained on simple children\'s stories. Click a lane to inspect it, then press **Send the tokens through**.',
 			params: { focus: 1, zoom: 0, scenario: 1 },
 			controls: ['play']
 		},
 		{
 			title: 'Attention moves information between lanes',
-			body: '[[param:Self-attention]] is the only place where tokens talk to each other. Each token gathers from itself and the tokens before it, and the [[data:arcs]] show how much from each. This is the attention from the previous lesson, with a single head.\n\nClick different lanes. The first token can only look at itself.',
+			body: '[[param:Self-attention]] is the only place where tokens talk to each other. Each token gathers from itself and the tokens before it, and the [[data:arcs]] show how much from each. This is the attention from the previous lesson. This block has 4 heads, and the arcs show their average.\n\nClick different lanes. The first token can only look at itself.',
 			params: { focus: 2, zoom: 0, scenario: 2 },
 			controls: ['play']
 		},
@@ -45,7 +45,7 @@ const lesson: LessonDef = {
 		},
 		{
 			title: 'The feed-forward layer thinks about each token alone',
-			body: 'The [[param:feed-forward layer]] stretches each lane\'s vector to 4 times as many numbers, passes them through a nonlinearity, and squeezes them back to 8. The result is an [[ok:update]] to add.\n\nNo information moves between lanes here. Every token is handled on its own.',
+			body: 'The [[param:feed-forward layer]] stretches each lane\'s vector to 4 times as many numbers (256), passes them through a nonlinearity, and squeezes them back to 64. The result is an [[ok:update]] to add.\n\nNo information moves between lanes here. Every token is handled on its own.',
 			params: { focus: 4, zoom: 0, scenario: 4 },
 			controls: [],
 			deepDive: {
@@ -57,28 +57,28 @@ const lesson: LessonDef = {
 		},
 		{
 			title: 'Normalize first',
-			body: 'Before each layer, the vector is rescaled to mean 0 and spread 1. That keeps the numbers in a workable range, however deep the stack gets.\n\nCompare the **before** and **after** bars for the lane you picked. The ups and downs keep their order. Only the center and the scale change.',
+			body: 'Before each layer, the vector is rescaled to mean 0 and spread 1. That keeps the numbers in a workable range, however deep the stack gets.\n\nCompare the **before** and **after** bars for the lane you picked, each drawn to fill its box. The ups and downs keep their order. Only the center and the scale change, and the spread numbers show by how much.',
 			params: { focus: 5, zoom: 0, scenario: 5 },
 			controls: [],
 			deepDive: {
 				math: [
 					{
 						tex: '\\mathrm{LayerNorm}(x)_i = \\dfrac{x_i - \\mu}{\\sqrt{\\sigma^2 + \\epsilon}}, \\quad \\mu = \\tfrac{1}{d}\\sum_i x_i, \\quad \\sigma^2 = \\tfrac{1}{d}\\sum_i (x_i - \\mu)^2',
-						caption: 'This toy version has no learned gain or bias.'
+						caption: 'In this model, layer norm has no learned gain or bias, and a token is a whole word.'
 					}
 				]
 			}
 		},
 		{
-			title: 'Stack the same block many times',
-			body: 'A model repeats this same structure, with different [[param:weights]] in every block. Each block reads the [[data:stream]] left by the one below and refines it. GPT-2 small stacks 12 blocks, and large models stack dozens.\n\nDrag **Blocks** and watch the top vectors change.',
-			params: { focus: 6, zoom: 1, depth: 4, scenario: 6 },
+			title: 'Stack the same block several times',
+			body: 'A model repeats this same structure, with different [[param:weights]] in every block. Each block reads the [[data:stream]] left by the one below and refines it. This model stacks 4 blocks. GPT-2 small stacks 12, and large models stack dozens.\n\nDrag **Blocks** from 1 to 4 and watch the top vectors change.',
+			params: { focus: 6, zoom: 1, depth: 2, scenario: 6 },
 			controls: ['depth', 'play']
 		},
 		{
 			title: 'Back to words',
-			body: 'At the top, the vector of the last lane is compared against every word the model knows. That gives a probability for each possible [[data:next token]].\n\nIn this toy the output weights were set by hand so the answer is sensible, and it gets surer as the stack gets taller. The next lesson is about choosing from these probabilities.',
-			params: { focus: 7, zoom: 1, depth: 12, scenario: 7 },
+			body: 'At the top, the vector of the last lane is compared against the vector of every word the model knows (2,048 here). The best matches are the likely [[data:next tokens]]. The bars show the model\'s own probabilities for its 8 likeliest words, and the text under them gives the share of all other words.\n\nDrag **Blocks** down to 1. With fewer blocks you read the stream early, which the model was not trained for, and its first guess is "his", a word that often follows "play with" in its stories. Only the full stack settles on "her", the word that fits "she". The next lesson is about choosing from these probabilities.',
+			params: { focus: 7, zoom: 1, depth: 4, scenario: 7 },
 			controls: ['depth', 'play'],
 			deepDive: {
 				note: 'The last lane\'s final vector is normalized, multiplied by one matrix that has a row per vocabulary word, and turned into probabilities with a softmax.',

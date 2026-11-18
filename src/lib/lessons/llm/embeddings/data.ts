@@ -1,21 +1,18 @@
 import type { Tone } from '../../../gpu/types.ts';
 import { pca3, nearest, analogy } from '../../../ml/embedding.ts';
-import { gaussian, mulberry32 } from '../../../ml/rng.ts';
 import type { Mat, Vec } from '../../../ml/vec.ts';
+import { GLOVE, GLOVE_DIM } from './vectors.ts';
+import { SPEC, WORD_LIST } from './words.ts';
+
+export { WORD_LIST };
 
 /**
- * A hand-built embedding table. Nothing here was learned from text: each vector is a category centroid,
- * plus a base vector shared by words that are "the same thing", plus a few fixed attribute directions
- * (female, royal, young, capital, past, more), plus a little noise.
+ * Real GloVe word vectors (Pennington, Socher and Manning, 2014), "glove-wiki-gigaword-100": 100 numbers per
+ * word, learned from Wikipedia and news text by counting which words appear near which. This file keeps the
+ * 74 words the lesson shows, with the published numbers unchanged (see vectors.ts). Nothing here is tuned: the
+ * vectors are used raw, and the clusters, directions and analogy answers are whatever the data gives.
  */
-export const D = 10;
-export const SEED = 7;
-const CENTROID = 1.3;
-const BASE_SD = 0.32;
-const ATTR_LEN = 0.75;
-const ATTR_SPLIT: [number, number] = [0.75, 0.65];
-const ATTR_COEF = 0.5;
-const NOISE_SD = 0.04;
+export const D = GLOVE_DIM;
 
 export const CATEGORIES: { name: string; tone: Tone }[] = [
 	{ name: 'People', tone: 'param' },
@@ -26,91 +23,9 @@ export const CATEGORIES: { name: string; tone: Tone }[] = [
 	{ name: 'Sizes', tone: 'text' }
 ];
 
-/** Words by category. A group of words separated by '/' shares one base vector. */
-const SPEC: string[][] = [
-	[
-		'man/woman/boy/girl',
-		'king/queen/prince/princess',
-		'father/mother',
-		'uncle/aunt',
-		'brother/sister',
-		'actor/actress'
-	],
-	['cat/kitten', 'dog/puppy', 'lion', 'tiger', 'horse', 'cow', 'wolf', 'mouse', 'bird', 'fish'],
-	['apple', 'bread', 'cheese', 'rice', 'pizza', 'soup', 'cake', 'banana', 'coffee', 'tea'],
-	['france/paris', 'italy/rome', 'japan/tokyo', 'spain/madrid', 'egypt/cairo', 'germany/berlin'],
-	['walk/walked', 'run/ran', 'jump/jumped', 'eat/ate', 'sing/sang', 'swim/swam'],
-	['big/bigger', 'small/smaller', 'fast/faster', 'slow/slower', 'cold/colder', 'hot/hotter']
-];
-
-const FEMALE = ['woman', 'girl', 'queen', 'princess', 'mother', 'aunt', 'sister', 'actress'];
-const MALE = ['man', 'boy', 'king', 'prince', 'father', 'uncle', 'brother', 'actor'];
-const ROYAL = ['king', 'queen', 'prince', 'princess'];
-const YOUNG = ['boy', 'girl', 'prince', 'princess', 'kitten', 'puppy'];
-const CAPITAL = ['paris', 'rome', 'tokyo', 'madrid', 'cairo', 'berlin'];
-const PAST = ['walked', 'ran', 'jumped', 'ate', 'sang', 'swam'];
-const MORE = ['bigger', 'smaller', 'faster', 'slower', 'colder', 'hotter'];
-
-/** Category order in the octahedron: +/-1.3 along dimension 0, 1, 2. */
-const VERTICES: [number, number][] = [
-	[0, 1],
-	[0, -1],
-	[1, 1],
-	[1, -1],
-	[2, 1],
-	[2, -1]
-];
-
-function unit(rand: () => number, from: number, to: number): Vec {
-	const v = new Array<number>(D).fill(0);
-	let s = 0;
-	for (let i = from; i < to; i++) {
-		v[i] = gaussian(rand);
-		s += v[i] * v[i];
-	}
-	const n = Math.sqrt(s);
-	return v.map((x) => x / n);
-}
-
-function build(seed: number): { word: string; category: number; vec: Vec }[] {
-	const rand = mulberry32(seed);
-	const centroids: Vec[] = VERTICES.map(([dim, sign]) => {
-		const c = new Array<number>(D).fill(0);
-		c[dim] = sign * CENTROID;
-		return c;
-	});
-	const attr = (): Vec => {
-		const a = unit(rand, 0, 3);
-		const b = unit(rand, 3, D);
-		const mix = a.map((x, i) => ATTR_SPLIT[0] * x + ATTR_SPLIT[1] * b[i]);
-		const len = Math.hypot(...mix);
-		return mix.map((x) => (ATTR_LEN * x) / len);
-	};
-	const dirs = { female: attr(), royal: attr(), young: attr(), capital: attr(), past: attr(), more: attr() };
-
-	const out: { word: string; category: number; vec: Vec }[] = [];
-	SPEC.forEach((groups, category) => {
-		for (const group of groups) {
-			const base = Array.from({ length: D }, () => BASE_SD * gaussian(rand));
-			for (const word of group.split('/')) {
-				const vec = centroids[category].map((c, i) => c + base[i]);
-				const add = (dir: Vec, k: number) => dir.forEach((x, i) => (vec[i] += k * x));
-				if (FEMALE.includes(word)) add(dirs.female, ATTR_COEF);
-				if (MALE.includes(word)) add(dirs.female, -ATTR_COEF);
-				if (ROYAL.includes(word)) add(dirs.royal, 1);
-				if (YOUNG.includes(word)) add(dirs.young, 1);
-				if (CAPITAL.includes(word)) add(dirs.capital, 1);
-				if (PAST.includes(word)) add(dirs.past, 1);
-				if (MORE.includes(word)) add(dirs.more, 1);
-				for (let i = 0; i < D; i++) vec[i] += NOISE_SD * gaussian(rand);
-				out.push({ word, category, vec });
-			}
-		}
-	});
-	return out;
-}
-
-export const WORDS: { word: string; category: number; vec: Vec }[] = build(SEED);
+export const WORDS: { word: string; category: number; vec: Vec }[] = SPEC.flatMap((groups, category) =>
+	groups.flatMap((g) => g.split('/')).map((word) => ({ word, category, vec: GLOVE[word] }))
+);
 export const VECTORS: Mat = WORDS.map((w) => w.vec);
 
 export function indexOf(word: string): number {
@@ -128,7 +43,7 @@ export const POINTS: Mat = pca.points.map((p) => p.map((x) => x * SCALE));
 export const EXPLAINED = pca.explained[0] + pca.explained[1] + pca.explained[2];
 export const PCA_EXPLAINED = pca.explained;
 
-/** Put any 10-number vector (for example the result of an analogy) at its place in the 3D picture. */
+/** Put any 100-number vector (for example the result of an analogy) at its place in the 3D picture. */
 export function project3D(v: Vec): [number, number, number] {
 	const c = v.map((x, i) => x - pca.mean[i]);
 	const r = pca.components.map((comp) => comp.reduce((s, x, i) => s + x * c[i], 0) * SCALE);
@@ -189,15 +104,30 @@ export const RELATIONS: { name: string; pairs: [number, number][] }[] = [
 			pair('cat', 'kitten'),
 			pair('dog', 'puppy')
 		]
+	},
+	{
+		name: 'Big to bigger',
+		pairs: [
+			pair('big', 'bigger'),
+			pair('small', 'smaller'),
+			pair('fast', 'faster'),
+			pair('slow', 'slower'),
+			pair('cold', 'colder'),
+			pair('hot', 'hotter')
+		]
 	}
 ];
 
-/** "a is to b as c is to expected". */
+/**
+ * "a is to b as c is to expected". `expected` is the word a person would answer. For the last entry the real
+ * vectors land on a different word (queen, not prince), so the lesson shows the miss.
+ */
 export const ANALOGIES: { a: number; b: number; c: number; expected: number }[] = [
 	{ a: indexOf('man'), b: indexOf('woman'), c: indexOf('king'), expected: indexOf('queen') },
 	{ a: indexOf('france'), b: indexOf('paris'), c: indexOf('japan'), expected: indexOf('tokyo') },
 	{ a: indexOf('walk'), b: indexOf('walked'), c: indexOf('swim'), expected: indexOf('swam') },
-	{ a: indexOf('cat'), b: indexOf('kitten'), c: indexOf('dog'), expected: indexOf('puppy') }
+	{ a: indexOf('cat'), b: indexOf('kitten'), c: indexOf('dog'), expected: indexOf('puppy') },
+	{ a: indexOf('man'), b: indexOf('boy'), c: indexOf('king'), expected: indexOf('prince') }
 ];
 
 /** The word an analogy lands next to, skipping its three input words. */

@@ -1,51 +1,93 @@
-import { layerNorm, positional, randomBlock, runBlock, type BlockTrace, type BlockWeights } from '../../../ml/block.ts';
-import { gaussian, mulberry32 } from '../../../ml/rng.ts';
-import { dot, softmax, type Mat, type Vec } from '../../../ml/vec.ts';
+import { readout, trace, type LayerTrace } from '../../../ml/gpt.ts';
+import { softmax } from '../../../ml/vec.ts';
+import { encode } from '../../../ml/wordtok.ts';
+import type { Lm } from '../shared/lm.ts';
 
-export const TOKENS = ['the', 'cat', 'sat', 'on', 'the'];
-export const D = 8;
-export const MAX_DEPTH = 12;
+/** Chosen because the right next word depends on the first one: 'she ... with her'. */
+export const TEXT = 'she loved to play with';
 
-const WORD_SEED = 21;
-const BLOCK_SEED = 100;
-
-function buildInput(): Mat {
-	const words = new Map<string, Vec>();
-	const rand = mulberry32(WORD_SEED);
-	for (const t of TOKENS) {
-		if (!words.has(t)) words.set(t, Array.from({ length: D }, () => 0.8 * gaussian(rand)));
-	}
-	const pos = positional(TOKENS.length, D);
-	return TOKENS.map((t, i) => words.get(t)!.map((v, k) => v + 0.5 * pos[i][k]));
+export interface BlockModel {
+	/** Token texts, 5 of them. */
+	tokens: string[];
+	/** Numbers per vector (64). */
+	d: number;
+	/** Number of blocks (4). */
+	depth: number;
+	/** Heads per block (4). */
+	heads: number;
+	/** One trace per block, straight from trace(). */
+	layers: LayerTrace[];
+	/** attention[l][i][j]: how much token i gathers from token j in block l, averaged over that block's heads. Rows sum to 1. */
+	attention: number[][][];
+	/** The 8 next words the full model finds most likely, best first (never '<unk>' or '<end>'). */
+	candidates: string[];
+	/** probs[k - 1][c]: probability of candidates[c] when the stream is read after k blocks. Real probabilities over the whole vocabulary, so a row sums to less than 1. */
+	probs: number[][];
+	/** rest[k - 1]: 1 minus the sum of probs[k - 1]: the share of all other words. */
+	rest: number[];
+	/** Largest absolute value in any stream vector (x, mid, out of any block), for colour scales. */
+	maxStream: number;
+	/** Largest absolute value in any hidden vector. */
+	maxHidden: number;
 }
 
-export const INPUT: Mat = buildInput();
+const CANDIDATES = 8;
 
-export const BLOCKS: BlockWeights[] = Array.from({ length: MAX_DEPTH }, (_, i) => randomBlock(D, BLOCK_SEED + i));
-
-function buildTraces(): BlockTrace[] {
-	const traces: BlockTrace[] = [];
-	let x = INPUT;
-	for (const w of BLOCKS) {
-		const t = runBlock(x, w, true);
-		traces.push(t);
-		x = t.out;
-	}
-	return traces;
+/** Next-word probabilities after reading the stream vector, with '<unk>' ruled out. */
+function distribution(lm: Lm, vector: ArrayLike<number>): number[] {
+	const logits = Array.from(readout(lm.model, vector));
+	logits[0] = -Infinity;
+	return softmax(logits);
 }
 
-export const TRACES: BlockTrace[] = buildTraces();
+export function buildBlockModel(lm: Lm): BlockModel {
+	const ids = encode(lm.vocab, TEXT);
+	const tr = trace(lm.model, ids);
+	const { d, layers: depth, heads } = lm.model.config;
+	const n = ids.length;
+	const last = n - 1;
 
-export const CANDIDATES = ['mat', 'floor', 'sofa', 'bed', 'roof', 'table', 'moon', 'dog'];
-export const TARGETS = [0.46, 0.2, 0.12, 0.08, 0.06, 0.04, 0.03, 0.01];
+	const attention = tr.layers.map((l) =>
+		Array.from({ length: n }, (_, i) =>
+			Array.from({ length: n }, (_, j) => l.heads.reduce((s, h) => s + h[i][j], 0) / heads)
+		)
+	);
 
-const LAST = TOKENS.length - 1;
+	// Candidates come from the full model's own prediction (the last block's output).
+	const full = distribution(lm, tr.layers[depth - 1].out[last]);
+	const order = Array.from(full.keys())
+		.filter((id) => id !== 0 && id !== 1)
+		.sort((a, b) => full[b] - full[a])
+		.slice(0, CANDIDATES);
+	const candidates = order.map((id) => lm.vocab.words[id]);
 
-/** Next-token probabilities after `depth` blocks, from the hand-set rank-one output matrix. */
-export function nextTokenProbs(depth: number): number[] {
-	const d = Math.min(MAX_DEPTH, Math.max(1, Math.round(depth)));
-	const h12 = layerNorm(TRACES[MAX_DEPTH - 1].out[LAST]);
-	const h = layerNorm(TRACES[d - 1].out[LAST]);
-	const k = Math.max(0, dot(h12, h) / dot(h12, h12));
-	return softmax(TARGETS.map((p) => Math.log(p) * k));
+	const probs: number[][] = [];
+	const rest: number[] = [];
+	for (let k = 0; k < depth; k++) {
+		const p = distribution(lm, tr.layers[k].out[last]);
+		const row = order.map((id) => p[id]);
+		probs.push(row);
+		rest.push(Math.max(0, 1 - row.reduce((a, b) => a + b, 0)));
+	}
+
+	let maxStream = 0;
+	let maxHidden = 0;
+	for (const l of tr.layers) {
+		for (const m of [l.x, l.mid, l.out]) for (const row of m) for (const v of row) maxStream = Math.max(maxStream, Math.abs(v));
+		for (const row of l.hidden) for (const v of row) maxHidden = Math.max(maxHidden, Math.abs(v));
+	}
+
+	return {
+		tokens: ids.map((id) => lm.vocab.words[id]),
+		d,
+		depth,
+		heads,
+		layers: tr.layers,
+		attention,
+		candidates,
+		probs,
+		rest,
+		maxStream,
+		maxHidden
+	};
 }

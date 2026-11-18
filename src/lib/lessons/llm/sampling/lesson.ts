@@ -1,5 +1,9 @@
 import type { LessonDef } from '../../types.ts';
+import { LM_CONFIG, LM_TRAINING } from '../shared/lm-meta.ts';
 import { createSamplingScene } from './scene.ts';
+
+const WORDS = LM_CONFIG.vocab.toLocaleString('en-US');
+const WEIGHTS = (Math.round(LM_TRAINING.parameters / 10000) * 10).toLocaleString('en-US');
 
 const lesson: LessonDef = {
 	id: 'sampling',
@@ -20,9 +24,9 @@ const lesson: LessonDef = {
 			key: 'prompt',
 			label: 'Start',
 			options: [
-				{ value: 0, label: 'the cat sat on the' },
-				{ value: 1, label: 'in the morning the' },
-				{ value: 2, label: 'the dog wanted to' }
+				{ value: 0, label: 'once upon a time there was a' },
+				{ value: 1, label: 'one day, lily went' },
+				{ value: 2, label: 'the little girl wanted to' }
 			]
 		}
 	],
@@ -39,13 +43,16 @@ const lesson: LessonDef = {
 	steps: [
 		{
 			title: 'A score for every possible token',
-			body: 'After reading the [[text:text so far]], a language model gives every token in its vocabulary a [[data:probability]]. The bars show the 12 most likely tokens, and the last bar gathers all the rest.\n\nThis toy model only counts which words follow which in a short text. A real model learns far richer scores, but it ends with the same kind of list.',
+			body: `After reading the [[text:text so far]], a language model gives every token in its vocabulary a [[data:probability]]. The bars show the 12 most likely tokens, and the last bar gathers all the rest.\n\nThese are the real scores of a small transformer trained on simple children's stories. It knows ${WORDS} words and has about ${WEIGHTS} thousand weights. The large models you chat with work the same way, with billions of weights and tokens that are pieces of words.`,
 			params: { scenario: 1, strip: 0, temperature: 1 },
-			controls: []
+			controls: [],
+			deepDive: {
+				note: `This model is a simplified version of a chat model. Its tokens are whole words, not word pieces. Its vocabulary has only ${WORDS} entries, so rarer words are unknown to it and are never offered. It reads at most ${LM_CONFIG.ctx} tokens of context, so older text is ignored. It was trained for about 40 minutes on one computer, so its stories are simple and often odd.`
+			}
 		},
 		{
 			title: 'Always take the top token',
-			body: 'The simplest rule is to always take the most likely token. This is called **greedy decoding**.\n\nPress **Generate** and watch the [[text:text]] grow. Soon it falls into a loop, because the same top choice keeps leading back to the same place.',
+			body: 'The simplest rule is to always take the most likely token. This is called **greedy decoding**.\n\nPress **Generate** and watch the [[text:text]] grow. It reads smoothly, but every run gives exactly the same story, and it tends to circle back to the same phrases.',
 			params: { scenario: 2, strip: 0, temperature: 0 },
 			controls: ['run', 'sample', 'reset']
 		},
@@ -57,7 +64,7 @@ const lesson: LessonDef = {
 		},
 		{
 			title: 'Temperature reshapes the odds',
-			body: 'Temperature changes the odds before the dice are rolled. Low values sharpen the bars toward the top token: safe, but repetitive. High values flatten them: surprising at first, then nonsense.\n\nThe small ticks mark the original odds. Drag the slider, then press **Generate** at both ends.',
+			body: 'Temperature changes the odds before the dice are rolled. Low values sharpen the bars toward the top token: safe, but repetitive. High values flatten them: more surprising, and at the top of the range mostly nonsense.\n\nThe small ticks mark the original odds. Drag the slider, then press **Generate** at both ends.',
 			params: { scenario: 4, temperature: 1 },
 			controls: ['temperature', 'run', 'reset'],
 			deepDive: {
@@ -79,7 +86,7 @@ const lesson: LessonDef = {
 		},
 		{
 			title: 'Top-p keeps just enough to cover p',
-			body: 'Top-p keeps the most likely tokens until their probabilities add up to p, and [[neg:cuts off]] the rest. When the model is sure, that is only a few tokens. When it is unsure, it is many.\n\nSwitch between the three starts and compare how many tokens stay in play.',
+			body: 'Top-p keeps the most likely tokens until their probabilities add up to p, and [[neg:cuts off]] the rest. When the model is sure, that is only a few tokens. When it is unsure, it is many.\n\nSwitch between the three starts and compare how many tokens stay in play. After "one day, lily went" the model is nearly sure the next word is "to", so only a handful stay. After the other two it has many ideas, and many stay.',
 			params: { scenario: 6, temperature: 1.3, topP: 0.8 },
 			controls: ['topP', 'prompt', 'run', 'reset'],
 			deepDive: {

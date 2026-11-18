@@ -44,10 +44,10 @@ describe('constellation layout', () => {
 			}
 	});
 
-	it('links every lesson to the one before it in its track, plus three cross-track links', () => {
+	it('links every lesson to the one before it in its track, plus four cross-track links', () => {
 		const inTrack = allLessons.length - tracks.length;
 		expect(links.filter((l) => !l.cross).length).toBe(inTrack);
-		expect(links.filter((l) => l.cross).length).toBe(3);
+		expect(links.filter((l) => l.cross).length).toBe(4);
 		for (const l of links) expect(l.from).not.toBe(l.to);
 	});
 

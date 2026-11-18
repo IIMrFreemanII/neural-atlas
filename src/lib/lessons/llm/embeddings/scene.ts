@@ -23,7 +23,10 @@ const SPIN_SLOW = 0.05; // while a relation or analogy is showing
 const DRAG_RAD_PER_PX = 0.01;
 const DRAG_SLOP = 4;
 const HOVER_PX = 14;
+/** How far past its centroid, in picture units, a category name sits. Real clusters are loose, so it clears the dots. */
+const CAT_PUSH = 0.5;
 const PLAY_SECONDS = 1.2;
+const NEIGHBOR_ZOOM = 2.2; // the most the view zooms in on a word and its neighbors
 /** Reduced motion: Play shows the question for this long, then the answer, with no travel between. */
 const PLAY_HOLD_REDUCED = 0.6;
 const N = WORDS.length;
@@ -33,9 +36,16 @@ const PX0 = 1.15;
 const PX1 = 2.5;
 const PANEL_Y_WORD = 1.75;
 const PANEL_Y_CAP = 1.5;
-const PANEL_Y_STRIP = 1.33;
-const STRIP_CELL = 0.12;
-const PANEL_Y_NEAR = 1.02;
+/** The 100 numbers of a vector as STRIP_ROWS rows of STRIP_COLS cells, filling the panel width. */
+const STRIP_COLS = 20;
+const STRIP_ROWS = 5;
+const STRIP_CELL = 0.058;
+const STRIP_GAP = 0.0105;
+const PANEL_Y_STRIP = 1.36; // center of the first row
+const STRIP_PITCH = STRIP_CELL + STRIP_GAP;
+const PANEL_Y_NEAR = 0.86;
+const PANEL_Y_LIST = 0.66;
+const PANEL_Y_SUM = 0.6;
 const BAR_X0 = 1.72;
 const BAR_MAX = 0.5;
 
@@ -150,6 +160,7 @@ export const createEmbeddingsScene: SceneFactory = () => {
 	/** Where the view wants to be: zoomed on the shown relation or analogy, else the whole cloud. */
 	function viewTarget(): { zoom: number; fx: number; fy: number } {
 		const pts: [number, number][] = [];
+		let maxZoom = 2.6;
 		if (relation > 0) {
 			for (const [a, b] of RELATIONS[relation - 1].pairs) {
 				for (const i of [a, b]) {
@@ -165,6 +176,13 @@ export const createEmbeddingsScene: SceneFactory = () => {
 			}
 			const [tx, ty] = rotUnit(anaVec3[0], anaVec3[1], anaVec3[2]);
 			pts.push([tx, ty]);
+		} else if (nbrs.length > 0) {
+			// Real neighbours sit close together, so zoom on them (gently) to give their labels room.
+			for (const i of [selected, ...nbrs.map((n) => n.index)]) {
+				const [x, y] = rotUnit(POINTS[i][0], POINTS[i][1], POINTS[i][2]);
+				pts.push([x, y]);
+			}
+			maxZoom = NEIGHBOR_ZOOM;
 		}
 		if (pts.length === 0) return { zoom: 1, fx: 0, fy: 0 };
 		let fx = 0;
@@ -175,7 +193,7 @@ export const createEmbeddingsScene: SceneFactory = () => {
 		}
 		let far = 0;
 		for (const [x, y] of pts) far = Math.max(far, Math.hypot(x - fx, y - fy));
-		return { zoom: clamp(0.8 / Math.max(far, 1e-6), 1, 2.6), fx, fy };
+		return { zoom: clamp(0.8 / Math.max(far, 1e-6), 1, maxZoom), fx, fy };
 	}
 
 	function projectAll() {
@@ -270,7 +288,7 @@ export const createEmbeddingsScene: SceneFactory = () => {
 		const word = WORDS[i].word;
 		const t = depthT(i);
 		const r = 3 + 3.5 * t;
-		const wEst = word.length * 12 * 0.56;
+		const wEst = word.length * 12 * 0.6 + 4;
 		const flip = side < 0 || px[i] + r + 5 + wEst > panelLeftPx;
 		const lx = px[i] + (flip ? -(r + 5) : r + 5);
 		const x0 = flip ? lx - wEst : lx;
@@ -278,9 +296,9 @@ export const createEmbeddingsScene: SceneFactory = () => {
 		// Nudge the label up or down until it no longer sits on one placed before it.
 		let ly = py[i];
 		for (let k = 0; k < 8; k++) {
-			const hit = placed.some((p) => Math.abs(p.y - ly) < 12 && p.x0 < x1 && x0 < p.x1);
+			const hit = placed.some((p) => Math.abs(p.y - ly) < 13 && p.x0 < x1 && x0 < p.x1);
 			if (!hit) break;
-			ly = py[i] + (k % 2 === 0 ? 1 : -1) * 12 * Math.ceil((k + 1) / 2);
+			ly = py[i] + (k % 2 === 0 ? 1 : -1) * 13 * Math.ceil((k + 1) / 2);
 		}
 		placed.push({ x0, x1, y: ly });
 		labels.push({
@@ -487,7 +505,7 @@ export const createEmbeddingsScene: SceneFactory = () => {
 		CATEGORIES.forEach((cat, k) => {
 			const c = CENTROIDS_3D[k];
 			const len = Math.hypot(c[0], c[1], c[2]) || 1;
-			const push = (len + 0.3) / len;
+			const push = (len + CAT_PUSH) / len;
 			const [wx, wy, wz] = rot(c[0] * push, c[1] * push, c[2] * push);
 			const [cx, cy] = ctx.view.project(wx, wy);
 			labels.push({
@@ -519,16 +537,22 @@ export const createEmbeddingsScene: SceneFactory = () => {
 			opacity: m
 		});
 		const [cx, cy] = v.project(PX0, PANEL_Y_CAP);
-		labels.push({ id: 'p-cap-vec', x: cx, y: cy, text: 'its vector', tone: 'muted', size: 11, align: 'left', opacity: m });
+		labels.push({ id: 'p-cap-vec', x: cx, y: cy, text: 'its 100 numbers', tone: 'muted', size: 11, align: 'left', opacity: m });
 
-		let nq = writeStrip(quads, 0, VECTORS[selected], {
-			x: PX0 + (10 * STRIP_CELL + 9 * STRIP_CELL * 0.12) / 2,
-			y: PANEL_Y_STRIP,
-			cell: STRIP_CELL,
-			maxAbs: 1.6,
-			intensity: 0.9,
-			alpha: mul('data')
-		});
+		let nq = 0;
+		const vec = VECTORS[selected];
+		for (let r = 0; r < STRIP_ROWS; r++) {
+			nq = writeStrip(quads, nq, vec.slice(r * STRIP_COLS, (r + 1) * STRIP_COLS), {
+				x: PX0 + (STRIP_COLS * STRIP_CELL + (STRIP_COLS - 1) * STRIP_GAP) / 2,
+				y: PANEL_Y_STRIP - r * STRIP_PITCH,
+				cell: STRIP_CELL,
+				gap: STRIP_GAP,
+				maxAbs: 1.6,
+				intensity: 0.9,
+				alpha: mul('data'),
+				radius: 1.5
+			});
+		}
 
 		if (showAnalogy >= 0.5) {
 			const ana = ANALOGIES[analogyIdx];
@@ -543,7 +567,7 @@ export const createEmbeddingsScene: SceneFactory = () => {
 			const [capx, capy] = v.project(PX0, PANEL_Y_NEAR);
 			labels.push({ id: 'p-cap-sum', x: capx, y: capy, text: 'the sum', tone: 'muted', size: 11, align: 'left', opacity: mul('param') });
 			rows.forEach(([text, t], i) => {
-				const [lx, ly] = v.project(PX0, 0.78 - i * 0.24 - (i === 3 ? 0.06 : 0));
+				const [lx, ly] = v.project(PX0, PANEL_Y_SUM - i * 0.24 - (i === 3 ? 0.06 : 0));
 				labels.push({
 					id: `p-sum-${i}`,
 					x: lx,
@@ -555,12 +579,25 @@ export const createEmbeddingsScene: SceneFactory = () => {
 					opacity: mul(t === 'text' ? 'param' : t)
 				});
 			});
+			if (done && anaFound !== ana.expected) {
+				const [mx, my] = v.project(PX0, PANEL_Y_SUM - 4 * 0.24 - 0.02);
+				labels.push({
+					id: 'p-miss',
+					x: mx,
+					y: my,
+					text: `not ${WORDS[ana.expected].word}`,
+					tone: 'text',
+					size: 12,
+					align: 'left',
+					opacity: mul('ok')
+				});
+			}
 		} else if (nbrs.length > 0) {
 			const mData = mul('data');
 			const [capx, capy] = v.project(PX0, PANEL_Y_NEAR);
 			labels.push({ id: 'p-cap-near', x: capx, y: capy, text: 'closest words', tone: 'muted', size: 11, align: 'left', opacity: mData });
 			nbrs.forEach((nb, i) => {
-				const y = 0.8 - i * 0.2;
+				const y = PANEL_Y_LIST - i * 0.19;
 				const [lx, ly] = v.project(PX0, y);
 				labels.push({ id: `p-nw-${i}`, x: lx, y: ly, text: WORDS[nb.index].word, tone: 'text', size: 12, align: 'left', opacity: mData });
 				const len = BAR_MAX * clamp(nb.similarity, 0, 1);
@@ -609,7 +646,7 @@ export const createEmbeddingsScene: SceneFactory = () => {
 			camera = new Camera2D();
 			lines = new Lines(c, { capacity: 72, blend: 'alpha' });
 			dots = new Points(c, { capacity: 128, blend: 'alpha' });
-			quads = new Quads(c, { capacity: 40, blend: 'alpha' });
+			quads = new Quads(c, { capacity: 120, blend: 'alpha' });
 			setAngles();
 		},
 		setParams(p) {

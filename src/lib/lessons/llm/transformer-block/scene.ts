@@ -6,8 +6,9 @@ import { Quads } from '../../../gpu/primitives/quads.ts';
 import type { Label, Scene, SceneContext, SceneFactory, Tone } from '../../../gpu/types.ts';
 import { fitCamera, lessonInsets, type WorldRect } from '../../fit.ts';
 import { pxPerWorld } from '../shared/chips.ts';
-import { writeStrip } from '../shared/strip.ts';
-import { MAX_DEPTH, TOKENS, TRACES, nextTokenProbs, CANDIDATES } from './model.ts';
+import { loadLm } from '../shared/lm.ts';
+import { writeGrid } from '../shared/strip.ts';
+import { buildBlockModel, TEXT, type BlockModel } from './model.ts';
 
 // World layout, budgeted for a stage area of about 632 x 514 px (one world unit is about 121 px).
 const WORLD: WorldRect = { x0: -2.6, x1: 2.6, y0: -2.1, y1: 2.1 };
@@ -16,9 +17,11 @@ const LANES = [-1.2, -0.45, 0.3, 1.05, 1.8];
 const X_MID = 0.3; // horizontal center of the lanes
 const N = LANES.length;
 
-const Y_CHIP = -1.9;
-const Y_IN = -1.55;
-const Y_OUT = 1.5;
+const Y_CHIP = -1.94;
+const Y_IN = -1.57;
+const Y_OUT = 1.54;
+const TILE = 0.48; // side of the 8 x 8 tile that draws one 64-number vector
+const GRID_GAP = 0.1; // gap between cells, as a share of the cell
 const Y_BLOCK0 = -1.25;
 const Y_BLOCK1 = 1.25;
 const X_BLOCK = 2.4;
@@ -51,13 +54,11 @@ const STACK_STEP = 0.15;
 const STACK_MAX_STEP = 0.34;
 const STACK_SPAN = 1.8;
 const BAR_BASE = 1.35;
-const BAR_PITCH = 0.5;
+const BAR_PITCH = 0.46;
 const BAR_X0 = -1.95;
-const BAR_W = 0.26;
-const BAR_H = 0.8; // world height of a probability of 1
+const BAR_W = 0.25;
+const BAR_H_MAX = 0.46; // world height of the tallest bar the slider can show
 
-const CELL = 0.62 / (8 + 7 * 0.12);
-const MAX_ABS = 2.5;
 const DIM = 0.35;
 const DIM_STREAM = 0.5;
 
@@ -65,11 +66,22 @@ const ORDINALS = ['1st', '2nd', '3rd', '4th', '5th'];
 
 const clamp = (v: number, a: number, b: number) => Math.min(b, Math.max(a, v));
 const smooth = (t: number) => t * t * (3 - 2 * t);
+/** A share as a whole percent; anything above zero but under half a percent reads as '<1%'. */
+const pct = (p: number) => (p > 0 && p < 0.005 ? '<1%' : `${Math.round(p * 100)}%`);
 
 type Rect = { x0: number; x1: number; y0: number; y1: number };
 
+/** Draw a vector as a square-ish tile `size` world units wide: `cols` cells across, row-major, first row on top. */
+function tile(q: Quads, start: number, vals: ArrayLike<number>, cols: number, x: number, y: number, size: number, maxAbs: number, alpha: number): number {
+	const cell = size / (cols + GRID_GAP * (cols - 1));
+	return writeGrid(q, start, vals, cols, { x, y, cell, gap: cell * GRID_GAP, maxAbs, alpha, intensity: 0.85, radius: 1 });
+}
+
 export const createTransformerBlockScene: SceneFactory = () => {
 	let ctx: SceneContext;
+	let model: BlockModel;
+	let updMax = 1; // color scale for the updates and normalized vectors, from the data
+	let barScale = 1;
 	let camera: Camera2D;
 	let boxes: Quads; // selection band, chips, layer boxes, stack blocks
 	let lines: Lines; // lanes, outline, bypass, arcs
@@ -95,7 +107,7 @@ export const createTransformerBlockScene: SceneFactory = () => {
 	const B = { stream: 1, norm1: 1, attn: 1, add1: 1, norm2: 1, ff: 1, add2: 1 };
 	type BKey = keyof typeof B;
 	let barA = 0;
-	const barVals = nextTokenProbs(1).map(() => 0);
+	const barVals: number[] = [];
 	let barsSeen = false;
 	let inspKind = 0; // 3, 4, 5 or 0
 	let inspA = 0;
@@ -105,7 +117,7 @@ export const createTransformerBlockScene: SceneFactory = () => {
 	let playT = 0;
 	let playY = -9;
 	const PLAY_SECONDS = 2.4;
-	const PLAY_Y0 = -1.72; // just above the chips so their text stays readable
+	const PLAY_Y0 = -1.82; // just above the chips so their text stays readable
 
 	// bookkeeping
 	let dirty = true;
@@ -137,7 +149,7 @@ export const createTransformerBlockScene: SceneFactory = () => {
 	}
 	/** Where the output strips want to sit: just above the top of the stack. */
 	function stripTarget(d: number): number {
-		return STACK_Y0 + stackStep(d) * d + 0.2;
+		return STACK_Y0 + stackStep(d) * d + 0.08 + TILE / 2;
 	}
 
 	function flash(ya: number, yb: number): number {
@@ -217,7 +229,7 @@ export const createTransformerBlockScene: SceneFactory = () => {
 
 		// inspector rectangle (world), set below when active
 		let mask: Rect | null = null;
-		const inspC = inspKind === 3 ? { cx: 0, cy: 0.32, w: 4.6, h: 0.8 } : inspKind === 4 ? { cx: 0, cy: -0.52, w: 4.6, h: 0.8 } : { cx: 0, cy: -0.47, w: 4.6, h: 0.9 };
+		const inspC = inspKind === 3 ? { cx: 0, cy: 0.24, w: 4.6, h: 1.08 } : inspKind === 4 ? { cx: 0, cy: -0.43, w: 4.6, h: 1.38 } : { cx: 0, cy: -0.47, w: 4.6, h: 0.9 };
 		const inspOn = inspKind !== 0 && inspA > 0.01 && detail;
 		if (inspOn) {
 			mask = { x0: inspC.cx - inspC.w / 2, x1: inspC.cx + inspC.w / 2, y0: inspC.cy - inspC.h / 2, y1: inspC.cy + inspC.h / 2 };
@@ -244,8 +256,8 @@ export const createTransformerBlockScene: SceneFactory = () => {
 		const bandA = Math.max(dA, sA);
 		{
 			const y0 = -2.04;
-			const topStack = focus === 7 ? BAR_BASE : stripY + 0.2;
-			const top = 1.62 * dA + topStack * sA;
+			const topStack = focus === 7 ? BAR_BASE : stripY + TILE / 2 + 0.07;
+			const top = (Y_OUT + TILE / 2 + 0.07) * dA + topStack * sA;
 			boxes.set(nB++, { x: selX, y: (y0 + top) / 2, w: 0.62, h: top - y0, color: tone('data', 0.05, 0.5 * bandA * nm), radius: 8 });
 		}
 
@@ -254,24 +266,25 @@ export const createTransformerBlockScene: SceneFactory = () => {
 		const chipH = px(25);
 		for (let i = 0; i < N; i++) {
 			boxes.set(nB++, { x: LANES[i], y: Y_CHIP, w: chipW, h: chipH, color: tone('text', 0.2, 0.9 * B.stream * nm), radius: 5 });
-			lab(`chip${i}`, LANES[i], Y_CHIP, TOKENS[i], { mono: true, size: 13, opacity: B.stream * nm });
+			lab(`chip${i}`, LANES[i], Y_CHIP, model.tokens[i], { mono: true, size: 13, opacity: B.stream * nm });
 		}
 
 		// ---- input strips (both views)
 		for (let i = 0; i < N; i++) {
-			nS = writeStrip(strips, nS, TRACES[0].x[i], { x: LANES[i], y: Y_IN, cell: CELL, thickness: 0.09, maxAbs: MAX_ABS, alpha: B.stream * mData });
+			nS = tile(strips, nS, model.layers[0].x[i], 8, LANES[i], Y_IN, TILE, model.maxStream, B.stream * mData);
 		}
 
 		// ---- lanes
 		{
-			const cutsIn: Array<[number, number]> = [[Y_IN - 0.07, Y_IN + 0.07]];
+			const cutsIn: Array<[number, number]> = [[Y_IN - TILE / 2, Y_IN + TILE / 2]];
 			const detailCuts: Array<[number, number]> = [
 				...cutsIn,
+				[Y_OUT - TILE / 2, Y_OUT + TILE / 2],
 				...LAYERS.map((l): [number, number] => [l.y - l.h / 2, l.y + l.h / 2])
 			];
 			const pulse = ctx.reducedMotion ? 0 : 3;
-			const yTop = 1.42;
-			const yBot = -1.78;
+			const yTop = Y_OUT - TILE / 2;
+			const yBot = Y_IN - TILE / 2;
 			const range = yTop - yBot;
 			for (let i = 0; i < N; i++) {
 				const isSel = i === sel;
@@ -293,9 +306,9 @@ export const createTransformerBlockScene: SceneFactory = () => {
 					}
 				}
 				if (stack) {
-					const sTop = stripY - 0.05;
+					const sTop = stripY - TILE / 2;
 					const stackTop = i === N - 1 && focus === 7 ? BAR_BASE : sTop;
-					const cuts: Array<[number, number]> = [...cutsIn, [stripY - 0.06, stripY + 0.06]];
+					const cuts: Array<[number, number]> = [...cutsIn, [stripY - TILE / 2, stripY + TILE / 2]];
 					const r2 = stackTop - yBot;
 					for (const [a, b] of laneIntervals(yBot, stackTop, cuts)) {
 						lines.set(nL++, {
@@ -322,7 +335,7 @@ export const createTransformerBlockScene: SceneFactory = () => {
 				color: tone('muted', 1, 0.9 * dA * nm)
 			});
 			lab('cap-block', -X_BLOCK + 0.02, Y_BLOCK1 + 0.12, 'one block', { tone: 'muted', size: 11, align: 'left', opacity: dA * nm });
-			lab('cap-next', X_MID, 1.8, 'to the next block', { tone: 'muted', size: 11, opacity: dA * nm });
+			lab('cap-next', X_MID, 1.93, 'to the next block', { tone: 'muted', size: 11, opacity: dA * nm });
 
 			// layer boxes
 			for (const l of LAYERS) {
@@ -341,7 +354,7 @@ export const createTransformerBlockScene: SceneFactory = () => {
 			}
 
 			// attention arcs for the selected lane
-			const w = TRACES[0].attn.weights[sel];
+			const w = model.attention[0][sel];
 			// arcs lie under the inspector in steps 4 and 5; fade them out so nothing bleeds through the backdrop
 			const bAttn = B.attn * mData * dA * (inspKind === 4 || inspKind === 5 ? 1 - inspA : 1);
 			for (let j = 0; j <= sel; j++) {
@@ -397,7 +410,7 @@ export const createTransformerBlockScene: SceneFactory = () => {
 
 			// output strips
 			for (let i = 0; i < N; i++) {
-				nS = writeStrip(strips, nS, TRACES[0].out[i], { x: LANES[i], y: Y_OUT, cell: CELL, thickness: 0.09, maxAbs: MAX_ABS, alpha: B.stream * mData * dA });
+				nS = tile(strips, nS, model.layers[0].out[i], 8, LANES[i], Y_OUT, TILE, model.maxStream, B.stream * mData * dA);
 			}
 		}
 
@@ -412,11 +425,11 @@ export const createTransformerBlockScene: SceneFactory = () => {
 				boxes.set(nB++, { x: 0, y, w: 2 * X_LAYER, h: step - 0.02, color: tone('param', 0.12 + 0.4 * f, 0.9 * mParam * sA), radius: 4 });
 				lab(`blk${i}`, -X_LAYER + 0.06, y, `${i + 1}`, { mono: true, size: 11, align: 'left', tone: 'muted', opacity: sA * nm });
 			}
-			const out = TRACES[d - 1].out;
+			const out = model.layers[d - 1].out;
 			for (let i = 0; i < N; i++) {
-				nS = writeStrip(strips, nS, out[i], { x: LANES[i], y: stripY, cell: CELL, thickness: 0.09, maxAbs: MAX_ABS, alpha: mData * sA });
+				nS = tile(strips, nS, out[i], 8, LANES[i], stripY, TILE, model.maxStream, mData * sA);
 			}
-			lab('cap-after', X_MID, stripY + 0.17, d === 1 ? 'after 1 block' : `after ${d} blocks`, { tone: 'muted', size: 11, opacity: sA * nm });
+			lab('cap-after', X_MID, stripY + TILE / 2 + 0.12, d === 1 ? 'after 1 block' : `after ${d} blocks`, { tone: 'muted', size: 11, opacity: sA * nm });
 
 			// next-token bars
 			if (barA > 0.02) {
@@ -424,14 +437,19 @@ export const createTransformerBlockScene: SceneFactory = () => {
 				nL = lines.setPolyline(nL, [[-2.25, BAR_BASE], [2.25, BAR_BASE]], { width: 1.2, color: tone('muted', 1, 0.9 * a) });
 				let top = 0;
 				for (let i = 0; i < barVals.length; i++) if (barVals[i] > barVals[top]) top = i;
+				// long words would run into their neighbors, so every second label drops one line
+				const stagger = model.candidates.some((c) => c.length > 6);
 				for (let i = 0; i < barVals.length; i++) {
 					const x = BAR_X0 + i * BAR_PITCH;
-					const h = Math.max(0.004, barVals[i] * BAR_H);
+					const h = Math.max(0.004, barVals[i] * barScale);
 					strips.set(nS++, { x, y: BAR_BASE + h / 2, w: BAR_W, h, color: tone('data', i === top ? 1.0 : 0.5, 0.95 * a * mData), radius: 3 });
-					lab(`cand${i}`, x, BAR_BASE - 0.11, CANDIDATES[i], { mono: true, size: 12, opacity: a * nm });
-					lab(`prob${i}`, x, BAR_BASE + h + 0.08, `${Math.round(barVals[i] * 100)}%`, { mono: true, size: 11, tone: i === top ? 'data' : 'muted', opacity: a * nm });
+					lab(`cand${i}`, x, BAR_BASE - (stagger && i % 2 === 1 ? 0.26 : 0.11), model.candidates[i], { mono: true, size: 12, opacity: a * nm });
+					lab(`prob${i}`, x, BAR_BASE + h + 0.08, pct(barVals[i]), { mono: true, size: 11, tone: i === top ? 'data' : 'muted', opacity: a * nm });
 				}
-				lab('cap-bars', 0, 2.0, 'next token after: the cat sat on the', { tone: 'muted', size: 11, opacity: a * nm });
+				const capY = BAR_BASE - (stagger ? 0.46 : 0.32);
+				const rest = Math.max(0, 1 - barVals.reduce((p, c) => p + c, 0));
+				lab('cap-bars', -2.3, capY, `next word after: ${TEXT}`, { tone: 'muted', size: 11, align: 'left', opacity: a * nm });
+				lab('cap-rest', 2.3, capY, `all other words ${pct(rest)}`, { tone: 'muted', size: 11, align: 'right', mono: true, opacity: a * nm });
 			}
 		}
 
@@ -443,73 +461,77 @@ export const createTransformerBlockScene: SceneFactory = () => {
 			const { cx, cy, w, h } = inspC;
 			backdrop.set(nBd++, { x: cx, y: cy, w, h, color: [VOID[0], VOID[1], VOID[2], inspA], radius: 8 });
 			nIL = ilines.setPolyline(nIL, rrPts(cx, cy, w, h, px(8)), { width: 1, color: tone('muted', 1, 0.7 * inspA) });
-			const tok = `${TOKENS[sel]} · ${ORDINALS[sel]}`;
+			const tok = `${model.tokens[sel]} · ${ORDINALS[sel]}`;
 			labI('insp-title', cx, cy + h / 2 - 0.09, tok, { size: 11, tone: 'muted', mono: true });
-			const T = TRACES[0];
-			const S = (arr: ArrayLike<number>, x: number, y: number, a: number, extra: { w?: number; thick?: number; gap?: number } = {}) => {
-				const cells = arr.length;
-				const width = extra.w ?? 0.9;
-				const gap = extra.gap ?? 0.12;
-				const cell = width / (cells + (cells - 1) * gap);
-				nI = writeStrip(insp, nI, arr, { x, y, cell, gap: cell * gap, thickness: extra.thick ?? 0.14, maxAbs: MAX_ABS, alpha: a * inspA });
+			const L = model.layers[0];
+			const T = (arr: ArrayLike<number>, cols: number, x: number, y: number, size: number, maxAbs: number, a: number) => {
+				nI = tile(insp, nI, arr, cols, x, y, size, maxAbs, a * inspA);
 			};
 			const underline = (x: number, y: number, width: number) => {
 				nIL = ilines.setPolyline(nIL, [[x - width / 2, y], [x + width / 2, y]], { width: 2, color: tone('ok', 1, 0.7 * mOk * inspA) });
 			};
 			if (inspKind === 3) {
-				const sy = cy - 0.1;
-				S(T.x[sel], -1.3, sy, mData);
-				S(T.attnOut[sel], 0, sy, mOk);
-				S(T.mid[sel], 1.3, sy, mData);
-				underline(0, sy - 0.12, 0.9);
-				labI('i3-before', -1.3, sy + 0.2, 'before', { size: 11, opacity: neutral() });
-				labI('i3-update', 0, sy + 0.2, 'update from attention', { size: 11, tone: 'ok', opacity: mOk });
-				labI('i3-after', 1.3, sy + 0.2, 'after', { size: 11, opacity: neutral() });
-				labI('i3-plus', -0.65, sy, '+', { size: 18, opacity: neutral() });
-				labI('i3-eq', 0.65, sy, '=', { size: 18, opacity: neutral() });
+				const size = 0.5;
+				const sy = cy - 0.07;
+				T(L.x[sel], 8, -1.5, sy, size, model.maxStream, mData);
+				T(L.attnOut[sel], 8, 0, sy, size, updMax, mOk);
+				T(L.mid[sel], 8, 1.5, sy, size, model.maxStream, mData);
+				underline(0, sy - size / 2 - 0.07, size);
+				const ly = sy + size / 2 + 0.1;
+				labI('i3-before', -1.5, ly, 'before', { size: 11, opacity: neutral() });
+				labI('i3-update', 0, ly, 'update from attention', { size: 11, tone: 'ok', opacity: mOk });
+				labI('i3-after', 1.5, ly, 'after', { size: 11, opacity: neutral() });
+				labI('i3-plus', -0.75, sy, '+', { size: 18, opacity: neutral() });
+				labI('i3-eq', 0.75, sy, '=', { size: 18, opacity: neutral() });
 			} else if (inspKind === 4) {
-				const sy = cy - 0.1;
-				S(T.norm2[sel], -1.5, sy, mData, { w: 0.56, thick: 0.12 });
-				S(T.hidden[sel], 0, sy, mData, { w: 1.5, thick: 0.12, gap: 0.2 });
-				S(T.mlpOut[sel], 1.5, sy, mOk, { w: 0.56, thick: 0.12 });
-				underline(1.5, sy - 0.11, 0.56);
+				const small = 0.5;
+				const wide = 0.8;
+				const sy = cy - 0.13;
+				T(L.norm2[sel], 8, -1.7, sy, small, updMax, mData);
+				T(L.hidden[sel], 16, 0, sy, wide, model.maxHidden, mData);
+				T(L.mlpOut[sel], 8, 1.7, sy, small, updMax, mOk);
+				underline(1.7, sy - small / 2 - 0.07, small);
 				const arrow = (x0: number, x1: number) => {
 					const col = tone('muted', 1.6, 0.9 * inspA);
 					nIL = ilines.setPolyline(nIL, [[x0, sy], [x1, sy]], { width: 1.5, color: col });
 					nIL = ilines.setPolyline(nIL, [[x1 - 0.06, sy + 0.05], [x1, sy], [x1 - 0.06, sy - 0.05]], { width: 1.5, color: col });
 				};
-				arrow(-1.12, -0.84);
-				arrow(0.84, 1.12);
-				labI('i4-in', -1.5, sy + 0.2, 'normalized', { size: 11, opacity: neutral() });
-				labI('i4-wide', 0, sy + 0.2, '4 times wider', { size: 11, tone: 'data', opacity: mData });
-				labI('i4-out', 1.5, sy + 0.2, 'update', { size: 11, tone: 'ok', opacity: mOk });
+				arrow(-1.3, -0.56);
+				arrow(0.56, 1.3);
+				const ly = sy + wide / 2 + 0.1;
+				labI('i4-in', -1.7, ly, 'normalized, 64 numbers', { size: 11, opacity: neutral() });
+				labI('i4-wide', 0, ly, '4 times wider, 256 numbers', { size: 11, tone: 'data', opacity: mData });
+				labI('i4-out', 1.7, ly, 'update, 64 numbers', { size: 11, tone: 'ok', opacity: mOk });
 			} else {
-				const zy = cy - 0.02;
-				const scale = 0.27 / MAX_ABS;
+				// 64 thin bars per vector. Each chart fills its box, so the shapes can be compared; the spread numbers carry the scale.
+				const zy = cy - 0.06;
+				const before = L.x[sel];
+				const after = L.norm1[sel];
+				const half = 0.98;
 				const chart = (vals: ArrayLike<number>, x: number, id: string, title: string) => {
-					const pitch = 0.17;
 					const n0 = vals.length;
-					nIL = ilines.setPolyline(nIL, [[x - 0.7, zy], [x + 0.7, zy]], { width: 1, color: tone('muted', 1.4, 0.9 * inspA) });
+					const scale = 0.22 / Math.max(1e-6, ...Array.from(vals, Math.abs));
+					const pitch = (2 * half) / n0;
+					nIL = ilines.setPolyline(nIL, [[x - half, zy], [x + half, zy]], { width: 1, color: tone('muted', 1.4, 0.9 * inspA) });
 					for (let k = 0; k < n0; k++) {
-						const val = clamp(vals[k], -MAX_ABS, MAX_ABS);
+						const val = vals[k];
 						const bh = Math.max(0.004, Math.abs(val) * scale);
-						const bx = x + (k - (n0 - 1) / 2) * pitch;
 						insp.set(nI++, {
-							x: bx,
+							x: x - half + (k + 0.5) * pitch,
 							y: zy + (val >= 0 ? bh / 2 : -bh / 2),
-							w: 0.11,
+							w: pitch * 0.72,
 							h: bh,
 							color: diverging(val >= 0 ? 1 : -1, 0.8, 0.95 * mData * inspA),
-							radius: 2
+							radius: 1
 						});
 					}
 					const m = Array.from(vals).reduce((a, b) => a + b, 0) / n0;
 					const sdv = Math.sqrt(Array.from(vals).reduce((a, b) => a + (b - m) ** 2, 0) / n0);
-					labI(`i5-${id}`, x, cy + 0.34, title, { size: 11, opacity: neutral() });
-					labI(`i5-sd-${id}`, x, cy - 0.38, `spread ${sdv.toFixed(2)}`, { size: 11, mono: true, tone: 'muted' });
+					labI(`i5-${id}`, x, cy + 0.3, title, { size: 11, opacity: neutral() });
+					labI(`i5-sd-${id}`, x, cy - 0.37, `spread ${sdv.toFixed(2)}`, { size: 11, mono: true, tone: 'muted' });
 				};
-				chart(T.x[sel], -1.0, 'a', 'before');
-				chart(T.norm1[sel], 1.0, 'b', 'after');
+				chart(before, -1.2, 'a', 'before');
+				chart(after, 1.2, 'b', 'after');
 				labI('i5-arrow', 0, zy, '→', { size: 18, tone: 'muted' });
 			}
 		}
@@ -551,23 +573,33 @@ export const createTransformerBlockScene: SceneFactory = () => {
 	}
 
 	const scene: Scene = {
-		init(c) {
+		async init(c) {
 			ctx = c;
 			camera = new Camera2D();
 			boxes = new Quads(c, { capacity: 48, blend: 'alpha' });
 			lines = new Lines(c, { capacity: 500, blend: 'alpha' });
 			dots = new Points(c, { capacity: 80, blend: 'alpha' });
 			glow = new Points(c, { capacity: 16, blend: 'additive' });
-			strips = new Quads(c, { capacity: 200, blend: 'alpha' });
+			strips = new Quads(c, { capacity: 1000, blend: 'alpha' });
 			backdrop = new Quads(c, { capacity: 2, blend: 'alpha' });
-			insp = new Quads(c, { capacity: 100, blend: 'alpha' });
+			insp = new Quads(c, { capacity: 400, blend: 'alpha' });
 			ilines = new Lines(c, { capacity: 160, blend: 'alpha' });
 			marks = new Lines(c, { capacity: 40, blend: 'alpha' });
+			model = buildBlockModel(await loadLm());
+			// Colour scales for the updates and the normalized vectors come from the data.
+			updMax = 1e-6;
+			for (const l of model.layers) {
+				for (const m of [l.attnOut, l.mlpOut, l.norm2]) for (const row of m) for (const v of row) updMax = Math.max(updMax, Math.abs(v));
+			}
+			// One bar scale for every block count, so the bars can be compared as the slider moves.
+			barScale = BAR_H_MAX / Math.max(0.1, ...model.probs.flat());
+			barVals.length = 0;
+			for (let i = 0; i < model.candidates.length; i++) barVals.push(0);
 		},
 		setParams(p) {
 			const prevScenario = scenario;
 			focus = clamp(Math.round(p.focus ?? focus), 1, 7);
-			depth = clamp(Math.round(p.depth ?? depth), 1, MAX_DEPTH);
+			depth = clamp(Math.round(p.depth ?? depth), 1, model.depth);
 			zoom = clamp(p.zoom ?? zoom, 0, 1);
 			column = clamp(Math.round(p.column ?? column), 0, N - 1);
 			scenario = Math.round(p.scenario ?? scenario);
@@ -576,7 +608,7 @@ export const createTransformerBlockScene: SceneFactory = () => {
 				const t = targets();
 				for (const k of Object.keys(B) as BKey[]) B[k] = t[k];
 				barA = focus === 7 ? 1 : 0;
-				const pr = nextTokenProbs(depth);
+				const pr = model.probs[depth - 1];
 				for (let i = 0; i < pr.length; i++) barVals[i] = pr[i];
 				barsSeen = true;
 				stripY = stripTarget(depth);
@@ -617,7 +649,7 @@ export const createTransformerBlockScene: SceneFactory = () => {
 				} else barA = barT;
 			}
 			if (barsSeen) {
-				const pr = nextTokenProbs(depth);
+				const pr = model.probs[depth - 1];
 				const k2 = snap ? 1 : 1 - Math.exp(-dt / 0.1);
 				for (let i = 0; i < pr.length; i++) {
 					const d = pr[i] - barVals[i];
@@ -673,7 +705,7 @@ export const createTransformerBlockScene: SceneFactory = () => {
 				rebuild();
 			}
 
-			const inspect = `${TOKENS[column]} · ${ORDINALS[column]}`;
+			const inspect = `${model.tokens[column]} · ${ORDINALS[column]}`;
 			if (inspect !== lastInspect) {
 				lastInspect = inspect;
 				ctx.emit('inspect', inspect);

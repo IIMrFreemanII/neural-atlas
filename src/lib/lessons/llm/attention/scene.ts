@@ -7,12 +7,17 @@ import type { Mat } from '../../../ml/vec.ts';
 import { fitCamera, lessonInsets, type WorldRect } from '../../fit.ts';
 import { layoutChips, pxPerWorld, type ChipBox } from '../shared/chips.ts';
 import { stripLength, writeStrip } from '../shared/strip.ts';
+import { loadLm } from '../shared/lm.ts';
 import { FEATURES, HEADS, SENTENCES, runHead, type HeadRun } from './model.ts';
+import { buildTrained, type TrainedSentence } from './trained.ts';
 
 const WORLD: WorldRect = { x0: -2.6, x1: 2.6, y0: -2.1, y1: 2.1 };
 const N = 9;
+/** Most tokens any shown sentence can have; the eased arrays are this big. */
+const NMAX = 12;
 const CX = 0.35;
 const FONT = 13;
+const FONT_T = 12; // narrower chips so 11 tokens fit where 9 do
 const CHIP_H_PX = 25;
 const ROW_LOW = -0.35;
 const ROW_HIGH = 0.75;
@@ -40,10 +45,19 @@ const CAPTION_X = -2.55;
 const MAT_Y0 = 0.3;
 const MAT_PITCH = 0.27;
 const MAT_CELL_H = 0.245;
+// The trained sentences have up to 11 tokens, so their rows are packed closer.
+const MAT_PITCH_T = 0.215;
+const MAT_CELL_H_T = 0.19;
 const MAT_GAP_PX = 5;
 
 const clamp = (v: number, a: number, b: number) => Math.min(b, Math.max(a, v));
 const zeros = (r: number, c: number): Mat => Array.from({ length: r }, () => new Array<number>(c).fill(0));
+/** Copies `m` into a zero matrix of NMAX rows and `cols` columns, so a target always has the shape of the eased copy. */
+const padTo = (m: Mat, cols: number): Mat => {
+	const out = zeros(NMAX, cols);
+	for (let i = 0; i < m.length; i++) for (let j = 0; j < m[i].length; j++) out[i][j] = m[i][j];
+	return out;
+};
 
 function easeMat(cur: Mat, tgt: Mat, k: number): void {
 	for (let i = 0; i < cur.length; i++) {
@@ -73,6 +87,11 @@ export const createAttentionScene: SceneFactory = () => {
 	let matrix = false;
 	let tokenParam = 8;
 	let scenario = 1;
+	let trainedOn = false;
+	let tsent = 0;
+	let tblock = 0;
+	let thead = 0;
+	let trainedData: TrainedSentence[] = [];
 	let paramsSeen = false;
 	let hl: Tone | null = null;
 
@@ -84,21 +103,30 @@ export const createAttentionScene: SceneFactory = () => {
 
 	// model state: targets and displayed (eased) copies
 	let run: HeadRun = runHead(SENTENCES[0], HEADS[0], { causal: false, sharp: 1 });
-	let maskT: Mat = zeros(N, N);
-	let scoresT: Mat = zeros(N, N);
-	const W = zeros(N, N);
-	const S = zeros(N, N);
-	const M = zeros(N, N);
-	const Q = zeros(N, 4);
-	const K = zeros(N, 4);
-	const V = zeros(N, 6);
-	const O = zeros(N, 6);
+	let wT: Mat = zeros(NMAX, NMAX);
+	let maskT: Mat = zeros(NMAX, NMAX);
+	let scoresT: Mat = zeros(NMAX, NMAX);
+	let qT: Mat = zeros(NMAX, 4);
+	let kT: Mat = zeros(NMAX, 4);
+	let vT: Mat = zeros(NMAX, 6);
+	let oT: Mat = zeros(NMAX, 6);
+	const W = zeros(NMAX, NMAX);
+	const S = zeros(NMAX, NMAX);
+	const M = zeros(NMAX, NMAX);
+	const Q = zeros(NMAX, 4);
+	const K = zeros(NMAX, 4);
+	const V = zeros(NMAX, 6);
+	const O = zeros(NMAX, 6);
 	let needSnap = true;
 	let modelDirty = true;
 
 	// layout
 	let boxes: ChipBox[] = [];
 	let boxesScale = 0;
+	let boxesTokens: readonly string[] = [];
+	let n = N; // token count of what is shown
+	let matPitch = MAT_PITCH;
+	let matCellH = MAT_CELL_H;
 	let rowY = ROW_LOW;
 	let rowSnap = true;
 	const fade = { keys: 0, match: 0, share: 0, values: 0, matrix: 0, arcs: 0 };
@@ -109,38 +137,73 @@ export const createAttentionScene: SceneFactory = () => {
 
 	const mul = (t: Tone) => (hl === null || hl === t ? 1 : 0.3);
 	const sel = () => (hoverSel >= 0 ? hoverSel : locked);
+	const showTrained = () => trainedOn && trainedData.length > 0;
+	/** Tokens the chips are laid out from. The toy lays out its first sentence for both, as before. */
+	const layoutTokens = (): readonly string[] => (showTrained() ? trainedData[tsent].tokens : SENTENCES[0].tokens);
+	/** Tokens whose text is shown. */
+	const shownTokens = (): readonly string[] => (showTrained() ? trainedData[tsent].tokens : SENTENCES[sentence].tokens);
 
 	function recompute() {
 		modelDirty = false;
-		run = runHead(SENTENCES[sentence], HEADS[head], { causal, sharp });
-		maskT = run.weights.map((row, i) => row.map((_, j) => (causal && j > i ? 1 : 0)));
-		scoresT = run.scores.map((row) => row.map((s) => (Number.isFinite(s) ? s : 0)));
+		if (showTrained()) {
+			const w = trainedData[tsent].weights[tblock][thead];
+			n = w.length;
+			matPitch = MAT_PITCH_T;
+			matCellH = MAT_CELL_H_T;
+			run = { q: zeros(n, 4), k: zeros(n, 4), v: zeros(n, 6), scores: zeros(n, n), weights: w, out: zeros(n, 6) };
+			maskT = padTo(
+				w.map((row, i) => row.map((_, j) => (j > i ? 1 : 0))),
+				NMAX
+			);
+			scoresT = zeros(NMAX, NMAX);
+		} else {
+			n = N;
+			matPitch = MAT_PITCH;
+			matCellH = MAT_CELL_H;
+			run = runHead(SENTENCES[sentence], HEADS[head], { causal, sharp });
+			maskT = padTo(
+				run.weights.map((row, i) => row.map((_, j) => (causal && j > i ? 1 : 0))),
+				NMAX
+			);
+			scoresT = padTo(
+				run.scores.map((row) => row.map((s) => (Number.isFinite(s) ? s : 0))),
+				NMAX
+			);
+		}
+		wT = padTo(run.weights, NMAX);
+		qT = padTo(run.q, 4);
+		kT = padTo(run.k, 4);
+		vT = padTo(run.v, 6);
+		oT = padTo(run.out, 6);
 		if (needSnap || ctx.reducedMotion) {
-			copyMat(W, run.weights);
+			copyMat(W, wT);
 			copyMat(S, scoresT);
 			copyMat(M, maskT);
-			copyMat(Q, run.q);
-			copyMat(K, run.k);
-			copyMat(V, run.v);
-			copyMat(O, run.out);
+			copyMat(Q, qT);
+			copyMat(K, kT);
+			copyMat(V, vT);
+			copyMat(O, oT);
 			needSnap = false;
 		}
 	}
 
 	function ensureLayout() {
 		const scale = pxPerWorld(ctx.view, camera);
-		if (Math.abs(scale - boxesScale) < 1e-6 && boxes.length === N) return;
+		const tokens = layoutTokens();
+		if (Math.abs(scale - boxesScale) < 1e-6 && boxesTokens === tokens) return;
 		boxesScale = scale;
-		boxes = layoutChips(SENTENCES[0].tokens, {
+		boxesTokens = tokens;
+		const trained = showTrained();
+		boxes = layoutChips(tokens, {
 			x0: CX - 6,
 			x1: CX + 6,
 			y: 0,
 			scale,
-			fontPx: FONT,
-			padPx: 6,
+			fontPx: trained ? FONT_T : FONT,
+			padPx: trained ? 5 : 6,
 			gapPx: 5,
 			heightPx: CHIP_H_PX,
-			minChars: 5
+			minChars: trained ? 3 : 5
 		});
 	}
 
@@ -153,19 +216,19 @@ export const createAttentionScene: SceneFactory = () => {
 	}
 
 	function matRowY(i: number): number {
-		return MAT_Y0 - i * MAT_PITCH;
+		return MAT_Y0 - i * matPitch;
 	}
 
 	function hitMatrix(wx: number, wy: number): { row: number; col: number } | null {
-		if (!matrix || fade.matrix < 0.5 || boxes.length < N) return null;
-		const row = Math.round((MAT_Y0 - wy) / MAT_PITCH);
-		if (row < 0 || row >= N || Math.abs(wy - matRowY(row)) > MAT_PITCH / 2) return null;
+		if (!matrix || fade.matrix < 0.5 || boxes.length < n) return null;
+		const row = Math.round((MAT_Y0 - wy) / matPitch);
+		if (row < 0 || row >= n || Math.abs(wy - matRowY(row)) > matPitch / 2) return null;
 		for (const b of boxes) if (Math.abs(wx - b.x) <= b.w / 2 + 2.5 / boxesScale) return { row, col: b.index };
 		return null;
 	}
 
 	function hitFeature(wx: number, wy: number): typeof hoverCell {
-		if (matrix || mech < 4 || fade.values < 0.5 || boxes.length < N) return null;
+		if (matrix || mech < 4 || fade.values < 0.5 || boxes.length < n) return null;
 		const g = VAL_CELL * 0.12;
 		const len = stripLength(6, VAL_CELL, g);
 		for (const b of boxes) {
@@ -195,14 +258,14 @@ export const createAttentionScene: SceneFactory = () => {
 
 	function bestTarget(i: number): { j: number; w: number } {
 		let j = 0;
-		for (let k = 1; k < N; k++) if (run.weights[i][k] > run.weights[i][j]) j = k;
+		for (let k = 1; k < n; k++) if (run.weights[i][k] > run.weights[i][j]) j = k;
 		return { j, w: run.weights[i][j] };
 	}
 
 	function writeAll(labels: Label[]) {
 		const v = ctx.view;
 		const s = sel();
-		const toks = SENTENCES[sentence].tokens;
+		const toks = shownTokens();
 		const sc = boxesScale;
 		const mData = mul('data');
 		const mOk = mul('ok');
@@ -234,7 +297,7 @@ export const createAttentionScene: SceneFactory = () => {
 				text: toks[b.index],
 				tone: 'text',
 				mono: true,
-				size: FONT,
+				size: showTrained() ? FONT_T : FONT,
 				opacity: dim * (hl === null ? 1 : Math.max(mText, b.index === s ? mOk : 0))
 			});
 		}
@@ -345,9 +408,9 @@ export const createAttentionScene: SceneFactory = () => {
 			const a = fade.match;
 			const row = S[s];
 			let top = 1;
-			for (let j = 0; j < N; j++) if (M[s][j] < 0.5) top = Math.max(top, Math.abs(row[j]));
+			for (let j = 0; j < n; j++) if (M[s][j] < 0.5) top = Math.max(top, Math.abs(row[j]));
 			const xa = boxes[0].x - 0.27;
-			const xb = boxes[N - 1].x + 0.27;
+			const xb = boxes[n - 1].x + 0.27;
 			nl = l.setPolyline(
 				nl,
 				[
@@ -444,7 +507,7 @@ export const createAttentionScene: SceneFactory = () => {
 		if (fade.matrix > 0.01) {
 			const a = fade.matrix;
 			const cellGap = MAT_GAP_PX / sc;
-			for (let i = 0; i < N; i++) {
+			for (let i = 0; i < n; i++) {
 				for (const b of boxes) {
 					const j = b.index;
 					const mk = M[i][j];
@@ -454,7 +517,7 @@ export const createAttentionScene: SceneFactory = () => {
 						x: b.x,
 						y: matRowY(i),
 						w: b.w,
-						h: MAT_CELL_H - cellGap * 0.2,
+						h: matCellH - cellGap * 0.2,
 						color: [
 							base[0] + (dimc[0] - base[0]) * mk,
 							base[1] + (dimc[1] - base[1]) * mk,
@@ -479,9 +542,9 @@ export const createAttentionScene: SceneFactory = () => {
 				});
 			}
 			const rx0 = boxes[0].x - boxes[0].w / 2 - 2 / sc;
-			const rx1 = boxes[N - 1].x + boxes[N - 1].w / 2 + 2 / sc;
-			const ry0 = matRowY(s) - MAT_PITCH / 2 + 0.01;
-			const ry1 = matRowY(s) + MAT_PITCH / 2 - 0.01;
+			const rx1 = boxes[n - 1].x + boxes[n - 1].w / 2 + 2 / sc;
+			const ry0 = matRowY(s) - matPitch / 2 + 0.01;
+			const ry1 = matRowY(s) + matPitch / 2 - 0.01;
 			nl = l.setPolyline(
 				nl,
 				[
@@ -509,11 +572,12 @@ export const createAttentionScene: SceneFactory = () => {
 	}
 
 	const scene: Scene = {
-		init(c) {
+		async init(c) {
 			ctx = c;
 			camera = new Camera2D();
 			quads = new Quads(c, { capacity: 320, blend: 'alpha' });
 			lines = new Lines(c, { capacity: 900, blend: 'alpha' });
+			trainedData = buildTrained(await loadLm());
 		},
 		setParams(p) {
 			const prev = { tokenParam, scenario };
@@ -521,18 +585,34 @@ export const createAttentionScene: SceneFactory = () => {
 			const nHead = clamp(Math.round(p.head ?? head), 0, 2);
 			const nCausal = (p.causal ?? 0) >= 0.5;
 			const nSharp = p.sharp ?? sharp;
+			const nTrained = (p.trained ?? 0) >= 0.5;
+			const nTsent = clamp(Math.round(p.tsentence ?? tsent), 0, Math.max(0, trainedData.length - 1));
+			const nTblock = clamp(Math.round(p.tblock ?? tblock), 0, 3);
+			const nThead = clamp(Math.round(p.thead ?? thead), 0, 3);
+			if (nTrained !== trainedOn || nTsent !== tsent || nTblock !== tblock || nThead !== thead) modelDirty = true;
+			const sentenceChanged = nTrained && nTrained === trainedOn && nTsent !== tsent;
+			trainedOn = nTrained;
+			tsent = nTsent;
+			tblock = nTblock;
+			thead = nThead;
 			if (nSentence !== sentence || nHead !== head || nCausal !== causal || Math.abs(nSharp - sharp) > 1e-6) modelDirty = true;
 			sentence = nSentence;
 			head = nHead;
 			causal = nCausal;
 			sharp = nSharp;
 			arcsOn = (p.arcs ?? 1) >= 0.5;
-			mech = Math.round(p.mech ?? 0);
-			matrix = (p.matrix ?? 0) >= 0.5;
-			tokenParam = clamp(Math.round(p.token ?? tokenParam), 0, N - 1);
+			mech = trainedOn ? 0 : Math.round(p.mech ?? 0);
+			matrix = (p.matrix ?? 0) >= 0.5 || trainedOn; // the trained view is always the grid
+			tokenParam = clamp(Math.round(p.token ?? tokenParam), 0, NMAX - 1);
 			scenario = Math.round(p.scenario ?? scenario);
 			if (!paramsSeen || prev.tokenParam !== tokenParam || prev.scenario !== scenario) {
 				locked = tokenParam;
+				hoverSel = -1;
+				hoverCol = -1;
+			}
+			if (sentenceChanged) {
+				// A new sentence: follow its last word, the one that predicts what comes next.
+				locked = trainedData[tsent].tokens.length - 1;
 				hoverSel = -1;
 				hoverCol = -1;
 			}
@@ -553,13 +633,13 @@ export const createAttentionScene: SceneFactory = () => {
 			const instant = ctx.reducedMotion;
 			const k = instant ? 1 : 1 - Math.exp(-fr.dt / 0.15);
 			if (k > 0 && k < 1) {
-				easeMat(W, run.weights, k);
+				easeMat(W, wT, k);
 				easeMat(S, scoresT, k);
 				easeMat(M, maskT, k);
-				easeMat(Q, run.q, k);
-				easeMat(K, run.k, k);
-				easeMat(V, run.v, k);
-				easeMat(O, run.out, k);
+				easeMat(Q, qT, k);
+				easeMat(K, kT, k);
+				easeMat(V, vT, k);
+				easeMat(O, oT, k);
 			}
 
 			// row position and fades
@@ -585,12 +665,15 @@ export const createAttentionScene: SceneFactory = () => {
 				}
 			}
 
+			if (locked >= n) locked = n - 1;
+			if (hoverSel >= n) hoverSel = -1;
+			if (hoverCol >= n) hoverCol = -1;
 			const labels: Label[] = [];
 			writeAll(labels);
 			ctx.labels.set(labels);
 
 			const s = sel();
-			const toks = SENTENCES[sentence].tokens;
+			const toks = shownTokens();
 			if (toks[s] !== lastFrom) {
 				lastFrom = toks[s];
 				ctx.emit('from', toks[s]);

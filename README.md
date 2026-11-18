@@ -8,20 +8,33 @@ and code behind an optional "Go deeper" panel.
 
 ## What is in it
 
-Nineteen lessons in four tracks:
+Twenty lessons in four tracks:
 
 - **Neural net fundamentals**: the neuron, activation functions, forward pass, loss landscape, gradient
   descent, backpropagation, train a network.
 - **Classic machine learning**: linear regression, decision boundaries, k-means clustering, overfitting and
   underfitting.
 - **LLMs and transformers**: tokenization, embedding space, self-attention, inside a transformer block,
-  next-token sampling.
+  next-token sampling, watching a model learn.
 - **Vision and generative**: convolution, CNN feature maps, diffusion.
 
 Plus a constellation map of the lessons on the home page and a glossary of the terms they use.
 
 The models are small on purpose so the mechanism stays visible, and the math on screen is really computed in
 the browser. Each lesson says what is simplified about its model.
+
+Two things in the language-model track are real data, not toys:
+
+- **A trained transformer.** The sampling, transformer block and self-attention lessons run a small GPT-style
+  model (4 blocks, 4 heads each, 64 numbers per vector, 2,048-word vocabulary, about 330 thousand weights)
+  that this repo trains itself on the TinyStories text. Its predictions and attention patterns on screen are
+  the model's own. The last lesson of the track shows the same model at 11 saved moments of that training
+  run, from random weights to the finished model.
+- **GloVe word vectors.** The embedding space lesson places 74 words by their published GloVe vectors (100
+  numbers per word).
+
+The first eight steps of the self-attention lesson still use three hand-designed heads, because hand-set
+numbers explain the mechanism best. The lesson says so, and its last step shows the trained model's heads.
 
 ## Requirements
 
@@ -47,12 +60,58 @@ each lesson it checks that the visual starts, draws something, and survives a wa
 browser without WebGPU it only checks that the "needs WebGPU" notice appears. To use Playwright's own
 browser instead, run `npx playwright install chromium` once and set `PW_CHANNEL=chromium`.
 
+## Regenerating the model data
+
+The trained weights and vectors are committed, so none of this is needed to run the app. Each script is
+deterministic: the same inputs give the same files.
+
 `scripts/train-shapes-cnn.ts` retrains the small network used by the CNN feature maps lesson and rewrites its
-weights file (about 40 seconds, deterministic):
+weights file (about 40 seconds):
 
 ```sh
 node --experimental-strip-types scripts/train-shapes-cnn.ts
 ```
+
+`scripts/train-tinystories.ts` trains the transformer in plain TypeScript on 8 worker threads (about 40 minutes
+on a 16-core machine) and writes `src/lib/lessons/llm/shared/tinystories.bin` and `lm-meta.ts`. It needs
+`TinyStoriesV2-GPT4-valid.txt` (22.5 MB) from the
+[TinyStories dataset](https://huggingface.co/datasets/roneneldan/TinyStories):
+
+```sh
+node --experimental-strip-types scripts/train-tinystories.ts path/to/TinyStoriesV2-GPT4-valid.txt --steps 12000 --checkpoint-dir path/to/checkpoints
+```
+
+The shipped model was trained with `--steps 12000`. `--checkpoint-dir` is optional and does not change the
+result: it also saves the weights at 11 moments of the run (14 MB in all) and the loss of every step.
+`scripts/build-training-log.ts` turns that folder into the data of the "Watching a model learn" lesson,
+`src/lib/lessons/llm/training/log.ts` (the loss curve, and what the model writes and predicts at each
+checkpoint). It refuses a run whose last checkpoint is not byte for byte the shipped `tinystories.bin`, so the
+log always describes the model the other lessons run:
+
+```sh
+node --experimental-strip-types scripts/build-training-log.ts path/to/checkpoints
+```
+
+Four lessons describe what this particular model does (which word it predicts, what three of its attention
+heads look at, what it writes early in training). Unit tests named "what the narration says about the trained weights" pin those facts, so if you
+retrain with other settings and one fails, update that lesson's narration to match the new model.
+
+`scripts/extract-glove.ts` copies the vectors of the embedding lesson's words out of `glove-wiki-gigaword-100.gz`
+(134 MB, from the [gensim-data releases](https://github.com/piskvorky/gensim-data/releases)) into
+`src/lib/lessons/llm/embeddings/vectors.ts`:
+
+```sh
+node --experimental-strip-types scripts/extract-glove.ts path/to/glove-wiki-gigaword-100.gz
+```
+
+## Data sources
+
+- **TinyStories** (Eldan and Li, 2023): short stories in simple English written by GPT-3.5 and GPT-4. The
+  dataset card lists its license as CDLA-Sharing-1.0. This repo contains weights trained on it and a vocabulary
+  list, not the text.
+- **GloVe** (Pennington, Socher and Manning, 2014), the 100-dimensional vectors trained on Wikipedia 2014 and
+  Gigaword 5, released under the Public Domain Dedication and License. This repo contains the vectors of 74
+  words, unchanged.
 
 ## How it is built
 
@@ -61,7 +120,8 @@ node --experimental-strip-types scripts/train-shapes-cnn.ts
 - **Rendering**: raw WebGPU and WGSL through a small in-house engine in `src/lib/gpu` (points, lines, quads,
   meshes, scalar fields, compute-shader particles, an HDR pass with bloom). No 3D library.
 - **Math**: `src/lib/ml` holds the models as plain TypeScript with no DOM or GPU code, each with a Vitest spec
-  next to it.
+  next to it. `gpt.ts` is the transformer: forward pass, a hand-written backward pass (checked against
+  numerical gradients) and the helpers the lessons draw from.
 
 ```
 src/
