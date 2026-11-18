@@ -4,6 +4,8 @@ A desktop web app that teaches how AI, machine learning and language models work
 visuals. Every lesson is a live WebGPU scene you can poke at, with short narration beside it and the math
 and code behind an optional "Go deeper" panel.
 
+Try it at <https://iimrfreemanii.github.io/neural-atlas/>.
+
 "Neural Atlas" is a working title.
 
 ## What is in it
@@ -58,12 +60,27 @@ npm run test     # unit tests (Vitest)
 npm run test:e2e # smoke test (Playwright): builds the site, then loads every page and lesson
 npm run build    # static site in build/
 npm run preview  # serve the built site
+npm run deploy   # publish the site to GitHub Pages
 ```
 
 The smoke test drives the Chrome installed on your machine, headless, and fails on any console error. For
 each lesson it checks that the visual starts, draws something, and survives a walk through every step. In a
 browser without WebGPU it only checks that the "needs WebGPU" notice appears. To use Playwright's own
 browser instead, run `npx playwright install chromium` once and set `PW_CHANNEL=chromium`.
+
+## Publishing
+
+The site is a static single page app on GitHub Pages. `npm run deploy` (`scripts/deploy-pages.sh`) builds
+it and publishes the result to the `gh-pages` branch of `origin`, which GitHub serves. It refuses to run
+with uncommitted changes, so that the published site always matches a commit.
+
+- Pages serves a project at `/<repository>/`, so the script builds with `BASE_PATH` set to the repository's
+  name. Internal links must therefore go through `resolve()` from `$app/paths`, or `lessonLink()` from
+  `src/lib/link.ts`; a link written as `href="/learn"` leaves the site there.
+- The script copies the app to `404.html`. Pages answers an address it has no file for, such as a link
+  straight to a lesson, with that page: the lesson opens, but the HTTP status is 404.
+- Each deploy replaces the single commit on `gh-pages` with a forced push. The branch holds build output
+  only.
 
 ## Regenerating the model data
 

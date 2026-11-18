@@ -1,12 +1,12 @@
 ---
 name: ship-feature
-description: Commit and push a finished feature in this project. Use it without being asked as the last step of every feature, fix or other requested change to the code, tests or docs, once the work is done and verified. Also use it when the user says commit, push or ship. Do not use it for unfinished work, for a failing tree, or for a turn that changed no files.
+description: Commit, push and publish a finished feature in this project. Use it without being asked as the last step of every feature, fix or other requested change to the code, tests or docs, once the work is done and verified. Also use it when the user says commit, push, ship or deploy. Do not use it for unfinished work, for a failing tree, or for a turn that changed no files.
 ---
 
 # Ship a finished feature
 
-The owner of this project wants every finished feature committed and pushed without being asked each
-time (decided on 2026-11-18). This skill is that standing permission. It covers the steps below and
+The owner of this project wants every finished feature committed, pushed and published to GitHub Pages
+without being asked each time (decided on 2026-11-18). This skill is that standing permission. It covers the steps below and
 nothing else: anything in "Ask first" still needs a yes in the conversation.
 
 ## When
@@ -99,19 +99,43 @@ git push origin HEAD
 - If the push fails for another reason (no access, no network), stop and report the error. The commit
   stays local.
 
-### 5. Report
+### 5. Publish
 
-One or two sentences: the commit's short hash and subject, whether it was pushed and where, and the
-checks you ran with their results. If something was left out of the commit or the push was skipped, say
-that first.
+The site is served by GitHub Pages from the `gh-pages` branch, at
+https://iimrfreemanii.github.io/neural-atlas/. After a push of `main` that changes what the site shows or
+does (anything under `src/` or `static/`, or the build setup), publish it:
+
+```bash
+npm run deploy
+```
+
+- The script builds the site for the Pages address and replaces the single commit on `gh-pages` with a
+  forced push. That one forced push is covered by this skill; no other is.
+- Skip this step when the push was skipped, when the branch is not `main`, or when the commit changes only
+  tests, scripts, Markdown or `.claude/`.
+- GitHub needs about a minute to serve the new version. To confirm, wait until this prints `built`:
+
+```bash
+gh api repos/IIMrFreemanII/neural-atlas/pages/builds/latest --jq .status
+```
+
+- New internal links must use `resolve()` from `$app/paths` or `lessonLink()` from `src/lib/link.ts`.
+  A link written from the root (`href="/learn"`) works locally and leaves the site on Pages.
+
+### 6. Report
+
+One or two sentences: the commit's short hash and subject, whether it was pushed and published, and the
+checks you ran with their results. If something was left out of the commit, or the push or the publishing
+was skipped, say that first.
 
 ## Ask first
 
 This skill does not cover any of these. Ask in the conversation and wait for a yes:
 
-- a force push, or rewriting commits that are already pushed (amend, rebase, reset);
+- a force push other than the one `npm run deploy` makes to `gh-pages`, or rewriting commits that are
+  already pushed (amend, rebase, reset);
 - skipping the checks, or `--no-verify`;
 - creating a repository, adding or changing a remote, or pushing to a remote or branch other than the
   current branch on `origin`;
-- tags, releases, deployments;
+- tags, releases, or publishing anywhere other than this project's GitHub Pages site;
 - committing changes you did not make in this session.
