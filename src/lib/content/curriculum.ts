@@ -130,11 +130,13 @@ export const tracks: Track[] = [
 			[
 				['convolution', 'Convolution', 'Slide a small kernel across an image to detect local patterns.', 6],
 				['cnn-features', 'CNN feature maps', 'Stacked convolutions build from edges to textures to objects.', 8],
+				['autoencoder', 'Latent space', 'Squeeze drawings down to two numbers, then walk the map of those numbers.', 8],
 				['diffusion', 'Diffusion', 'Generate an image by learning to remove noise step by step.', 9]
 			],
 			{
 				convolution: () => import('../lessons/vision/convolution/lesson.ts'),
 				'cnn-features': () => import('../lessons/vision/cnn-features/lesson.ts'),
+				autoencoder: () => import('../lessons/vision/autoencoder/lesson.ts'),
 				diffusion: () => import('../lessons/vision/diffusion/lesson.ts')
 			}
 		)

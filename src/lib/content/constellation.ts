@@ -32,7 +32,8 @@ const POSITIONS: Record<string, [x: number, y: number]> = {
 	'llm/training': [655, 165],
 	// A shallow arc along the bottom.
 	'vision/convolution': [390, 445],
-	'vision/cnn-features': [760, 395],
+	'vision/cnn-features': [700, 420],
+	'vision/autoencoder': [810, 385],
 	'vision/diffusion': [880, 455]
 };
 

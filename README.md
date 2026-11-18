@@ -18,7 +18,7 @@ Twenty lessons in four tracks:
   underfitting.
 - **LLMs and transformers**: tokenization, embedding space, self-attention, inside a transformer block,
   next-token sampling, watching a model learn.
-- **Vision and generative**: convolution, CNN feature maps, diffusion.
+- **Vision and generative**: convolution, CNN feature maps, latent space (an autoencoder), diffusion.
 
 Every lesson ends with three questions that check your understanding. Some ask you to pick an answer, and each
 answer explains why it is right or wrong. Others are tasks you solve in the live visual, and the page notices
@@ -101,7 +101,7 @@ with uncommitted changes, so that the published site always matches a commit.
 ## Regenerating the model data
 
 The trained weights and vectors are committed, so none of this is needed to run the app. Each script is
-deterministic: the same inputs give the same files.
+deterministic, except the autoencoder's when it runs on a GPU: the same inputs give the same files.
 
 `scripts/train-shapes-cnn.ts` retrains the small network used by the CNN feature maps lesson and rewrites its
 weights file (about 40 seconds):
@@ -109,6 +109,21 @@ weights file (about 40 seconds):
 ```sh
 node --experimental-strip-types scripts/train-shapes-cnn.ts
 ```
+
+`scripts/train-autoencoder.py` retrains the autoencoder of the latent space lesson with PyTorch and rewrites
+`src/lib/lessons/vision/autoencoder/weights.ts`. It trains on the Mac's GPU (Metal) when there is one, and
+on the CPU otherwise (`--cpu` forces it); on an Apple GPU the run takes about 15 seconds. It needs Python 3
+and Node. The drawings come from the lesson's own generator through `scripts/export-shapes.ts`, and the
+lesson runs the network in TypeScript (`src/lib/ml/autoencoder.ts`), so PyTorch is needed only for training.
+With [uv](https://docs.astral.sh/uv/), nothing has to be installed into the project:
+
+```sh
+uv run --no-project --with torch python scripts/train-autoencoder.py
+```
+
+Unlike the other scripts, a GPU run is not repeatable bit for bit, so a rerun gives slightly different
+weights. The tests in `src/lib/lessons/vision/autoencoder/` check that any new weights still separate the
+four shapes on the map, rebuild drawings well, and agree with what the narration says.
 
 `scripts/train-tinystories.ts` trains the transformer in plain TypeScript on 8 worker threads (about 40 minutes
 on a 16-core machine) and writes `src/lib/lessons/llm/shared/tinystories.bin` and `lm-meta.ts`. It needs

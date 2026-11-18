@@ -39,7 +39,8 @@ const STEP: Record<string, number> = {
 	'classic-ml/k-means': 7,
 	'llm/embeddings': 2,
 	'llm/attention': 8,
-	'llm/training': 6
+	'llm/training': 6,
+	'vision/autoencoder': 7
 };
 
 async function waitForServer(): Promise<void> {

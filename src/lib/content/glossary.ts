@@ -51,6 +51,14 @@ const entries: GlossaryEntry[] = [
 		related: ['self-attention']
 	},
 	{
+		id: 'autoencoder',
+		term: 'autoencoder',
+		definition:
+			'A network trained to rebuild its own input after squeezing it through a narrow middle layer. The encoder half makes a short code, the decoder half draws the input back from it.',
+		lessons: ['vision/autoencoder'],
+		related: ['latent-space', 'hidden-layer']
+	},
+	{
 		id: 'backpropagation',
 		term: 'backpropagation',
 		aliases: ['backprop', 'backward pass'],
@@ -328,7 +336,8 @@ const entries: GlossaryEntry[] = [
 			'fundamentals/forward-pass',
 			'fundamentals/activations',
 			'fundamentals/backpropagation',
-			'fundamentals/train-a-network'
+			'fundamentals/train-a-network',
+			'vision/autoencoder'
 		],
 		related: ['layer', 'neural-network']
 	},
@@ -386,6 +395,15 @@ const entries: GlossaryEntry[] = [
 			'A model that gives a probability to every possible next token, given the text so far. Chat models write by picking from these probabilities one token at a time.',
 		lessons: ['llm/tokenization', 'llm/sampling', 'llm/transformer-block', 'llm/training'],
 		related: ['token', 'sampling', 'transformer']
+	},
+	{
+		id: 'latent-space',
+		term: 'latent space',
+		aliases: ['latent', 'code'],
+		definition:
+			'The space of a network\'s inner codes. Similar inputs get nearby codes, and a decoder can turn any point of the space into an output, even one no example came from.',
+		lessons: ['vision/autoencoder'],
+		related: ['autoencoder', 'embedding']
 	},
 	{
 		id: 'layer',
@@ -631,7 +649,7 @@ const entries: GlossaryEntry[] = [
 		term: 'pixel',
 		definition:
 			'One dot of an image, stored as a number for its brightness or a few numbers for its color.',
-		lessons: ['vision/convolution', 'vision/cnn-features', 'vision/diffusion'],
+		lessons: ['vision/convolution', 'vision/cnn-features', 'vision/autoencoder', 'vision/diffusion'],
 		related: ['channel', 'convolution']
 	},
 	{
@@ -761,7 +779,8 @@ const entries: GlossaryEntry[] = [
 			'fundamentals/activations',
 			'fundamentals/loss-landscape',
 			'fundamentals/backpropagation',
-			'fundamentals/train-a-network'
+			'fundamentals/train-a-network',
+			'vision/autoencoder'
 		],
 		related: ['activation-function', 'sigmoid']
 	},

@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { allLessons, lessonHref } from '../src/lib/content/curriculum.ts';
+import { allLessons, lessonHref, questionTotal } from '../src/lib/content/curriculum.ts';
 import { questions } from '../src/lib/lessons/fundamentals/neuron/questions.ts';
 
 /**
@@ -200,7 +200,7 @@ test('questions can be answered and are remembered', async ({ page }) => {
 		'aria-label',
 		new RegExp(solvedText)
 	);
-	await expect(page.getByText('2 of 60 questions solved')).toBeVisible();
+	await expect(page.getByText(`2 of ${questionTotal(allLessons)} questions solved`)).toBeVisible();
 
 	expect(errors.filter((e) => !/webgpu/i.test(e))).toEqual([]);
 });
