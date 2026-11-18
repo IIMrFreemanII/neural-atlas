@@ -1,5 +1,5 @@
 import { Camera2D } from '../../../gpu/camera.ts';
-import { tone } from '../../../gpu/colors.ts';
+import { sheetFill, tone } from '../../../gpu/colors.ts';
 import { Lines } from '../../../gpu/primitives/lines.ts';
 import { Points } from '../../../gpu/primitives/points.ts';
 import { Quads } from '../../../gpu/primitives/quads.ts';
@@ -280,6 +280,28 @@ export const createSamplingScene: SceneFactory = () => {
 	function draw2d(): void {
 		const v = ctx.view;
 		const ppw = pxPerWorld(v, camera);
+		/** A sheet-coloured box with a 1px outline in `t` and an optional tone wash. */
+		const boxed = (
+			qn: number,
+			x: number,
+			y: number,
+			w: number,
+			h: number,
+			radius: number,
+			t: Tone,
+			outline: number,
+			wash: number,
+			a: number
+		): number => {
+			const px = 2 / ppw;
+			const iw = Math.max(0, w - px);
+			const ih = Math.max(0, h - px);
+			const ir = Math.max(0, radius - 1);
+			quads.set(qn++, { x, y, w, h, radius, color: tone(t, outline, a) });
+			quads.set(qn++, { x, y, w: iw, h: ih, radius: ir, color: sheetFill(a) });
+			if (wash > 0) quads.set(qn++, { x, y, w: iw, h: ih, radius: ir, color: tone(t, wash, a) });
+			return qn;
+		};
 		const labels: Label[] = [];
 		let qn = 0;
 		let ln = 0;
@@ -291,13 +313,9 @@ export const createSamplingScene: SceneFactory = () => {
 		for (const { box, token, total } of chips) {
 			const isPrompt = token >= 0 && token < promptLen;
 			const newest = token === total - 1 && generated > 0 && !(pick && pick.t > 0);
-			const color =
-				token < 0
-					? tone('muted', 0.2, 0.9 * mText)
-					: isPrompt
-						? tone('text', 0.16, 0.9 * mText)
-						: tone('data', newest ? 0.4 : 0.24, 0.9 * mText);
-			quads.set(qn++, { x: box.x, y: box.y, w: box.w, h: box.h, color, radius: 6 });
+			const [ct, co, cw]: [Tone, number, number] =
+				token < 0 ? ['muted', 0.3, 0] : isPrompt ? ['muted', 0.55, 0] : ['data', newest ? 1 : 0.7, newest ? 0.15 : 0.08];
+			qn = boxed(qn, box.x, box.y, box.w, box.h, 6, ct, co, cw, mText);
 			const [px, py] = v.project(box.x, box.y);
 			labels.push({
 				id: `chip${box.index}`,
@@ -324,6 +342,7 @@ export const createSamplingScene: SceneFactory = () => {
 			const isCutTarget = tCut[r] > 0.5;
 			const dim = isCutTarget ? 0.45 : 1;
 			// row highlight for the picked token
+			quads.set(qn++, { x: BAR_X + BAR_LEN / 2, y, w: BAR_LEN, h: BAR_H, color: tone('muted', 0.12, mData), radius: 3 });
 			if (r === flashRow) {
 				quads.set(qn++, {
 					x: (BAR_X - 0.1 + 2.4) / 2,
@@ -336,19 +355,19 @@ export const createSamplingScene: SceneFactory = () => {
 			}
 			if (cut > 0.01 && dPre[r] * BAR_LEN > 0.004) {
 				const w = dPre[r] * BAR_LEN;
-				quads.set(qn++, { x: BAR_X + w / 2, y, w, h: BAR_H, color: tone('neg', 0.42, 0.9 * cut * mNeg), radius: 3 });
+				quads.set(qn++, { x: BAR_X + w / 2, y, w, h: BAR_H, color: tone('neg', 0.4, cut * mNeg), radius: 3 });
 			}
 			const wf = dFinal[r] * BAR_LEN;
 			// The others row, partly cut: the removed part continues the bar in the cut colour.
 			const wCutPart = dPre[r] * dCutShare[r] * BAR_LEN;
 			if (r === ROWS - 1 && wCutPart > 0.004) {
-				quads.set(qn++, { x: BAR_X + wf + wCutPart / 2, y, w: wCutPart, h: BAR_H, color: tone('neg', 0.42, 0.9 * mNeg), radius: 3 });
+				quads.set(qn++, { x: BAR_X + wf + wCutPart / 2, y, w: wCutPart, h: BAR_H, color: tone('neg', 0.4, mNeg), radius: 3 });
 			}
 			if (wf > 0.004) {
 				const picked = r === flashRow;
 				const color = picked
-					? tone('ok', 0.45 + 0.15 * flash, 0.95 * mOk)
-					: tone('data', 0.62, 0.95 * mData);
+					? tone('ok', 0.85 + 0.15 * flash, mOk)
+					: tone('data', 0.85, mData);
 				quads.set(qn++, { x: BAR_X + wf / 2, y, w: wf, h: BAR_H, color, radius: 3 });
 			}
 			// token name
@@ -389,7 +408,7 @@ export const createSamplingScene: SceneFactory = () => {
 					a: [tx, y - 0.085],
 					b: [tx, y + 0.085],
 					width: 1.5,
-					color: tone('text', 0.6, 0.9 * Math.min(mData, 0.9))
+					color: tone('text', 0.9, Math.min(mData, 0.9))
 				});
 			}
 		}
@@ -403,18 +422,18 @@ export const createSamplingScene: SceneFactory = () => {
 				cum += dFinal[r];
 				if (w < 0.006) continue;
 				const gap = Math.min(0.012, w * 0.3);
-				const color =
+				const sw = w - gap;
+				qn =
 					r === ROWS - 1
-						? tone('muted', 0.9, 0.9 * mData)
-						: tone('data', r % 2 === 0 ? 0.26 : 0.42, 0.95 * mData);
-				quads.set(qn++, { x: x0 + w / 2, y: STRIP_Y, w: w - gap, h: STRIP_H, color, radius: 3 });
+						? boxed(qn, x0 + w / 2, STRIP_Y, sw, STRIP_H, 3, 'muted', 0.7, 0.12, mData)
+						: boxed(qn, x0 + w / 2, STRIP_Y, sw, STRIP_H, 3, 'data', 0.85, r % 2 === 0 ? 0.1 : 0.22, mData);
 				if (r === flashRow) {
 					quads.set(qn++, {
 						x: x0 + w / 2,
 						y: STRIP_Y,
-						w: w - gap,
+						w: sw,
 						h: STRIP_H,
-						color: tone('ok', 0.6, 0.95 * flash * mOk),
+						color: tone('ok', 0.5, flash * mOk),
 						radius: 3
 					});
 				}
@@ -450,9 +469,9 @@ export const createSamplingScene: SceneFactory = () => {
 					a: [nx, STRIP_Y - 0.24],
 					b: [nx, STRIP_Y + 0.24],
 					width: 2,
-					color: tone('text', 0.7, 0.9 * a)
+					color: tone('text', 1, a)
 				});
-				dots.set(pn++, { x: nx, y: STRIP_Y + 0.24, radius: 4.5, color: tone('text', 1.1, 0.95 * a) });
+				dots.set(pn++, { x: nx, y: STRIP_Y + 0.24, radius: 4.5, color: tone('text', 1, a) });
 			}
 		}
 
@@ -470,7 +489,7 @@ export const createSamplingScene: SceneFactory = () => {
 				const sy = rowY(pick.row);
 				const x = sx + (end.x - sx) * k;
 				const y = sy + (end.y - sy) * k;
-				quads.set(qn++, { x, y, w: ww, h: end.h, color: tone('ok', 0.4, 0.95), radius: 6 });
+				qn = boxed(qn, x, y, ww, end.h, 6, 'ok', 1, 0.15, 1);
 				const [px, py] = v.project(x, y);
 				labels.push({ id: 'travel', x: px, y: py, text, mono: true, size: CHIP_FONT, tone: 'text' });
 			}
@@ -490,7 +509,7 @@ export const createSamplingScene: SceneFactory = () => {
 			ctx = c;
 			lm = await loadLm();
 			camera = new Camera2D();
-			quads = new Quads(c, { capacity: 220, blend: 'alpha' });
+			quads = new Quads(c, { capacity: 520, blend: 'alpha' });
 			lines = new Lines(c, { capacity: 24, blend: 'alpha' });
 			dots = new Points(c, { capacity: 4, blend: 'alpha' });
 		},

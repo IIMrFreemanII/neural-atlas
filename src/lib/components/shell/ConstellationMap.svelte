@@ -1,45 +1,47 @@
 <script lang="ts">
-	import Stage from '../lesson/Stage.svelte';
-	import { resolve } from '$app/paths';
-	import { allLessons, lessonKey, questionTotal, tracks } from '../../content/curriculum.ts';
+	import { allLessons, lessonKey, tracks } from '../../content/curriculum.ts';
 	import { lessonLink } from '../../link.ts';
-	import { MAP_H, MAP_W, TRACK_LABELS, doneMask, nextUp, stars } from '../../content/constellation.ts';
-	import { createConstellationScene } from '../../lessons/home/constellation-scene.ts';
+	import { MAP_H, MAP_W, TRACK_LABELS, doneMask, links, nextUp, stars } from '../../content/constellation.ts';
 	import { progress } from '../../state/progress.svelte.ts';
 	import { settings } from '../../state/settings.svelte.ts';
 
-	type Side = 'below' | 'above' | 'left' | 'right';
+	/** Lessons whose name runs to the left of the dot. Every other name runs to the right. */
+	const LEFT = new Set([
+		'fundamentals/neuron',
+		'fundamentals/gradient-descent',
+		'llm/transformer-block',
+		'llm/sampling',
+		'llm/training',
+		'vision/cnn-features',
+		'vision/vit',
+		'vision/autoencoder',
+		'vision/diffusion'
+	]);
 
-	/** Where a lesson's name sits relative to its star. Anything missing is 'below'. */
-	const SIDES: Record<string, Side> = {
-		'classic-ml/linear-regression': 'above',
-		'classic-ml/decision-boundaries': 'right',
-		'classic-ml/k-means': 'right',
-		'fundamentals/activations': 'above',
-		'fundamentals/forward-pass': 'above',
-		'fundamentals/loss-landscape': 'right',
-		'fundamentals/train-a-network': 'right',
-		'fundamentals/neuron': 'left',
-		'llm/sampling': 'left',
-		'llm/training': 'right',
-		'llm/tokenization': 'above',
-		'llm/embeddings': 'right',
-		'vision/cnn-features': 'right'
+	/** How the four lessons that build on another track are joined: a curve bowed toward this point. */
+	const BOWS: Record<string, [number, number]> = {
+		'fundamentals/neuron>vision/convolution': [520, 560],
+		'fundamentals/train-a-network>vision/cnn-features': [600, 560],
+		'fundamentals/forward-pass>llm/transformer-block': [640, 320],
+		'fundamentals/train-a-network>llm/training': [700, 440]
 	};
 
 	const trackById = new Map(tracks.map((t) => [t.id, t]));
 	const titleByKey = new Map(allLessons.map((l) => [lessonKey(l.track, l.id), l.title]));
+	const tone = (track: string) => `var(--c-${trackById.get(track as never)?.tone ?? 'data'})`;
+
+	/** Resting tilt of the sheet and how far the pointer may turn it, in degrees. */
+	const REST_X = 10;
+	const SWING = 3;
 
 	let hover = $state(-1);
-	const nameW = $state<number[]>([]);
+	let rx = $state(REST_X);
+	let ry = $state(0);
+
 	const done = $derived(doneMask((k) => progress.isComplete(k)));
 	const next = $derived(nextUp(done));
-	const completeCount = $derived(stars.filter((s) => (done & (1 << s.index)) !== 0).length);
-	const params = $derived({ done, hover, next });
 	/** Solved questions of each lesson, by star index. */
 	const solved = $derived(allLessons.map((l) => progress.solvedCount(lessonKey(l.track, l.id), l.questions)));
-	const solvedCount = $derived(solved.reduce((a, b) => a + b, 0));
-	const questionCount = questionTotal(allLessons);
 
 	const hovered = $derived(hover >= 0 ? stars[hover] : null);
 	const hoveredMeta = $derived(hover >= 0 ? allLessons[hover] : null);
@@ -50,69 +52,161 @@
 	const cardStyle = $derived.by(() => {
 		if (!hovered) return '';
 		const top = hovered.y > MAP_H * 0.6;
-		const toRight = hovered.x <= MAP_W * 0.65;
+		const toRight = hovered.x <= MAP_W * 0.6;
 		const x = (hovered.x / MAP_W) * 100;
 		const y = (hovered.y / MAP_H) * 100;
-		// 22px from the star, or further when the name sits on that side, so the card never covers it.
-		const side = SIDES[hovered.key] ?? 'below';
-		const w = nameW[hovered.index] ?? 80;
-		let gap = 22;
-		if (side === 'above' || side === 'below') gap = Math.max(22, w / 2 + 8);
-		else if (side === (toRight ? 'right' : 'left')) gap = 20 + w + 8;
+		// 22px from the dot, or further when the name runs that way, so the card never covers it.
+		const w = (hoveredMeta?.title.length ?? 10) * 7;
+		const nameRight = !LEFT.has(hovered.key);
+		const gap = nameRight === toRight ? 20 + w + 8 : 22;
 		const h = toRight ? `left: calc(${x}% + ${gap}px);` : `right: calc(${100 - x}% + ${gap}px);`;
 		const v = top ? `bottom: calc(${100 - y}% - 18px);` : `top: calc(${y}% - 18px);`;
 		return h + v;
 	});
+
+	function onmove(e: PointerEvent) {
+		if (settings.reducedMotion) return;
+		const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+		const x = (e.clientX - r.left) / r.width - 0.5;
+		const y = (e.clientY - r.top) / r.height - 0.5;
+		const c = (v: number) => Math.max(-SWING, Math.min(SWING, v));
+		ry = c(x * 2 * SWING);
+		rx = REST_X - c(y * 2 * SWING);
+	}
+	function onleave() {
+		rx = REST_X;
+		ry = 0;
+		hover = -1;
+	}
+
+	const COLS = 'ABCDEF'.split('');
+	/** The sheet's edge, inside the map's drawing space, and the size of one grid cell. */
+	const EDGE = 16;
+	const COLW = (MAP_W - 2 * EDGE) / COLS.length;
+	const ROWH = (MAP_H - 2 * EDGE) / 4;
 </script>
 
-<section class="atlas" aria-labelledby="atlas-title">
-	<header>
-		<h2 id="atlas-title">The map</h2>
-		<p>Every star is a lesson and every line shows what builds on what. Lessons you finish glow.</p>
-		<p class="count num">
-			{completeCount} of {allLessons.length} complete · {solvedCount} of {questionCount} questions solved
-		</p>
-	</header>
+<div class="atlas">
+	<!-- svelte-ignore a11y_no_static_element_interactions -->
+	<div class="map" onpointermove={onmove} onpointerleave={onleave}>
+		<div class="map3d">
+			<div class="tilt" class:still={settings.reducedMotion} style="--rx: {rx}deg; --ry: {ry}deg">
+				<!-- The sheet lies on the desk. -->
+				<svg class="lay lay0" viewBox="0 0 {MAP_W} {MAP_H}" aria-hidden="true">
+					<rect class="mapsheet" x={EDGE} y={EDGE} width={MAP_W - 2 * EDGE} height={MAP_H - 2 * EDGE} stroke="var(--rule-2)" />
+					{#each COLS as c, i (c)}
+						{@const lx = EDGE + i * COLW}
+						<text x={lx + COLW / 2} y={EDGE + 16} text-anchor="middle" class="tick">{c}</text>
+						{#if i > 0}
+							<line x1={lx} y1={EDGE} x2={lx} y2={EDGE + 8} stroke="var(--rule-2)" />
+							<line x1={lx} y1={MAP_H - EDGE - 8} x2={lx} y2={MAP_H - EDGE} stroke="var(--rule-2)" />
+						{/if}
+					{/each}
+					{#each [0, 1, 2, 3] as j (j)}
+						{@const ly = EDGE + j * ROWH}
+						{#if j > 0}
+							<line x1={EDGE} y1={ly} x2={EDGE + 8} y2={ly} stroke="var(--rule-2)" />
+							<line x1={MAP_W - EDGE - 8} y1={ly} x2={MAP_W - EDGE} y2={ly} stroke="var(--rule-2)" />
+						{/if}
+						<text x={MAP_W - EDGE - 14} y={ly + ROWH / 2} text-anchor="end" class="tick">{j + 1}</text>
+					{/each}
+				</svg>
 
-	<div class="map">
-		<div class="sky">
-			{#key `${settings.reducedMotion}|${settings.theme}`}<Stage createScene={createConstellationScene} {params} />{/key}
+				<!-- Links, names and dots float just above it. -->
+				<svg class="lay lay1" viewBox="0 0 {MAP_W} {MAP_H}" role="group" aria-label="Map of all lessons">
+					{#each links as l, i (i)}
+						{@const a = stars[l.from]}
+						{@const b = stars[l.to]}
+						{@const both = (done & (1 << l.from)) !== 0 && (done & (1 << l.to)) !== 0}
+						{@const bow = BOWS[`${a.key}>${b.key}`]}
+						{#if l.cross}
+							<path
+								d="M{a.x} {a.y} {bow ? `Q${bow[0]} ${bow[1]}` : 'L'} {b.x} {b.y}"
+								fill="none"
+								stroke="var(--ink-3)"
+								stroke-width="1.2"
+								stroke-dasharray="3 5"
+							/>
+						{:else}
+							<line
+								x1={a.x}
+								y1={a.y}
+								x2={b.x}
+								y2={b.y}
+								stroke={tone(a.track)}
+								stroke-width={both ? 2 : 1.3}
+								stroke-opacity={both ? 0.9 : 0.45}
+							/>
+						{/if}
+					{/each}
+
+					{#each tracks as track (track.id)}
+						<text
+							class="track-name"
+							x={TRACK_LABELS[track.id][0]}
+							y={TRACK_LABELS[track.id][1]}
+							text-anchor={TRACK_LABELS[track.id][2]}
+							fill="var(--c-{track.tone})"
+							aria-hidden="true">{track.title}</text
+						>
+					{/each}
+
+					{#each allLessons as meta, i (meta.id + meta.track)}
+						{@const s = stars[i]}
+						{@const complete = (done & (1 << i)) !== 0}
+						{@const isNext = i === next}
+						{@const t = tone(meta.track)}
+						{@const left = LEFT.has(s.key)}
+						{@const lx = s.x + (left ? -14 : 14)}
+						{@const anchor = left ? 'end' : 'start'}
+						<a
+							class="star"
+							class:complete
+							class:next={isNext}
+							href={lessonLink(meta)}
+							aria-label="{meta.title}, {trackById.get(meta.track)?.title}, {complete
+								? 'complete'
+								: 'not started'}{meta.questions > 0 ? `, ${solved[i]} of ${meta.questions} questions solved` : ''}"
+							onpointerenter={() => (hover = i)}
+							onpointerleave={() => (hover = -1)}
+							onfocus={() => (hover = i)}
+							onblur={() => (hover = -1)}
+						>
+							<circle class="hit" cx={s.x} cy={s.y} r="16" fill="transparent" />
+							<circle class="focus-ring" cx={s.x} cy={s.y} r="12" fill="none" stroke={t} stroke-width="1.5" />
+							{#if isNext}
+								<circle class="pulse" cx={s.x} cy={s.y} r="14" fill="none" stroke={t} stroke-width="1.5" />
+							{/if}
+							<circle
+								class="dotc"
+								cx={s.x}
+								cy={s.y}
+								r="6.5"
+								fill={complete ? t : 'var(--sheet)'}
+								stroke={t}
+								stroke-width="1.6"
+							/>
+							<text
+								class="name"
+								class:strong={isNext}
+								x={lx}
+								y={s.y + 4.5}
+								text-anchor={anchor}
+								fill={complete || isNext ? 'var(--ink)' : 'var(--ink-2)'}>{meta.title}</text
+							>
+							{#if isNext}
+								<text class="sub" x={lx} y={s.y + 21} text-anchor={anchor} fill={t}
+									>{progress.completedCount === 0 ? 'Start here' : 'Up next'} · {meta.minutes} min</text
+								>
+							{/if}
+						</a>
+					{/each}
+				</svg>
+			</div>
 		</div>
 
-		{#each tracks as track (track.id)}
-			<span
-				class="track-name"
-				aria-hidden="true"
-				style:left="{(TRACK_LABELS[track.id][0] / MAP_W) * 100}%"
-				style:top="{(TRACK_LABELS[track.id][1] / MAP_H) * 100}%"
-				style:color="var(--c-{track.tone})">{track.title}</span
-			>
-		{/each}
-
-		{#each allLessons as meta, i (meta.id + meta.track)}
-			{@const s = stars[i]}
-			{@const complete = (done & (1 << i)) !== 0}
-			<a
-				class="star {SIDES[s.key] ?? 'below'}"
-				class:complete
-				href={lessonLink(meta)}
-				style:left="{(s.x / MAP_W) * 100}%"
-				style:top="{(s.y / MAP_H) * 100}%"
-				aria-label="{meta.title}, {trackById.get(meta.track)?.title}, {complete
-					? 'complete'
-					: 'not started'}{meta.questions > 0 ? `, ${solved[i]} of ${meta.questions} questions solved` : ''}"
-				onpointerenter={() => (hover = i)}
-				onpointerleave={() => (hover = -1)}
-				onfocus={() => (hover = i)}
-				onblur={() => (hover = -1)}
-			>
-				<span class="core"></span>
-				<span class="name" bind:clientWidth={nameW[i]}>{meta.title}</span>
-			</a>
-		{/each}
-
 		{#if hoveredMeta && hoveredTrack}
-			<div class="card glass" style={cardStyle} aria-hidden="true">
+			<div class="card" style={cardStyle} aria-hidden="true">
 				<p class="track" style:color="var(--c-{hoveredTrack.tone})">{hoveredTrack.title}</p>
 				<p class="title">{hoveredMeta.title}</p>
 				<p class="summary">{hoveredMeta.summary}</p>
@@ -131,111 +225,146 @@
 		{/if}
 	</div>
 
-	<p class="list-link"><a href={resolve('/learn')}>Browse lessons as a list</a></p>
-</section>
+	<ul class="key">
+		<li>
+			<svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><circle cx="7" cy="7" r="5" fill="var(--ink-2)" /></svg>
+			Finished
+		</li>
+		<li>
+			<svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
+				<circle cx="7" cy="7" r="6" fill="none" stroke="var(--data)" stroke-width="1.2" />
+				<circle cx="7" cy="7" r="3" fill="var(--data)" />
+			</svg>
+			Start here or up next
+		</li>
+		<li>
+			<svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><circle cx="7" cy="7" r="5" fill="var(--sheet)" stroke="var(--ink-2)" stroke-width="1.4" /></svg>
+			Not started
+		</li>
+		<li>
+			<svg width="18" height="14" viewBox="0 0 18 14" aria-hidden="true"><line x1="1" y1="7" x2="17" y2="7" stroke="var(--ink-3)" stroke-width="1.3" stroke-dasharray="3 4" /></svg>
+			Builds on another track
+		</li>
+	</ul>
+</div>
 
 <style>
 	.atlas {
-		max-width: 1120px;
-		margin: 0 auto;
-		padding: 40px 24px 80px;
-	}
-	header {
-		margin-bottom: 20px;
-	}
-	h2 {
-		font-size: 26px;
-	}
-	header p {
-		color: var(--c-text-2);
-		font-size: 15px;
-		margin-top: 6px;
-	}
-	header .count {
-		font-size: 12px;
-		color: var(--c-muted);
-		margin-top: 10px;
+		width: 100%;
 	}
 	.map {
 		position: relative;
-		width: 100%;
-		max-width: 1072px;
-		aspect-ratio: 1000 / 520;
+		/* Fit by width and by height: the page padding and the key under the map are 150px. */
+		width: min(100%, calc((100vh - var(--topbar-h) - 150px) * 884 / 732));
+		aspect-ratio: 884 / 732;
 		margin: 0 auto;
 	}
-	.sky {
+	.map3d {
 		position: absolute;
 		inset: 0;
+		perspective: 1500px;
+		perspective-origin: 50% 20%;
+	}
+	.tilt {
+		position: absolute;
+		inset: 0;
+		transform-style: preserve-3d;
+		transform: scale(0.96) rotateX(var(--rx, 10deg)) rotateY(var(--ry, 0deg));
+		transform-origin: 50% 60%;
+		transition: transform 0.5s cubic-bezier(0.2, 0.7, 0.2, 1);
+	}
+	.tilt.still {
+		transition: none;
+	}
+	.lay {
+		position: absolute;
+		inset: 0;
+		width: 100%;
+		height: 100%;
+		overflow: visible;
+	}
+	.lay0 {
 		pointer-events: none;
+		filter: drop-shadow(0 22px 22px color-mix(in srgb, var(--cast) calc(var(--cast-a) * 130%), transparent));
+	}
+	.lay1 {
+		transform: translateZ(22px);
+	}
+	.mapsheet {
+		fill: var(--sheet);
+	}
+	.tick {
+		font-family: var(--font-mono);
+		font-size: 10px;
+		fill: var(--ink-3);
 	}
 	.track-name {
-		position: absolute;
-		transform: translate(-50%, -50%);
 		font-family: var(--font-display);
-		font-size: 13px;
-		letter-spacing: 0.04em;
-		white-space: nowrap;
-		opacity: 0.8;
+		font-style: italic;
+		font-size: 21px;
+		stroke: var(--sheet);
+		stroke-width: 5px;
+		paint-order: stroke;
+		stroke-linejoin: round;
 		pointer-events: none;
-		text-shadow: 0 0 4px var(--bg-void), 0 0 8px var(--bg-void);
 	}
 	.star {
-		position: absolute;
-		width: 36px;
-		height: 36px;
-		transform: translate(-50%, -50%);
-		border-radius: 50%;
-		display: block;
+		cursor: pointer;
+		outline: none;
+		transition: transform 0.16s ease-out;
 	}
-	.core {
-		position: absolute;
-		left: 50%;
-		top: 50%;
-		width: 3px;
-		height: 3px;
-		margin: -1.5px 0 0 -1.5px;
-		border-radius: 50%;
-		background: #f4f6ff;
+	.star:hover,
+	.star:focus-visible {
+		transform: translateY(-3px);
+	}
+	.star:hover .dotc,
+	.star:focus-visible .dotc {
+		filter: drop-shadow(0 3px 2px color-mix(in srgb, var(--cast) 40%, transparent));
 	}
 	.name {
-		position: absolute;
-		font-size: 12px;
-		color: var(--c-text-2);
-		white-space: nowrap;
-		pointer-events: none;
-		text-shadow:
-			0 0 3px var(--bg-void),
-			0 0 6px var(--bg-void),
-			0 0 10px var(--bg-void);
+		font-family: var(--font-body);
+		font-size: 14px;
+		stroke: var(--sheet);
+		stroke-width: 4px;
+		paint-order: stroke;
+		stroke-linejoin: round;
 	}
-	.below .name {
-		top: 100%;
-		left: 50%;
-		transform: translateX(-50%);
-		margin-top: -6px;
+	.sub {
+		font-family: var(--font-body);
+		font-size: 12.5px;
+		font-weight: 500;
+		stroke: var(--sheet);
+		stroke-width: 4px;
+		paint-order: stroke;
+		stroke-linejoin: round;
 	}
-	.above .name {
-		bottom: 100%;
-		left: 50%;
-		transform: translateX(-50%);
-		margin-bottom: -6px;
-	}
-	.left .name {
-		right: 100%;
-		top: 50%;
-		transform: translateY(-50%);
-		margin-right: -4px;
-	}
-	.right .name {
-		left: 100%;
-		top: 50%;
-		transform: translateY(-50%);
-		margin-left: 2px;
+	.name.strong {
+		font-weight: 600;
 	}
 	.star:hover .name,
-	.star:focus-visible .name,
-	.star.complete .name {
-		color: var(--c-text);
+	.star:focus-visible .name {
+		font-weight: 600;
+	}
+	.focus-ring {
+		opacity: 0;
+	}
+	.star:focus-visible .focus-ring {
+		opacity: 1;
+	}
+	.pulse {
+		animation: pulse 2.4s ease-in-out infinite;
+	}
+	.still .pulse {
+		animation: none;
+	}
+	@keyframes pulse {
+		0%,
+		100% {
+			opacity: 0.35;
+		}
+		50% {
+			opacity: 1;
+		}
 	}
 	.card {
 		position: absolute;
@@ -243,53 +372,56 @@
 		width: 260px;
 		padding: 14px;
 		pointer-events: none;
-		background: rgba(10, 12, 20, 0.88);
+		background-color: var(--sheet);
+		background-image: var(--grain);
+		border: 1px solid var(--rule-2);
+		border-radius: 4px;
+		box-shadow: var(--shadow);
 	}
 	.card p {
 		margin: 0;
 	}
 	.card .track {
 		font-size: 12px;
+		font-weight: 500;
 	}
 	.card .title {
 		font-family: var(--font-display);
-		font-size: 16px;
+		font-size: 18px;
 		margin-top: 4px;
 	}
 	.card .summary {
 		font-size: 13px;
-		color: var(--c-text-2);
+		color: var(--ink-2);
 		margin-top: 6px;
 	}
-	.card .meta {
-		font-size: 12px;
-		color: var(--c-muted);
-		margin-top: 8px;
-	}
-	.card .questions {
-		font-size: 12px;
-		color: var(--c-muted);
-		margin-top: 4px;
-	}
-	.card .questions.all {
-		color: var(--c-ok);
-	}
+	.card .meta,
+	.card .questions,
 	.card .builds {
 		font-size: 12px;
-		color: var(--c-muted);
+		color: var(--ink-3);
 		margin-top: 4px;
 	}
-	.list-link {
-		text-align: center;
-		margin-top: 20px;
-		font-size: 13px;
+	.card .meta {
+		margin-top: 8px;
 	}
-	.list-link a {
-		color: var(--c-text-2);
-		text-decoration: underline;
-		text-underline-offset: 3px;
+	.card .questions.all {
+		color: var(--ok);
 	}
-	.list-link a:hover {
-		color: var(--c-text);
+	.key {
+		display: flex;
+		flex-wrap: wrap;
+		justify-content: center;
+		gap: 6px 22px;
+		list-style: none;
+		margin: 18px 0 0;
+		padding: 0;
+		font-size: 12.5px;
+		color: var(--ink-2);
+	}
+	.key li {
+		display: flex;
+		align-items: center;
+		gap: 8px;
 	}
 </style>

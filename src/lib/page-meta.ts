@@ -26,6 +26,11 @@ const PAGES: Record<string, PageMeta> = {
 			'Four tracks of interactive lessons: neural net fundamentals, classic ML, LLMs and transformers, vision and generative models.',
 		image: HOME.image
 	},
+	'/playground': {
+		title: `Playground · ${SITE}`,
+		description: 'Free play with a small network: pick the data, shape the network and watch it learn.',
+		image: HOME.image
+	},
 	'/glossary': {
 		title: `Glossary · ${SITE}`,
 		description: 'Short definitions for the terms the lessons use, with links to where each one is shown.',
@@ -50,8 +55,6 @@ function lesson(track: string, id: string): PageMeta | null {
  */
 export function pageMeta(routeId: string | null, params: Record<string, string>): PageMeta {
 	if (routeId === '/learn/[track]/[lesson]') return lesson(params.track, params.lesson) ?? HOME;
-	// The playground sends you to the training lesson.
-	if (routeId === '/playground') return lesson('fundamentals', 'train-a-network') ?? HOME;
 	return (routeId && PAGES[routeId]) || HOME;
 }
 

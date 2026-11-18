@@ -3,48 +3,51 @@ import { allLessons, lessonKey } from './curriculum.ts';
 
 /**
  * Layout of the home page's constellation map, in a fixed design space of MAP_W x MAP_H units with
- * the origin at the top left and y pointing down. The HTML overlay places links by percentage and the
- * GPU scene draws in the same space (flipped vertically), so both always line up.
+ * the origin at the top left and y pointing down. The SVG map draws in this space, and the hover card
+ * is placed by percentage of it.
  */
-export const MAP_W = 1000;
-export const MAP_H = 520;
+export const MAP_W = 884;
+export const MAP_H = 732;
 
 const POSITIONS: Record<string, [x: number, y: number]> = {
 	// A zigzag down the left edge.
-	'classic-ml/linear-regression': [90, 120],
-	'classic-ml/decision-boundaries': [175, 195],
-	'classic-ml/k-means': [95, 290],
-	'classic-ml/overfitting': [180, 385],
-	'classic-ml/decision-trees': [95, 470],
-	// A dipper in the middle: three handle stars, then the four corners of the bowl.
-	'fundamentals/neuron': [300, 270],
-	'fundamentals/activations': [365, 205],
-	'fundamentals/forward-pass': [450, 225],
-	'fundamentals/loss-landscape': [525, 270],
-	'fundamentals/gradient-descent': [530, 350],
-	'fundamentals/backpropagation': [635, 360],
-	'fundamentals/train-a-network': [645, 275],
-	// A zigzag in the upper right, ending above the dipper.
-	'llm/tokenization': [930, 75],
-	'llm/embeddings': [850, 120],
-	'llm/attention': [915, 195],
-	'llm/transformer-block': [790, 210],
-	'llm/sampling': [745, 100],
-	'llm/training': [655, 165],
-	// A shallow arc along the bottom.
-	'vision/convolution': [390, 445],
-	'vision/cnn-features': [700, 420],
-	'vision/vit': [765, 470],
-	'vision/autoencoder': [810, 385],
-	'vision/diffusion': [880, 455]
+	'classic-ml/linear-regression': [70, 340],
+	'classic-ml/decision-boundaries': [140, 400],
+	'classic-ml/k-means': [80, 470],
+	'classic-ml/overfitting': [170, 530],
+	'classic-ml/decision-trees': [280, 580],
+	// The neural net track in the middle: a loop that ends on the training lesson.
+	'fundamentals/neuron': [340, 300],
+	'fundamentals/activations': [400, 250],
+	'fundamentals/forward-pass': [480, 300],
+	'fundamentals/loss-landscape': [440, 380],
+	'fundamentals/gradient-descent': [360, 430],
+	'fundamentals/backpropagation': [450, 480],
+	'fundamentals/train-a-network': [560, 450],
+	// A zigzag in the upper right.
+	'llm/tokenization': [560, 190],
+	'llm/embeddings': [630, 240],
+	'llm/attention': [730, 200],
+	'llm/transformer-block': [800, 280],
+	'llm/sampling': [720, 345],
+	'llm/training': [828, 384],
+	// A shallow arc along the bottom right.
+	'vision/convolution': [650, 500],
+	'vision/cnn-features': [700, 570],
+	'vision/vit': [820, 470],
+	'vision/autoencoder': [840, 550],
+	'vision/diffusion': [790, 600]
 };
 
-/** Where each track's name is written (center of the text). */
-export const TRACK_LABELS: Record<TrackId, [x: number, y: number]> = {
-	'classic-ml': [135, 62],
-	fundamentals: [480, 158],
-	llm: [838, 36],
-	vision: [640, 488]
+/**
+ * Where each track's name is written, and which way the text runs from that point. Each sits in
+ * open paper, clear of dots, links and lesson names.
+ */
+export const TRACK_LABELS: Record<TrackId, [x: number, y: number, anchor: 'start' | 'end']> = {
+	'classic-ml': [48, 268, 'start'],
+	fundamentals: [250, 215, 'start'],
+	llm: [560, 150, 'start'],
+	vision: [836, 672, 'end']
 };
 
 export interface Star {

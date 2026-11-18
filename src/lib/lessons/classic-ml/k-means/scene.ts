@@ -1,5 +1,5 @@
 import { Camera2D } from '../../../gpu/camera.ts';
-import { tone } from '../../../gpu/colors.ts';
+import { paperFill, tone } from '../../../gpu/colors.ts';
 import { ParticleCloud } from '../../../gpu/compute/particles.ts';
 import { Lines } from '../../../gpu/primitives/lines.ts';
 import { Points } from '../../../gpu/primitives/points.ts';
@@ -173,7 +173,7 @@ export const createKMeansScene: SceneFactory = () => {
 		dragging = -1;
 		cloud.groupCount = 0;
 		for (let c = 0; c < k; c++) {
-			const col = tone(CLUSTER_TONES[c], 1, 0.5);
+			const col = tone(CLUSTER_TONES[c], 0.85);
 			cloud.palette.set(col, c * 4);
 		}
 		centersVisible = prep >= 1;
@@ -191,16 +191,16 @@ export const createKMeansScene: SceneFactory = () => {
 
 	function setCloudStyle() {
 		const m = mul('muted');
-		cloud.neutralColor = tone('muted', 1.6, 0.4 * m);
+		cloud.neutralColor = tone('muted', 0.55 * m);
 		for (let c = 0; c < MAX_K; c++) {
-			const col = tone(CLUSTER_TONES[c], 1, 0.5 * m);
+			const col = tone(CLUSTER_TONES[c], 0.85 * m);
 			cloud.palette.set(col, c * 4);
 		}
-		cloud.radius = 1.6;
-		cloud.softness = 0.35;
+		cloud.radius = 2;
+		cloud.softness = 0;
 		cloud.follow = 5;
 		cloud.colorFollow = 9;
-		cloud.jitter = ctx.reducedMotion ? 0 : 0.004;
+		cloud.jitter = 0;
 	}
 
 	function drawFrameBox() {
@@ -225,10 +225,9 @@ export const createKMeansScene: SceneFactory = () => {
 				const t = CLUSTER_TONES[c];
 				const x = disp[c * 2] + MAP_OX;
 				const y = disp[c * 2 + 1];
-				markers.set(n++, { x, y, radius: 24, softness: 1, color: tone(t, 1, 0.2 * m) });
-				markers.set(n++, { x, y, radius: 11, color: [0.004, 0.005, 0.01, 0.75 * m] });
-				markers.set(n++, { x, y, radius: 6.5, color: tone(t, 1.25, 0.98 * m) });
-				markers.set(n++, { x, y, radius: 10.5, ring: 2, color: tone('text', 1, 0.9 * m) });
+				markers.set(n++, { x, y, radius: 11.5, color: paperFill() });
+				markers.set(n++, { x, y, radius: 6.5, color: tone(t, m) });
+				markers.set(n++, { x, y, radius: 10.5, ring: 2, color: tone('text', m) });
 			}
 		}
 		markers.count = n;
@@ -276,7 +275,7 @@ export const createKMeansScene: SceneFactory = () => {
 					a: [points[i * 2] + MAP_OX, points[i * 2 + 1]],
 					b: [disp[c * 2] + MAP_OX, disp[c * 2 + 1]],
 					width: 1,
-					color: tone(CLUSTER_TONES[c], 0.9, 0.2 * m)
+					color: tone(CLUSTER_TONES[c], 0.3 * m)
 				});
 			}
 		}
@@ -315,13 +314,12 @@ export const createKMeansScene: SceneFactory = () => {
 				const [tx, ty] = v.project(pts[i][0], CHART.y0);
 				labels.push({ id: `tick-${i}`, x: tx, y: ty + 14, text: String(i + 1), tone: 'muted', mono: true });
 			}
-			n = chart.setPolyline(n, pts, { width: 7, color: tone('grad', 1, 0.08 * m) });
-			n = chart.setPolyline(n, pts, { width: 2, color: tone('grad', 1.5, 0.95 * m) });
+			n = chart.setPolyline(n, pts, { width: 2, color: tone('grad', m) });
 			for (let i = 0; i < MAX_K; i++) {
-				chartPts.set(pn++, { x: pts[i][0], y: pts[i][1], radius: 3.5, color: tone('grad', 1.4, 0.95 * m) });
+				chartPts.set(pn++, { x: pts[i][0], y: pts[i][1], radius: 3.5, color: tone('grad', m) });
 			}
 			const cur = pts[clamp(k, 1, MAX_K) - 1];
-			chartPts.set(pn++, { x: cur[0], y: cur[1], radius: 8, ring: 2, color: tone('text', 1.3, 0.95 * m) });
+			chartPts.set(pn++, { x: cur[0], y: cur[1], radius: 8, ring: 2, color: tone('text', m) });
 			const [ex, ey] = v.project(cur[0], cur[1]);
 			labels.push({
 				id: 'chart-now',
@@ -343,11 +341,10 @@ export const createKMeansScene: SceneFactory = () => {
 			for (let i = 0; i < history.length; i++) {
 				pts.push([px(i), py(history[i])]);
 				if (i + 1 < history.length) pts.push([px(i + 1), py(history[i])]);
-				chartPts.set(pn++, { x: px(i), y: py(history[i]), radius: 3, color: tone('grad', 1.4, 0.95 * m) });
+				chartPts.set(pn++, { x: px(i), y: py(history[i]), radius: 3, color: tone('grad', m) });
 			}
 			if (pts.length >= 2) {
-				n = chart.setPolyline(n, pts, { width: 7, color: tone('grad', 1, 0.08 * m) });
-				n = chart.setPolyline(n, pts, { width: 2, color: tone('grad', 1.5, 0.95 * m) });
+				n = chart.setPolyline(n, pts, { width: 2, color: tone('grad', m) });
 			}
 			const last = history.length - 1;
 			const [ex, ey] = v.project(px(last), py(history[last]));

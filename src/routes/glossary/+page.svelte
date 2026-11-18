@@ -84,40 +84,35 @@
 <svelte:window {onkeydown} onhashchange={() => void reveal(location.hash)} />
 
 <main>
-	<header class="head">
+	<div class="side">
 		<h1>Glossary</h1>
 		<p class="lede">
 			Short definitions for the terms the lessons use, with links to where each one is shown.
 		</p>
 		<p class="count num">{glossary.length} terms</p>
-	</header>
-
-	<div class="bar">
-		<div class="bar-in">
-			<input
-				bind:this={field}
-				bind:value={query}
-				type="search"
-				placeholder="Search terms"
-				aria-label="Search the glossary"
-				autocomplete="off"
-				spellcheck="false"
-				onkeydown={onfieldkey}
-			/>
-			{#if searching}
-				<p class="found num" aria-live="polite">{results.length} of {glossary.length}</p>
-			{:else}
-				<nav class="letters" aria-label="Jump to letter">
-					{#each LETTERS as l (l)}
-						{#if groups.has(l)}
-							<a href="#letter-{l.toLowerCase()}">{l}</a>
-						{:else}
-							<span class="dim" aria-hidden="true">{l}</span>
-						{/if}
-					{/each}
-				</nav>
-			{/if}
-		</div>
+		<input
+			bind:this={field}
+			bind:value={query}
+			type="search"
+			placeholder="Search terms"
+			aria-label="Search the glossary"
+			autocomplete="off"
+			spellcheck="false"
+			onkeydown={onfieldkey}
+		/>
+		{#if searching}
+			<p class="found num" aria-live="polite">{results.length} of {glossary.length}</p>
+		{:else}
+			<nav class="letters" aria-label="Jump to letter">
+				{#each LETTERS as l (l)}
+					{#if groups.has(l)}
+						<a href="#letter-{l.toLowerCase()}">{l}</a>
+					{:else}
+						<span class="dim" aria-hidden="true">{l}</span>
+					{/if}
+				{/each}
+			</nav>
+		{/if}
 	</div>
 
 	<div class="body">
@@ -129,6 +124,7 @@
 						<span class="aliases">also: {e.aliases.join(', ')}</span>
 					{/if}
 				</h3>
+				<div class="text">
 				<p class="def">{e.definition}</p>
 				<div class="row">
 					<span class="label">Shown in</span>
@@ -150,6 +146,7 @@
 						{/each}
 					</p>
 				{/if}
+				</div>
 			</article>
 		{/snippet}
 
@@ -173,142 +170,132 @@
 
 <style>
 	main {
-		--bar-h: 56px;
-	}
-	.head,
-	.bar-in,
-	.body {
-		max-width: 860px;
+		display: grid;
+		grid-template-columns: 300px minmax(0, 1fr);
+		gap: 72px;
+		align-items: start;
+		max-width: 1280px;
 		margin: 0 auto;
-		padding-left: 24px;
-		padding-right: 24px;
+		padding: 56px 48px 96px;
 	}
-	.head {
-		padding-top: 48px;
-		padding-bottom: 24px;
+	.side {
+		position: sticky;
+		top: calc(var(--topbar-h) + 24px);
+		display: grid;
+		gap: 20px;
+		align-content: start;
 	}
 	h1 {
-		font-size: 32px;
-		margin-bottom: 8px;
+		font-family: var(--font-display);
+		font-weight: 500;
+		font-size: 60px;
+		line-height: 1;
+		letter-spacing: -0.02em;
 	}
 	.lede {
-		color: var(--c-text-2);
-		margin-bottom: 8px;
+		color: var(--ink-2);
+		font-size: 15px;
 	}
-	.count {
-		font-size: 13px;
-		color: var(--c-muted);
-	}
-
-	.bar {
-		position: sticky;
-		top: var(--topbar-h);
-		z-index: 20;
-		height: var(--bar-h);
-		background: var(--bg-void);
-		border-bottom: 1px solid var(--line);
-	}
-	.bar-in {
-		display: flex;
-		align-items: center;
-		gap: 20px;
-		height: 100%;
-	}
-	input {
-		flex: none;
-		width: 320px;
-		height: 32px;
-		padding: 0 12px;
-		border-radius: var(--r-pill);
-		border: 1px solid var(--line-strong);
-		background: var(--glass);
-		color: var(--c-text);
-		font-family: var(--font-mono);
-		font-size: 13px;
-	}
-	input::placeholder {
-		color: var(--c-muted);
-	}
-	input:focus-visible {
-		outline: none;
-		border-color: var(--c-data);
-	}
+	.count,
 	.found {
 		font-size: 13px;
-		color: var(--c-muted);
+		color: var(--ink-3);
+		margin-top: -10px;
+	}
+	input {
+		width: 100%;
+		height: 42px;
+		padding: 0 14px;
+		border-radius: 4px;
+		border: 1px solid var(--rule-2);
+		background-color: var(--sheet);
+		color: var(--ink);
+		font-family: var(--font-body);
+		font-size: 14px;
+	}
+	input::placeholder {
+		color: var(--ink-3);
+	}
+	input:focus-visible {
+		outline: 2px solid var(--data);
+		outline-offset: 1px;
 	}
 	.letters {
-		display: flex;
-		flex-wrap: nowrap;
-		gap: 2px;
-		margin-left: auto;
-		font-family: var(--font-mono);
-		font-size: 12px;
+		display: grid;
+		grid-template-columns: repeat(7, 1fr);
+		gap: 4px;
+		font-family: var(--font-display);
+		font-size: 18px;
 	}
 	.letters a,
 	.letters .dim {
-		display: grid;
-		place-items: center;
-		width: 17px;
-		height: 22px;
-		border-radius: 4px;
+		text-align: center;
+		padding: 3px 0;
+		border-radius: 3px;
 	}
 	.letters a {
-		color: var(--c-text-2);
+		color: var(--ink);
 	}
 	.letters a:hover {
-		background: var(--glass-strong);
-		color: var(--c-text);
+		background: var(--ink);
+		color: var(--pg);
 	}
 	.letters .dim {
-		color: var(--c-muted);
-		opacity: 0.4;
+		color: var(--ink-3);
+		opacity: 0.45;
 	}
 
 	.body {
-		padding-top: 8px;
-		padding-bottom: 96px;
+		border-top: 2px solid var(--ink);
+		min-width: 0;
 	}
 	h2 {
-		margin: 28px 0 4px;
-		font-family: var(--font-mono);
-		font-size: 13px;
-		font-weight: 500;
-		color: var(--c-muted);
-		scroll-margin-top: calc(var(--topbar-h) + var(--bar-h) + 16px);
+		margin: 0;
+		padding: 22px 0 8px;
+		font-family: var(--font-display);
+		font-style: italic;
+		font-weight: 400;
+		font-size: 40px;
+		line-height: 1;
+		color: var(--ink-3);
+		scroll-margin-top: calc(var(--topbar-h) + 16px);
 	}
 	article {
+		display: grid;
+		grid-template-columns: 210px minmax(0, 1fr);
+		gap: 24px;
+		padding: 14px 12px;
 		margin: 0 -12px;
-		padding: 14px 12px 14px 11px;
-		border-left: 1px solid transparent;
-		border-radius: var(--r-sm);
-		scroll-margin-top: calc(var(--topbar-h) + var(--bar-h) + 16px);
+		border-bottom: 1px solid var(--rule);
+		border-left: 2px solid transparent;
+		scroll-margin-top: calc(var(--topbar-h) + 16px);
 	}
 	article:target,
 	article.active {
-		border-left-color: var(--c-data);
-		background: var(--glass);
+		border-left-color: var(--data);
+		background: color-mix(in srgb, var(--data) 9%, transparent);
 	}
 	h3 {
-		display: flex;
-		flex-wrap: wrap;
-		align-items: baseline;
-		gap: 4px 10px;
-		margin-bottom: 4px;
+		display: grid;
+		align-content: start;
+		gap: 2px;
+		margin: 0;
 		font-family: var(--font-display);
-		font-size: 17px;
+		font-size: 22px;
 		font-weight: 500;
+		line-height: 1.2;
 	}
 	.aliases {
 		font-family: var(--font-body);
-		font-size: 13px;
+		font-size: 12.5px;
 		font-weight: 400;
-		color: var(--c-muted);
+		color: var(--ink-3);
 	}
 	.def {
 		margin-bottom: 10px;
 		font-size: 15px;
-		color: var(--c-text-2);
+		line-height: 1.55;
+		color: var(--ink);
 	}
 	.row {
 		display: flex;
@@ -318,21 +305,20 @@
 		font-size: 12px;
 	}
 	.label {
-		color: var(--c-muted);
+		color: var(--ink-3);
 	}
 	.pill {
 		display: inline-flex;
 		align-items: center;
 		gap: 6px;
 		padding: 2px 10px;
-		border: 1px solid var(--line);
+		border: 1px solid var(--rule-2);
 		border-radius: var(--r-pill);
-		color: var(--c-text-2);
+		color: var(--ink-2);
 	}
 	.pill:hover {
-		border-color: var(--line-strong);
-		background: var(--glass);
-		color: var(--c-text);
+		border-color: var(--ink-3);
+		color: var(--ink);
 	}
 	.dot {
 		width: 6px;
@@ -342,16 +328,18 @@
 	.related {
 		margin-top: 8px;
 		font-size: 13px;
-		color: var(--c-text-2);
+		color: var(--ink-2);
 	}
 	.related a {
-		color: var(--c-data);
+		color: var(--data);
+		text-decoration: underline;
+		text-underline-offset: 2px;
 	}
 	.empty {
 		display: grid;
 		justify-items: start;
 		gap: 12px;
 		padding: 40px 0;
-		color: var(--c-text-2);
+		color: var(--ink-2);
 	}
 </style>

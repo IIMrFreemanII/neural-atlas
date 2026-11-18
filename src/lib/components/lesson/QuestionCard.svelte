@@ -10,9 +10,10 @@
 		solved: boolean;
 		onsolve: () => void;
 		onhighlight: (tone: Tone | null) => void;
+		highlight?: Tone | null;
 	}
 
-	let { question, solved, onsolve, onhighlight }: Props = $props();
+	let { question, solved, onsolve, onhighlight, highlight = null }: Props = $props();
 
 	// The card is re-created per question, so the starting values are read once on purpose.
 	/** Indices of the wrong options the learner has tried. Component state only. */
@@ -43,59 +44,61 @@
 {#snippet inline(text: string)}
 	{#each parseBody(text) as para, i (i)}{#if i > 0}{' '}{/if}{#each para as run, j (j)}{#if run.kind === 'bold'}<strong
 					>{run.text}</strong
-				>{:else if run.kind === 'term'}<span style:color="var(--c-{run.tone})">{run.text}</span
+				>{:else if run.kind === 'term'}<span
+					class="t"
+					class:lit={highlight === run.tone}
+					style:--tone="var(--c-{run.tone})">{run.text}</span
 				>{:else}{run.text}{/if}{/each}{/each}
 {/snippet}
 
 <section class="question" data-question={question.kind} data-solved={solved}>
 	<h2>{question.kind === 'choice' ? 'Pick an answer' : 'Do it in the visual'}</h2>
-	<Prose text={question.prompt} {onhighlight} />
+	<Prose text={question.prompt} {onhighlight} {highlight} />
 
 	{#if question.kind === 'choice'}
 		<ul class="options">
 			{#each question.options as o, i (i)}
 				{@const right = picked === i}
 				{@const wrong = tried.includes(i)}
-				<li>
+				<li class="opt" class:right class:wrong class:dim={done && !right && !wrong}>
 					<button
 						type="button"
 						class="option"
-						class:right
-						class:wrong
-						class:dim={done && !right && !wrong}
 						data-option={i}
 						disabled={done || wrong}
 						onclick={() => pick(i)}
 					>
-						<span class="badge num" aria-hidden="true">
-							{#if right}<Icon name="check" size={14} />{:else if wrong}<Icon
-									name="close"
-									size={14}
-								/>{:else}{'ABCD'[i]}{/if}
+						<span class="dot" aria-hidden="true">
+							{#if right}<Icon name="check" size={10} />{:else if wrong}<Icon name="close" size={10} />{/if}
 						</span>
 						<span class="text">{@render inline(o.text)}</span>
 					</button>
 					<div class="whys" aria-live="polite">
 						{#if right || wrong}
-							<p class="why" class:ok={right} role="status">{@render inline(o.why)}</p>
+							<div class="whybox">
+								<span class="verdict" class:no={wrong}>{right ? 'Correct.' : 'Not quite.'}</span>
+								<p class="why" role="status">{@render inline(o.why)}</p>
+							</div>
 						{/if}
 					</div>
 				</li>
 			{/each}
 		</ul>
 	{:else}
-		<div class="status" role="status">
-			<span class="ring" class:ok={solved} aria-hidden="true">
-				{#if solved}<Icon name="check" size={14} />{/if}
-			</span>
-			<span class="state" class:ok={solved}>
-				{solved ? 'Done' : 'Not done yet. Work in the visual and with its controls.'}
+		<div class="goal" class:done={solved}>
+			<span class="status" role="status">
+				<span class="ring" class:ok={solved} aria-hidden="true">
+					{#if solved}<Icon name="check" size={12} />{/if}
+				</span>
+				<span class="state" class:ok={solved}>
+					{solved ? 'Done' : 'Not done yet. Work in the visual and with its controls.'}
+				</span>
 			</span>
 		</div>
 		{#if solved}
-			<div class="explain"><Prose text={question.solved} {onhighlight} /></div>
+			<div class="explain"><Prose text={question.solved} {onhighlight} {highlight} /></div>
 		{:else if hintOpen}
-			<div class="hint"><Prose text={question.hint} {onhighlight} /></div>
+			<div class="hint"><Prose text={question.hint} {onhighlight} {highlight} /></div>
 		{:else}
 			<button type="button" class="btn hint-btn" onclick={() => (hintOpen = true)}>Show a hint</button>
 		{/if}
@@ -104,123 +107,158 @@
 
 <style>
 	h2 {
-		font-size: 17px;
-		margin-bottom: 12px;
+		margin: 0 0 12px;
+		font-family: var(--font-display);
+		font-weight: 500;
+		font-size: 26px;
+		line-height: 1.15;
+		letter-spacing: -0.01em;
+		text-wrap: balance;
 	}
 	.options {
-		display: flex;
-		flex-direction: column;
-		gap: 8px;
+		display: grid;
+		gap: 6px;
 		margin: 16px 0 0;
 		padding: 0;
 		list-style: none;
 	}
-	.option {
-		display: flex;
-		align-items: flex-start;
-		gap: 10px;
-		width: 100%;
-		padding: 10px 12px;
-		border: 1px solid var(--line);
-		border-radius: var(--r-md);
-		background: var(--glass);
-		text-align: left;
-		cursor: pointer;
+	.opt {
+		border: 1px solid var(--rule-2);
+		border-radius: 4px;
+		font-size: 14px;
+		line-height: 1.45;
 		transition:
 			border-color 0.15s,
-			background 0.15s,
+			background-color 0.15s,
 			opacity 0.15s;
 	}
-	.option:hover:not(:disabled) {
-		border-color: var(--line-strong);
-		background: var(--glass-strong);
+	.opt:has(.option:hover:not(:disabled)) {
+		border-color: var(--ink-2);
+		background: color-mix(in srgb, var(--ink) 4%, transparent);
+	}
+	.opt.right {
+		border-color: var(--ok);
+		background: color-mix(in srgb, var(--ok) 9%, transparent);
+	}
+	.opt.wrong {
+		border-color: var(--neg);
+		background: color-mix(in srgb, var(--neg) 8%, transparent);
+	}
+	.opt.dim {
+		opacity: 0.5;
+	}
+	.option {
+		display: grid;
+		grid-template-columns: 14px 1fr;
+		align-items: start;
+		gap: 10px;
+		width: 100%;
+		padding: 9px 12px;
+		border: 0;
+		border-radius: 4px;
+		background: transparent;
+		font: inherit;
+		color: var(--ink);
+		text-align: left;
+		cursor: pointer;
 	}
 	.option:disabled {
 		cursor: default;
 	}
-	.option.right {
-		border-color: var(--c-ok);
-	}
-	.option.wrong {
-		border-color: var(--c-neg);
-	}
-	.option.dim {
-		opacity: 0.5;
-	}
-	.badge {
-		display: inline-grid;
+	.dot {
+		display: grid;
 		place-items: center;
-		flex: none;
-		width: 22px;
-		height: 22px;
-		border: 1px solid var(--line-strong);
-		border-radius: var(--r-sm);
-		font-size: 12px;
-		color: var(--c-text-2);
+		width: 14px;
+		height: 14px;
+		margin-top: 2px;
+		border: 1.5px solid var(--rule-2);
+		border-radius: 50%;
+		color: var(--sheet);
 	}
-	.right .badge {
-		border-color: var(--c-ok);
-		color: var(--c-ok);
+	.right .dot {
+		background: var(--ok);
+		border-color: var(--ok);
 	}
-	.wrong .badge {
-		border-color: var(--c-neg);
-		color: var(--c-neg);
+	.wrong .dot {
+		background: var(--neg);
+		border-color: var(--neg);
 	}
 	.text {
-		flex: 1;
 		min-width: 0;
-		padding-top: 2px;
 	}
-	.text {
-		color: var(--c-text);
-	}
-	.text strong {
-		font-weight: 600;
-	}
+	.text strong,
 	.why strong {
 		font-weight: 600;
-		color: var(--c-text);
+	}
+	.t {
+		color: var(--tone);
+		font-weight: 500;
+		border-radius: 2px;
+	}
+	.t.lit {
+		background: color-mix(in srgb, var(--tone) 14%, transparent);
+		box-shadow: 0 0 0 3px color-mix(in srgb, var(--tone) 14%, transparent);
+	}
+	.whybox {
+		padding: 0 12px 9px 36px;
+		font-size: 13px;
+		line-height: 1.5;
+		color: var(--ink-2);
 	}
 	.why {
-		margin: 8px 0 4px;
-		padding-left: 12px;
-		border-left: 2px solid var(--c-neg);
-		font-size: 14px;
-		color: var(--c-text-2);
+		margin: 0;
 	}
-	.why.ok {
-		border-left-color: var(--c-ok);
+	.verdict {
+		font-weight: 600;
+		color: var(--ok);
+	}
+	.verdict.no {
+		color: var(--neg);
+	}
+	.goal {
+		display: flex;
+		align-items: center;
+		margin: 16px 0 12px;
+		padding: 10px 12px;
+		border: 1px solid var(--rule-2);
+		border-radius: 4px;
+		transition:
+			border-color 0.15s,
+			background-color 0.15s;
+	}
+	.goal.done {
+		border-color: var(--ok);
+		background: color-mix(in srgb, var(--ok) 9%, transparent);
 	}
 	.status {
 		display: flex;
 		align-items: center;
 		gap: 10px;
-		margin: 16px 0 12px;
 	}
 	.ring {
 		display: inline-grid;
 		place-items: center;
 		flex: none;
-		width: 22px;
-		height: 22px;
-		border: 1.5px solid var(--line-strong);
+		width: 20px;
+		height: 20px;
+		border: 1.5px solid var(--rule-2);
 		border-radius: 50%;
-		color: var(--bg-void);
+		color: var(--sheet);
 		transition:
-			background 0.15s,
+			background-color 0.15s,
 			border-color 0.15s;
 	}
 	.ring.ok {
-		background: var(--c-ok);
-		border-color: var(--c-ok);
+		background: var(--ok);
+		border-color: var(--ok);
 	}
 	.state {
-		font-size: 14px;
-		color: var(--c-text-2);
+		font-size: 12.5px;
+		font-weight: 500;
+		color: var(--grad);
 	}
 	.state.ok {
-		color: var(--c-ok);
-		font-weight: 500;
+		color: var(--ok);
 	}
 	.hint-btn {
 		height: 30px;
@@ -230,10 +268,22 @@
 	.explain,
 	.hint {
 		padding-left: 12px;
-		border-left: 2px solid var(--line-strong);
+		border-left: 2px solid var(--ink-3);
+		font-size: 13.5px;
 	}
 	.explain {
-		border-left-color: var(--c-ok);
+		border-left-color: var(--ok);
+	}
+	.hint :global(p),
+	.explain :global(p) {
+		font-size: 13.5px;
+		line-height: 1.55;
+		color: var(--ink-2);
+	}
+	.hint :global(strong),
+	.explain :global(strong) {
+		font-weight: 500;
+		color: var(--ink);
 	}
 	.explain :global(p:last-child),
 	.hint :global(p:last-child) {

@@ -5,6 +5,8 @@
 	import '@fontsource-variable/jetbrains-mono';
 	import '../app.css';
 	import favicon from '#lib/assets/favicon.svg';
+	import ContentsDrawer from '#lib/components/shell/ContentsDrawer.svelte';
+	import QuickJump from '#lib/components/shell/QuickJump.svelte';
 	import TopBar from '#lib/components/shell/TopBar.svelte';
 	import { settings } from '#lib/state/settings.svelte.ts';
 
@@ -28,3 +30,5 @@
 
 <TopBar />
 {@render children()}
+<ContentsDrawer />
+<QuickJump />

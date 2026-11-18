@@ -19,7 +19,7 @@ describe('page meta', () => {
 		expect(pageMeta('/', {}).title).toBe('Neural Atlas');
 		expect(pageMeta('/learn', {}).title).toBe('Lessons · Neural Atlas');
 		expect(pageMeta('/glossary', {}).title).toBe('Glossary · Neural Atlas');
-		expect(pageMeta('/playground', {}).title).toBe('Train a network · Neural Atlas');
+		expect(pageMeta('/playground', {}).title).toBe('Playground · Neural Atlas');
 	});
 
 	it('falls back to the home page for unknown addresses and lessons not written yet', () => {

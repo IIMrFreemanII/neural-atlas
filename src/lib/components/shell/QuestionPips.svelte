@@ -14,7 +14,7 @@
 	const text = $derived(`${solved.filter(Boolean).length} of ${count} questions solved`);
 </script>
 
-<!-- One bar per question, in the lesson's order, like the question segments of the step rail. -->
+<!-- One diamond per question, in the lesson's order, like the question marks of the step rail. -->
 {#if count > 0}
 	<span class="pips" role="img" aria-label={text} title={text}>
 		{#each solved as s, j (j)}<span class="pip" class:solved={s}></span>{/each}
@@ -25,15 +25,17 @@
 	.pips {
 		flex: none;
 		display: inline-flex;
-		gap: 2px;
+		gap: 4px;
 	}
+	/* A small ink diamond per question, filled once solved. */
 	.pip {
-		width: 8px;
-		height: 3px;
-		border-radius: 2px;
-		background: var(--line-strong);
+		width: 7px;
+		height: 7px;
+		border: 1.5px solid var(--rule-2);
+		transform: rotate(45deg);
 	}
 	.pip.solved {
-		background: var(--c-ok);
+		background: var(--tone, var(--ink-2));
+		border-color: var(--tone, var(--ink-2));
 	}
 </style>

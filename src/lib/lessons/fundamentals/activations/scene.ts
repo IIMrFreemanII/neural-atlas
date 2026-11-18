@@ -1,5 +1,5 @@
 import { Camera2D } from '../../../gpu/camera.ts';
-import { tone } from '../../../gpu/colors.ts';
+import { paperFill, tone } from '../../../gpu/colors.ts';
 import { Lines } from '../../../gpu/primitives/lines.ts';
 import { Points } from '../../../gpu/primitives/points.ts';
 import type { Label, Scene, SceneContext, SceneFactory, Tone } from '../../../gpu/types.ts';
@@ -115,7 +115,6 @@ export const createActivationsScene: SceneFactory = () => {
 	let ctx: SceneContext;
 	let camera: Camera2D;
 	let lines: Lines;
-	let glows: Points;
 	let dots: Points;
 
 	let act: ActivationId = 0;
@@ -139,6 +138,12 @@ export const createActivationsScene: SceneFactory = () => {
 		if (value !== last) ctx.emit(key, value);
 		return value;
 	};
+
+	/** Pixel box that captions may use: the stage minus the UI overlays. */
+	function stageBounds(): Box {
+		const ins = lessonInsets(ctx.view);
+		return { x0: ins.left, x1: ctx.view.width - ins.right, y0: ins.top, y1: ctx.view.height - ins.bottom };
+	}
 
 	const mul = (t: Tone) => (hl === null || hl === t ? 1 : 0.3);
 	const yOf = (v: number) => Y_LO + ((v - lo) / (hi - lo)) * (Y_HI - Y_LO);
@@ -186,11 +191,8 @@ export const createActivationsScene: SceneFactory = () => {
 		return raw.flatMap(clipRuns);
 	}
 
-	function drawPieces(n: number, pieces: Pt[][], t: Tone, width: number, intensity: number, alpha: number, halo: boolean) {
-		for (const p of pieces) {
-			if (halo) n = lines.setPolyline(n, p, { width: 8, color: tone(t, 0.8, 0.1 * alpha) });
-			n = lines.setPolyline(n, p, { width, color: tone(t, intensity, alpha) });
-		}
+	function drawPieces(n: number, pieces: Pt[][], t: Tone, width: number, density: number) {
+		for (const p of pieces) n = lines.setPolyline(n, p, { width, color: tone(t, density) });
 		return n;
 	}
 
@@ -198,7 +200,6 @@ export const createActivationsScene: SceneFactory = () => {
 		const v = ctx.view;
 		let n = lines.count;
 		let d = dots.count;
-		let gl = glows.count;
 		const mm = mul('muted') * o;
 		const dm = mul('data') * o;
 		const gm = mul('grad') * o;
@@ -206,19 +207,21 @@ export const createActivationsScene: SceneFactory = () => {
 
 		// axes
 		const y0 = yOf(0);
-		lines.set(n++, { a: [-Z_MAX, y0], b: [Z_MAX, y0], width: 1, color: tone('muted', 1, 0.5 * mm) });
-		lines.set(n++, { a: [0, Y_LO], b: [0, Y_HI], width: 1, color: tone('muted', 1, 0.5 * mm) });
+		lines.set(n++, { a: [-Z_MAX, y0], b: [Z_MAX, y0], width: 1, color: tone('muted', 0.5 * mm) });
+		lines.set(n++, { a: [0, Y_LO], b: [0, Y_HI], width: 1, color: tone('muted', 0.5 * mm) });
 
 		// curves: derivative first so the function stays on top where the two coincide
 		// (the step function and its zero slope share the left half of the axis).
 		if (sh > 0.002) {
 			const dsplit = act === 2 || act === 5;
-			n = drawPieces(n, curvePieces((zz) => derivative(act, zz), dsplit), 'grad', 2, 1.6, 0.95 * gm * sh, false);
+			n = drawPieces(n, curvePieces((zz) => derivative(act, zz), dsplit), 'grad', 2, gm * sh);
 		}
-		n = drawPieces(n, curvePieces((zz) => activate(act, zz), act === 4), 'data', 2.5, 1.6, 0.95 * dm, true);
+		n = drawPieces(n, curvePieces((zz) => activate(act, zz), act === 4), 'data', 2.5, dm);
 		if (act === 4) {
-			dots.set(d++, { x: 0, y: yOf(0), radius: 4, ring: 1.3, color: tone('data', 1.6, 0.9 * dm) });
-			dots.set(d++, { x: 0, y: yOf(1), radius: 4, color: tone('data', 2, 0.9 * dm) });
+			// open circle at the excluded end, filled dot at the included one
+			dots.set(d++, { x: 0, y: yOf(0), radius: 4, color: paperFill(dm) });
+			dots.set(d++, { x: 0, y: yOf(0), radius: 4, ring: 1.5, color: tone('data', 1, dm) });
+			dots.set(d++, { x: 0, y: yOf(1), radius: 4, color: tone('data', 1, dm) });
 		}
 
 		// marker
@@ -227,9 +230,9 @@ export const createActivationsScene: SceneFactory = () => {
 		const slope = derivative(act, zc);
 		const oy = clamp(yOf(out), Y_LO, Y_HI);
 		const sy = clamp(yOf(slope), Y_LO, Y_HI);
-		lines.set(n++, { a: [zc, y0], b: [zc, oy], width: 1, color: tone('data', 1, 0.45 * dm) });
-		glows.set(gl++, { x: zc, y: oy, radius: 30, color: tone('data', 2, 0.45 * dm), softness: 1 });
-		dots.set(d++, { x: zc, y: oy, radius: 7, color: tone('data', 3, dm) });
+		lines.set(n++, { a: [zc, y0], b: [zc, oy], width: 1, color: tone('data', 0.4 * dm) });
+		dots.set(d++, { x: zc, y: oy, radius: 9, color: paperFill(dm) });
+		dots.set(d++, { x: zc, y: oy, radius: 6.5, color: tone('data', 1, dm) });
 		if (sh > 0.002) {
 			const k = (slope * (Y_HI - Y_LO)) / (hi - lo);
 			const l = Math.hypot(1, k);
@@ -239,13 +242,13 @@ export const createActivationsScene: SceneFactory = () => {
 				a: [zc - hx, oy - hy],
 				b: [zc + hx, oy + hy],
 				width: 2,
-				color: tone('grad', 2.5, gm * sh)
+				color: tone('grad', 1, gm * sh)
 			});
-			dots.set(d++, { x: zc, y: sy, radius: 5.5, color: tone('grad', 3, gm * sh) });
+			dots.set(d++, { x: zc, y: sy, radius: 7.5, color: paperFill(gm * sh) });
+			dots.set(d++, { x: zc, y: sy, radius: 5.5, color: tone('grad', 1, gm * sh) });
 		}
 		lines.count = n;
 		dots.count = d;
-		glows.count = gl;
 
 		// labels
 		const pm = mul('muted') * o;
@@ -285,13 +288,13 @@ export const createActivationsScene: SceneFactory = () => {
 			const dsplit = act === 2 || act === 5;
 			for (const piece of curvePieces((zz) => derivative(act, zz), dsplit)) obst.push(...densify(toPx(piece), 3));
 		}
-		// the ball and its glow core
+		// the ball
 		for (let i = 0; i < 8; i++) {
 			const a = (i / 8) * Math.PI * 2;
 			obst.push([dpx + Math.cos(a) * 9, dpy + Math.sin(a) * 9]);
 		}
 		obst.push([dpx, dpy]);
-		const bounds: Box = { x0: 12, x1: ctx.view.width - 12, y0: 134, y1: ctx.view.height - 80 };
+		const bounds = stageBounds();
 
 		// output value: right beside the ball, on whichever side is emptiest
 		const outText = out.toFixed(2);
@@ -355,7 +358,7 @@ export const createActivationsScene: SceneFactory = () => {
 		const xs: number[] = [];
 		for (let i = 0; i <= S; i++) xs.push(X_MIN + ((X_MAX - X_MIN) * i) / S);
 
-		lines.set(n++, { a: [wx(X_MIN), 0], b: [wx(X_MAX), 0], width: 1, color: tone('muted', 1, 0.5 * mm) });
+		lines.set(n++, { a: [wx(X_MIN), 0], b: [wx(X_MAX), 0], width: 1, color: tone('muted', 0.5 * mm) });
 
 		// gaps between fit and target
 		for (let i = 0; i < GAPS; i++) {
@@ -364,28 +367,27 @@ export const createActivationsScene: SceneFactory = () => {
 				a: [wx(x), cy(target(x))],
 				b: [wx(x), cy(evalFit(act, units, fit, x))],
 				width: 1,
-				color: tone('neg', 1, 0.5 * o * mul('neg'))
+				color: tone('neg', 0.5 * o * mul('neg'))
 			});
 		}
 		// target
 		n = lines.setPolyline(
 			n,
 			xs.map((x): Pt => [wx(x), target(x)]),
-			{ width: 1.5, color: tone('muted', 1, 0.65 * mm) }
+			{ width: 1.5, color: tone('muted', 0.65 * mm) }
 		);
 		// unit contributions
 		for (let k = 0; k < units; k++) {
 			n = lines.setPolyline(
 				n,
 				xs.map((x): Pt => [wx(x), cy(fit.v[k] * unit(act, units, k, x))]),
-				{ width: 1.25, color: tone('param', 1, 0.65 * pm) }
+				{ width: 1.25, color: tone('param', 0.65 * pm) }
 			);
-			dots.set(d++, { x: wx(center(units, k)), y: 0, radius: 3.5, color: tone('param', 1.8, 0.9 * pm) });
+			dots.set(d++, { x: wx(center(units, k)), y: 0, radius: 3.5, color: tone('param', 1, pm) });
 		}
 		// fit
 		const fitPts = xs.map((x): Pt => [wx(x), cy(evalFit(act, units, fit, x))]);
-		n = lines.setPolyline(n, fitPts, { width: 8, color: tone('data', 0.8, 0.1 * dm) });
-		n = lines.setPolyline(n, fitPts, { width: 2.5, color: tone('data', 1.6, 0.95 * dm) });
+		n = lines.setPolyline(n, fitPts, { width: 2.5, color: tone('data', 1, dm) });
 		lines.count = n;
 		dots.count = d;
 
@@ -405,7 +407,7 @@ export const createActivationsScene: SceneFactory = () => {
 		const [hx, hy] = v.project(0, Y_HI + 0.15);
 		const unitsText = `${units} hidden ${units === 1 ? 'unit' : 'units'}`;
 		const fixed: Box[] = [boxOf(hx, hy, unitsText, 'center', true)];
-		const bounds: Box = { x0: 12, x1: ctx.view.width - 12, y0: 134, y1: ctx.view.height - 80 };
+		const bounds = stageBounds();
 		const near = (p: Px, pts: Px[]) => {
 			let m = Infinity;
 			for (const q of pts) m = Math.min(m, Math.hypot(p[0] - q[0], p[1] - q[1]));
@@ -448,7 +450,6 @@ export const createActivationsScene: SceneFactory = () => {
 			ctx = c;
 			camera = new Camera2D();
 			lines = new Lines(c, { capacity: 3200, blend: 'alpha' });
-			glows = new Points(c, { capacity: 8, blend: 'additive' });
 			dots = new Points(c, { capacity: 64, blend: 'alpha' });
 		},
 		setParams(p) {
@@ -484,13 +485,11 @@ export const createActivationsScene: SceneFactory = () => {
 			const o1 = 1 - o2;
 			lines.count = 0;
 			dots.count = 0;
-			glows.count = 0;
 			const labels: Label[] = [];
 			if (o1 > 0.002) buildOne(o1, labels);
 			if (o2 > 0.002) buildBuild(o2, labels);
 			lines.upload();
 			dots.upload();
-			glows.upload();
 			ctx.labels.set(labels);
 
 			if (mode >= 0.5) {
@@ -506,7 +505,6 @@ export const createActivationsScene: SceneFactory = () => {
 		},
 		draw(pass) {
 			lines.draw(pass);
-			glows.draw(pass);
 			dots.draw(pass);
 		},
 		highlight(t) {
@@ -514,7 +512,6 @@ export const createActivationsScene: SceneFactory = () => {
 		},
 		dispose() {
 			lines.destroy();
-			glows.destroy();
 			dots.destroy();
 		}
 	};

@@ -32,6 +32,7 @@ const lesson: LessonDef = {
 			title: 'A trend hidden in noisy points',
 			body: 'Each [[data:dot]] is one measurement. The horizontal position is what you know, and the vertical position is what you want to predict.\n\nThey rise together, but not exactly. Press **New data** to see another batch with the same hidden trend.',
 			params: { show: 0 },
+			grid: false,
 			controls: ['shuffle'],
 			legend: ['Data points'],
 			readouts: []
@@ -40,6 +41,7 @@ const lesson: LessonDef = {
 			title: 'A line is the model',
 			body: 'A straight [[param:line]] is the simplest model. It has two parameters: the **slope** tilts it and the **intercept** lifts it.\n\nMove both sliders and try to run the line through the middle of the cloud.',
 			params: { show: 1 },
+			grid: false,
 			controls: ['w', 'b'],
 			legend: ['Data points', 'Model line'],
 			readouts: ['mse']
@@ -48,6 +50,7 @@ const lesson: LessonDef = {
 			title: 'Measure the misses',
 			body: 'Each [[grad:segment]] is how far the [[param:line]] is from one point. Some are above and some are below, so simply adding them up would let them cancel out.\n\nAdjust the sliders and watch the segments shrink and grow.',
 			params: { show: 2 },
+			grid: false,
 			controls: ['w', 'b'],
 			legend: ['Data points', 'Model line', 'Error'],
 			readouts: ['mse']
@@ -56,6 +59,7 @@ const lesson: LessonDef = {
 			title: 'Square the misses',
 			body: 'Each miss becomes a [[grad:square]]. A square is never negative, and a miss twice as long costs **four times** as much.\n\nThe average area is the mean squared error, shown by the bar on the right. Move the line to make the squares smaller.',
 			params: { show: 3 },
+			grid: false,
 			controls: ['w', 'b'],
 			// The green tick on the bar is the "Best possible" readout; the green line (Best fit) comes next step.
 			legend: ['Data points', 'Model line', 'Error'],
@@ -73,6 +77,7 @@ const lesson: LessonDef = {
 			title: 'Slide to the best line',
 			body: 'Press **Fit**. Each step nudges the slope and the intercept in the direction that shrinks the squares, and the sliders follow along.\n\nThe bar sinks until it reaches the [[ok:green tick]], the lowest error any line can reach. The [[ok:green line]] is that best fit.',
 			params: { show: 3, best: 1 },
+			grid: false,
 			controls: ['fit', 'w', 'b', 'shuffle'],
 			deepDive: {
 				note: 'Fit runs gradient descent. The gradient says how the error changes when slope or intercept grows, and each step moves a little the other way. For a line there is also an exact answer, which is the green tick.',
@@ -97,12 +102,14 @@ const lesson: LessonDef = {
 			title: 'One outlier pulls hard',
 			body: 'One [[data:point]] sits far below the rest. Because misses are squared, its square is huge, so the [[ok:best line]] tilts toward it.\n\nDrag that point back up to the others and watch the green line recover. Then press **Fit**.',
 			params: { show: 3, best: 1, scenario: 2, w: 0.8, b: 0.1 },
+			grid: false,
 			controls: ['fit', 'best']
 		},
 		{
 			title: 'Your turn',
 			body: 'Drag any [[data:point]] and see how far the [[ok:best line]] moves. Raise the noise and the squares grow, even for the best line.\n\nPress **Fit** to slide the line into place again.',
-			params: { show: 3, best: 1, scenario: 3 }
+			params: { show: 3, best: 1, scenario: 3 },
+			grid: false,
 		}
 	],
 	questions,

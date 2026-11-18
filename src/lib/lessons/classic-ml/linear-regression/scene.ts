@@ -1,5 +1,5 @@
 import { Camera2D } from '../../../gpu/camera.ts';
-import { tone } from '../../../gpu/colors.ts';
+import { paperFill, tone } from '../../../gpu/colors.ts';
 import { Lines } from '../../../gpu/primitives/lines.ts';
 import { Points } from '../../../gpu/primitives/points.ts';
 import { Quads } from '../../../gpu/primitives/quads.ts';
@@ -225,7 +225,7 @@ export const createLinearRegressionScene: SceneFactory = () => {
 						y: (yh + ys[i]) / 2,
 						w: s,
 						h: s,
-						color: tone('grad', 0.5, 0.2 * mGrad)
+						color: tone('grad', 0.07 * mGrad)
 					});
 				}
 			}
@@ -241,7 +241,7 @@ export const createLinearRegressionScene: SceneFactory = () => {
 						if (s < 1e-4) continue;
 						const dir = xs[i] < 0 ? 1 : -1;
 						const x2 = xs[i] + dir * s;
-						const c = tone('grad', 1, 0.5 * mGrad);
+						const c = tone('grad', 0.6 * mGrad);
 						lines.set(ln++, { a: [xs[i], yh], b: [x2, yh], width: 1, color: c });
 						lines.set(ln++, { a: [x2, yh], b: [x2, ys[i]], width: 1, color: c });
 						lines.set(ln++, { a: [x2, ys[i]], b: [xs[i], ys[i]], width: 1, color: c });
@@ -264,8 +264,7 @@ export const createLinearRegressionScene: SceneFactory = () => {
 			if (clip) {
 				const a: [number, number] = [clip[0], w * clip[0] + b];
 				const e: [number, number] = [clip[1], w * clip[1] + b];
-				lines.set(ln++, { a, b: e, width: 8, color: tone('param', 1, 0.12 * mParam) });
-				lines.set(ln++, { a, b: e, width: 2.5, color: tone('param', 1.4, 0.95 * mParam) });
+				lines.set(ln++, { a, b: e, width: 2.5, color: tone('param', mParam) });
 				// Fixed in the plot's top-left corner, which a rising trend leaves empty; a label that
 				// follows the line's end lands on the squares or on the line itself.
 				const [ex, ey] = v.project(-EXT, EXT);
@@ -286,7 +285,7 @@ export const createLinearRegressionScene: SceneFactory = () => {
 				const hBar = BAR.h * clamp(loss, 0, 1);
 				const hTick = BAR.h * clamp(bestLoss, 0, 1);
 				const ty = BAR.y0 + hTick;
-				lines.set(ln++, { a: [BAR.x0 - 0.05, ty], b: [BAR.x1 + 0.05, ty], width: 2, color: tone('ok', 1.2, 0.9 * mOk) });
+				lines.set(ln++, { a: [BAR.x0 - 0.05, ty], b: [BAR.x1 + 0.05, ty], width: 2, color: tone('ok', mOk) });
 				const [tx, tyPx] = v.project(BAR.x1 + 0.1, ty);
 				labels.push({ id: 'bar-best', x: tx, y: tyPx, text: 'best', tone: 'ok', mono: true, align: 'left', opacity: mOk });
 				const [cx, cy] = v.project((BAR.x0 + BAR.x1) / 2, BAR.y0);
@@ -297,7 +296,7 @@ export const createLinearRegressionScene: SceneFactory = () => {
 						y: BAR.y0 + hBar / 2,
 						w: BAR.x1 - BAR.x0,
 						h: hBar,
-						color: tone('grad', 0.7, 0.75 * mGrad)
+						color: tone('grad', 0.75 * mGrad)
 					});
 				}
 			}
@@ -309,18 +308,12 @@ export const createLinearRegressionScene: SceneFactory = () => {
 			// points
 			const mData = mul('data');
 			let pn = 0;
-			for (let pass = 0; pass < 2; pass++) {
+			for (let pass = 0; pass < 3; pass++) {
 				for (let i = 0; i < n; i++) {
 					const active = i === hover || i === grabbed;
-					if (pass === 0) dots.set(pn++, { x: xs[i], y: ys[i], radius: 5, color: tone('data', 1.3, 0.95 * mData) });
-					else
-						dots.set(pn++, {
-							x: xs[i],
-							y: ys[i],
-							radius: active ? 9 : 7,
-							ring: active ? 1.6 : 1,
-							color: tone('data', active ? 0.8 : 0.3, 0.9 * mData)
-						});
+					if (pass === 0) dots.set(pn++, { x: xs[i], y: ys[i], radius: 6.5, color: paperFill(mData) });
+					else if (pass === 1) dots.set(pn++, { x: xs[i], y: ys[i], radius: 5, color: tone('data', mData) });
+					else if (active) dots.set(pn++, { x: xs[i], y: ys[i], radius: 9, ring: 1.6, color: tone('data', mData) });
 				}
 			}
 			dots.count = pn;

@@ -1,5 +1,5 @@
 import { Camera2D } from '../../../gpu/camera.ts';
-import { tone } from '../../../gpu/colors.ts';
+import { sheetFill, tone } from '../../../gpu/colors.ts';
 import { Lines } from '../../../gpu/primitives/lines.ts';
 import { Points } from '../../../gpu/primitives/points.ts';
 import { Quads } from '../../../gpu/primitives/quads.ts';
@@ -34,6 +34,7 @@ interface ChipTarget {
 	w: number;
 	h: number;
 	tone: Tone;
+	/** Density of the tone wash inside the chip. */
 	fill: number;
 	/** Small caption under the chip (the token id), when shown. */
 	sub?: string;
@@ -249,7 +250,7 @@ export const createTokenizationScene: SceneFactory = () => {
 					w: b.w,
 					h: b.h,
 					tone: tones[i],
-					fill: i % 2 === 0 ? 0.16 : 0.26,
+					fill: 0,
 					sub: showIds ? subs[i] : undefined
 				}))
 			);
@@ -301,7 +302,7 @@ export const createTokenizationScene: SceneFactory = () => {
 					w: b.w,
 					h: b.h,
 					tone: t,
-					fill: t === 'grad' ? (i % 2 === 0 ? 0.3 : 0.4) : i % 2 === 0 ? 0.16 : 0.26
+					fill: t === 'grad' ? 0.15 : 0
 				};
 			})
 		);
@@ -332,17 +333,29 @@ export const createTokenizationScene: SceneFactory = () => {
 		chartDirty = false;
 	}
 
+	/** One chip: tone outline (outer quad), sheet fill (inset 1px), optional tone wash. Returns the next quad index. */
+	function chipQuads(
+		q: Quads,
+		n: number,
+		c: { x: number; y: number; w: number; h: number },
+		radius: number,
+		t: Tone,
+		wash: number,
+		a: number,
+		strong: boolean
+	): number {
+		const px = 1 / scaleNow();
+		q.set(n++, { x: c.x, y: c.y, w: c.w, h: c.h, radius, color: tone(t, strong ? 1 : 0.7, a) });
+		q.set(n++, { x: c.x, y: c.y, w: c.w - 2 * px, h: c.h - 2 * px, radius: Math.max(0, radius - 1), color: sheetFill(a) });
+		if (wash > 0)
+			q.set(n++, { x: c.x, y: c.y, w: c.w - 2 * px, h: c.h - 2 * px, radius: Math.max(0, radius - 1), color: tone(t, wash, a) });
+		return n;
+	}
+
 	function drawChips(q: Quads, field: ChipField, start: number, radius: number, a: number): number {
 		let n = start;
 		for (const c of field.chips) {
-			q.set(n++, {
-				x: c.cx,
-				y: c.cy,
-				w: c.cw,
-				h: c.h,
-				radius,
-				color: tone(c.tone, c.fill, 0.9 * a * mul(c.tone))
-			});
+			n = chipQuads(q, n, { x: c.cx, y: c.cy, w: c.cw, h: c.h }, radius, c.tone, c.fill, a * mul(c.tone), c.fill > 0);
 		}
 		return n;
 	}
@@ -404,11 +417,10 @@ export const createTokenizationScene: SceneFactory = () => {
 				CHART.x0 + (w * l) / MAX_MERGES,
 				CHART.y0 + (h * c) / top
 			]);
-			ln = lines.setPolyline(ln, pts, { width: 2, color: tone('data', 0.8, 0.85 * ac * mm) });
+			ln = lines.setPolyline(ln, pts, { width: 2, color: tone('data', 1, ac * mm) });
 			const m = clamp(Math.round(merges), 0, MAX_MERGES);
 			const [mx, my] = pts[m];
-			dot.set(pn++, { x: mx, y: my, radius: 11, softness: 1, color: tone('data', 0.8, 0.5 * ac * mm) });
-			dot.set(pn++, { x: mx, y: my, radius: 4.5, color: tone('data', 1.4, ac * mm) });
+			dot.set(pn++, { x: mx, y: my, radius: 5, color: tone('data', 1, ac * mm) });
 			const lab = (id: string, x: number, y: number, t: string, al: 'left' | 'right' | 'center', tn: Tone, dx = 0, dy = 0) => {
 				const [sx, sy] = v.project(x, y);
 				labels.push({ id, x: sx + dx, y: sy + dy, text: t, tone: tn, mono: true, size: 11, align: al, opacity: ac * (tn === 'data' ? mm : 1) });
@@ -450,12 +462,20 @@ export const createTokenizationScene: SceneFactory = () => {
 					const bw = (112 * r.count) / maxCount;
 					const m = first ? mul('grad') : mul('muted');
 					q1.set(n++, {
+						x: left + (122 + 112 / 2) / scale,
+						y,
+						w: 112 / scale,
+						h: 12 / scale,
+						radius: 3,
+						color: tone('muted', 0.12, a1 * m)
+					});
+					q1.set(n++, {
 						x: left + (122 + bw / 2) / scale,
 						y,
 						w: bw / scale,
 						h: 12 / scale,
 						radius: 3,
-						color: first ? tone('grad', 0.6, 0.9 * a1 * m) : tone('muted', 1, 0.85 * a1 * m)
+						color: first ? tone('grad', 0.9, a1 * m) : tone('muted', 0.85, a1 * m)
 					});
 					const [lx, ly] = v.project(left, y);
 					labels.push({ id: `p-l${i}`, x: lx, y: ly, text: r.label, tone: first ? 'grad' : 'text', mono: true, size: 12, align: 'left', opacity: a1 * m });
@@ -469,14 +489,7 @@ export const createTokenizationScene: SceneFactory = () => {
 				const mp = mul('param');
 				learned.forEach((b, i) => {
 					const newest = i === learned.length - 1;
-					q1.set(n++, {
-						x: b.x,
-						y: b.y,
-						w: b.w,
-						h: b.h,
-						radius: 5,
-						color: tone('param', newest ? 0.5 : 0.2, 0.9 * a1 * mp)
-					});
+					n = chipQuads(q1, n, b, 5, 'param', newest ? 0.15 : 0, a1 * mp, newest);
 					const [sx, sy] = v.project(b.x, b.y);
 					labels.push({ id: `l${i}`, x: sx, y: sy, text: b.text, mono: true, size: 12, opacity: a1 * mp });
 				});
@@ -512,10 +525,10 @@ export const createTokenizationScene: SceneFactory = () => {
 		init(c) {
 			ctx = c;
 			camera = new Camera2D();
-			q0 = new Quads(c, { capacity: 64, blend: 'alpha' });
-			q1 = new Quads(c, { capacity: 128, blend: 'alpha' });
+			q0 = new Quads(c, { capacity: 200, blend: 'alpha' });
+			q1 = new Quads(c, { capacity: 640, blend: 'alpha' });
 			lines = new Lines(c, { capacity: 340, blend: 'alpha' });
-			dot = new Points(c, { capacity: 4, blend: 'alpha' });
+			dot = new Points(c, { capacity: 2, blend: 'alpha' });
 		},
 		setParams(p) {
 			const prev = { view, mode, m: Math.round(merges), tmerges, showIds, chart };

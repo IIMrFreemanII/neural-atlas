@@ -80,28 +80,30 @@
 <style>
 	.dive {
 		margin-top: 20px;
-		border: 1px solid var(--line);
-		border-radius: var(--r-md);
-		background: var(--glass);
+		border: 1px solid var(--rule-2);
+		border-radius: 4px;
+		transition: background-color 0.15s;
 	}
 	.head {
 		display: flex;
 		width: 100%;
 		align-items: center;
 		justify-content: space-between;
-		padding: 10px 14px;
+		padding: 10px 12px;
 		background: transparent;
 		border: 0;
-		border-radius: var(--r-md);
-		font-size: 13px;
-		color: var(--c-text-2);
+		border-radius: 4px;
+		font-size: 14px;
+		font-weight: 500;
+		color: var(--ink);
 		cursor: pointer;
 	}
 	.head:hover {
-		color: var(--c-text);
+		background: color-mix(in srgb, var(--ink) 4%, transparent);
 	}
 	.chev {
 		display: inline-flex;
+		color: var(--ink-2);
 		transition: transform 0.15s;
 	}
 	.chev.open {
@@ -109,17 +111,19 @@
 	}
 	.body {
 		padding: 0 14px 14px;
+		border-top: 1px solid var(--rule);
+		padding-top: 12px;
 	}
 	.note {
 		font-size: 14px;
-		color: var(--c-text-2);
+		color: var(--ink-2);
 		margin-bottom: 12px;
 	}
 	.tabs {
 		display: flex;
 		gap: 4px;
 		margin-bottom: 12px;
-		border-bottom: 1px solid var(--line);
+		border-bottom: 1px solid var(--rule);
 	}
 	.tabs button {
 		padding: 6px 10px;
@@ -128,12 +132,15 @@
 		border: 0;
 		border-bottom: 2px solid transparent;
 		font-size: 13px;
-		color: var(--c-text-2);
+		color: var(--ink-2);
 		cursor: pointer;
 	}
+	.tabs button:hover {
+		color: var(--ink);
+	}
 	.tabs button[aria-selected='true'] {
-		color: var(--c-text);
-		border-bottom-color: var(--c-data);
+		color: var(--ink);
+		border-bottom-color: var(--ink);
 	}
 	figure {
 		margin: 0 0 12px;
@@ -147,15 +154,15 @@
 	}
 	figcaption {
 		font-size: 12px;
-		color: var(--c-text-2);
+		color: var(--ink-2);
 	}
 	pre {
 		margin: 0;
 		padding: 12px;
 		overflow-x: auto;
-		background: var(--bg-void);
-		border: 1px solid var(--line);
-		border-radius: var(--r-sm);
+		background: color-mix(in srgb, var(--ink) 5%, var(--sheet));
+		border: 1px solid var(--rule);
+		border-radius: 4px;
 		font-size: 12.5px;
 		line-height: 1.55;
 	}

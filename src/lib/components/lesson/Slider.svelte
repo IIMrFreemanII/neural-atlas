@@ -11,14 +11,27 @@
 
 	let { control, value, onchange }: Props = $props();
 
-	const pct = $derived(
-		control.max === control.min ? 0 : ((value - control.min) / (control.max - control.min)) * 100
-	);
+	const span = $derived(control.max - control.min);
+	const at = (v: number) => (span === 0 ? 0 : ((v - control.min) / span) * 100);
+	const pct = $derived(Math.min(100, Math.max(0, at(value))));
+	/** A range that crosses zero fills from zero and shows a tick there; any other range fills from its start. */
+	const hasZero = $derived(control.min < 0 && control.max > 0);
+	const origin = $derived(hasZero ? at(0) : 0);
 	const inputId = $props.id();
 </script>
 
-<div class="slider" style:--tone="var(--c-{control.tone ?? 'param'})" style:--pct="{pct}%">
-	<label for={inputId}>{control.label}</label>
+<div
+	class="slider"
+	class:zero={hasZero}
+	style:--tone="var(--c-{control.tone ?? 'param'})"
+	style:--from="{Math.min(origin, pct)}%"
+	style:--to="{Math.max(origin, pct)}%"
+	style:--zero="{origin}%"
+>
+	<div class="top">
+		<label for={inputId}>{control.label}</label>
+		<output class="num" for={inputId}>{value.toFixed(control.digits ?? 2)}</output>
+	</div>
 	<input
 		id={inputId}
 		type="range"
@@ -28,72 +41,103 @@
 		{value}
 		oninput={(e) => onchange(e.currentTarget.valueAsNumber)}
 	/>
-	<output class="num" for={inputId}>{value.toFixed(control.digits ?? 2)}</output>
 </div>
 
 <style>
 	.slider {
+		position: relative;
 		display: grid;
-		grid-template-columns: auto 120px auto;
-		align-items: center;
-		gap: 10px;
-		padding: 2px 6px;
+		gap: 2px;
+		width: 128px;
+		flex: none;
 	}
-	label {
+	.top {
+		display: flex;
+		justify-content: space-between;
+		gap: 8px;
 		font-size: 12px;
-		color: var(--c-text-2);
+		color: var(--ink-2);
 		white-space: nowrap;
 	}
+	label {
+		color: var(--ink-2);
+	}
 	output {
-		font-size: 12px;
-		min-width: 3.4ch;
-		text-align: right;
-		color: var(--c-text);
+		font-weight: 500;
+		color: var(--ink);
 	}
 	input {
 		-webkit-appearance: none;
 		appearance: none;
 		width: 100%;
-		height: 20px;
+		height: 18px;
 		margin: 0;
 		background: transparent;
-		cursor: pointer;
+		cursor: grab;
+	}
+	input:active {
+		cursor: grabbing;
+	}
+	/* The tick where the range crosses zero. */
+	.zero::after {
+		content: '';
+		position: absolute;
+		left: var(--zero);
+		bottom: 7px;
+		width: 1px;
+		height: 9px;
+		background: var(--ink-3);
+		pointer-events: none;
 	}
 	input::-webkit-slider-runnable-track {
 		height: 3px;
 		border-radius: 2px;
 		background: linear-gradient(
 			to right,
-			var(--tone) 0,
-			var(--tone) var(--pct),
-			var(--line-strong) var(--pct),
-			var(--line-strong) 100%
+			var(--rule-2) 0,
+			var(--rule-2) var(--from),
+			var(--tone) var(--from),
+			var(--tone) var(--to),
+			var(--rule-2) var(--to),
+			var(--rule-2) 100%
 		);
 	}
 	input::-moz-range-track {
 		height: 3px;
 		border-radius: 2px;
-		background: var(--line-strong);
-	}
-	input::-moz-range-progress {
-		height: 3px;
-		border-radius: 2px;
-		background: var(--tone);
+		background: var(--rule-2);
 	}
 	input::-webkit-slider-thumb {
 		-webkit-appearance: none;
-		width: 14px;
-		height: 14px;
-		margin-top: -5.5px;
+		width: 13px;
+		height: 13px;
+		margin-top: -5px;
+		box-sizing: border-box;
 		border-radius: 50%;
-		border: 0;
-		background: var(--c-text);
+		border: 2px solid var(--sheet);
+		background: var(--tone);
+		box-shadow: 0 0 0 1px var(--tone);
 	}
 	input::-moz-range-thumb {
-		width: 14px;
-		height: 14px;
+		width: 13px;
+		height: 13px;
+		box-sizing: border-box;
 		border-radius: 50%;
-		border: 0;
-		background: var(--c-text);
+		border: 2px solid var(--sheet);
+		background: var(--tone);
+		box-shadow: 0 0 0 1px var(--tone);
+	}
+	input:focus-visible {
+		outline: none;
+	}
+	input:focus-visible::-webkit-slider-thumb {
+		box-shadow:
+			0 0 0 1px var(--tone),
+			0 0 0 6px color-mix(in srgb, var(--tone) 24%, transparent);
+	}
+	input:focus-visible::-moz-range-thumb {
+		box-shadow:
+			0 0 0 1px var(--tone),
+			0 0 0 6px color-mix(in srgb, var(--tone) 24%, transparent);
 	}
 </style>

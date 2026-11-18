@@ -83,6 +83,11 @@ export interface Step {
 	/** Which readouts are visible at this step, by key. Undefined = all. Hidden readouts still update. */
 	readouts?: string[];
 	deepDive?: DeepDive;
+	/**
+	 * Show the stage's paper grid behind the figure. Default true. Set false on steps whose scene
+	 * draws its own axes or grid, so there is only one grid on screen.
+	 */
+	grid?: boolean;
 }
 
 /** What a task question's goal can look at. */

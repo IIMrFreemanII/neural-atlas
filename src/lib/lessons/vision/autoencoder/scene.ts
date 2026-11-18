@@ -1,5 +1,5 @@
 import { Camera2D } from '../../../gpu/camera.ts';
-import { tone } from '../../../gpu/colors.ts';
+import { paperFill, sheetFill, tone } from '../../../gpu/colors.ts';
 import { Lines } from '../../../gpu/primitives/lines.ts';
 import { Points } from '../../../gpu/primitives/points.ts';
 import { Quads } from '../../../gpu/primitives/quads.ts';
@@ -244,8 +244,17 @@ export const createAutoencoderScene: SceneFactory = () => {
 		const encAlpha = mP * srcA;
 
 		let n = 0;
-		n = writeGrid(quads, n, dImg, gridImg(), (v) => tone('text', 0.08 + 0.7 * v, imgAlpha));
-		n = writeGrid(quads, n, dReb, gridReb(), (v) => tone('data', 0.08 + 0.72 * v, codeAll));
+		// sheets under the pictures, the code box and the map
+		const sheet = (cx: number, cy: number, w: number, h: number, a: number, radius = 0) => {
+			quads.set(n++, { x: px(cx), y: px(cy), w: px(w), h: px(h), color: sheetFill(a), radius });
+		};
+		sheet(X0 + side / 2, 0, side, side, 1);
+		sheet(l.rebL + side / 2, 0, side, side, 1);
+		if (boxA > 0.01) sheet(l.mapCx, 0, BOX_W, BOX_H, boxA, 10);
+		if (mapA > 0.01) sheet(l.mapCx, 0, cw, cw, mapA);
+		// pictures are ink: density is the pixel value, empty is bare sheet
+		n = writeGrid(quads, n, dImg, gridImg(), (v) => tone('text', v, imgAlpha));
+		n = writeGrid(quads, n, dReb, gridReb(), (v) => tone('data', v, codeAll));
 
 		// decoded tiles over the map
 		if (tilesA > 0.01 && mapA > 0.01) {
@@ -262,7 +271,7 @@ export const createAutoencoderScene: SceneFactory = () => {
 						rows: IMG,
 						gap: 0.05
 					};
-					n = writeGrid(quads, n, tiles[j * TILES + i], g, (v) => tone('data', 0.06 + 0.6 * v, alpha));
+					n = writeGrid(quads, n, tiles[j * TILES + i], g, (v) => tone('data', v, alpha));
 				}
 			}
 		}
@@ -277,13 +286,13 @@ export const createAutoencoderScene: SceneFactory = () => {
 		m = lines.setPolyline(
 			m,
 			[[px(X0), px(sh)], [px(X0 + side), px(sh)], [px(X0 + side), -px(sh)], [px(X0), -px(sh)], [px(X0), px(sh)]],
-			{ width: 1, color: tone('muted', 1, 0.5 * imgAlpha) }
+			{ width: 1, color: tone('muted', 1, 0.7 * imgAlpha) }
 		);
 		const reb = gridReb();
 		m = lines.setPolyline(
 			m,
 			[[reb.x, px(sh)], [reb.x + px(side), px(sh)], [reb.x + px(side), -px(sh)], [reb.x, -px(sh)], [reb.x, px(sh)]],
-			{ width: 1, color: tone('muted', 1, 0.5 * codeAll) }
+			{ width: 1, color: tone('muted', 1, 0.7 * codeAll) }
 		);
 		const funnel = (xa: number, ha: number, xb: number, hb: number, color: Rgba) => {
 			m = lines.setPolyline(m, [[px(xa), px(ha)], [px(xb), px(hb)], [px(xb), px(-hb)], [px(xa), px(-ha)], [px(xa), px(ha)]], {
@@ -291,13 +300,13 @@ export const createAutoencoderScene: SceneFactory = () => {
 				color
 			});
 		};
-		funnel(l.encX0, sh, l.encX1, TIP, tone('param', 0.9, 0.8 * encAlpha));
-		funnel(l.decX1, sh, l.decX0, TIP, tone('param', 0.9, 0.8 * mP));
+		funnel(l.encX0, sh, l.encX1, TIP, tone('param', 1, encAlpha));
+		funnel(l.decX1, sh, l.decX0, TIP, tone('param', 1, mP));
 
 		if (boxA > 0.01) {
 			m = lines.setPolyline(m, roundedRect(l.mapCx, 0, BOX_W, BOX_H, 10), {
 				width: 1.5,
-				color: tone('data', 0.9, 0.7 * boxA * codeAll)
+				color: tone('data', 1, boxA * codeAll)
 			});
 		}
 		const dx = l.mapCx + dCode[0] * half;
@@ -331,8 +340,9 @@ export const createAutoencoderScene: SceneFactory = () => {
 			}
 		}
 		if (mapA > 0.01) {
-			points.set(k++, { x: px(dx), y: px(dy), radius: 8, ring: 2, color: tone('text', 1, 0.95 * mapA * codeAll) });
-			points.set(k++, { x: px(dx), y: px(dy), radius: 4, softness: 1, color: tone('data', 1, mapA * codeAll) });
+			points.set(k++, { x: px(dx), y: px(dy), radius: 8, color: paperFill(mapA * codeAll) });
+			points.set(k++, { x: px(dx), y: px(dy), radius: 8, ring: 2, color: tone('text', 1, mapA * codeAll) });
+			points.set(k++, { x: px(dx), y: px(dy), radius: 3.5, color: tone('data', 1, mapA * codeAll) });
 		}
 		points.count = k;
 		points.upload();
@@ -403,9 +413,9 @@ export const createAutoencoderScene: SceneFactory = () => {
 		init(c) {
 			ctx = c;
 			camera = new Camera2D();
-			quads = new Quads(c, { capacity: 22528 });
+			quads = new Quads(c, { capacity: 22600 });
 			lines = new Lines(c, { capacity: 300, blend: 'alpha' });
-			points = new Points(c, { capacity: 820 });
+			points = new Points(c, { capacity: 840 });
 			for (let j = 0; j < TILES; j++) {
 				for (let i = 0; i < TILES; i++) {
 					const zx = -1 + ((i + 0.5) * 2) / TILES;

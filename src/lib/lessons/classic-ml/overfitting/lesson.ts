@@ -31,6 +31,7 @@ const lesson: LessonDef = {
 			title: 'A pattern hidden in noise',
 			body: 'The faint [[muted:curve]] is the real pattern. Each [[data:dot]] is a noisy measurement of it, a little above or below the truth.\n\nA model never sees the curve. It only sees the dots, and has to guess the pattern from them.',
 			params: { fit: 0, truthLine: 1 },
+			grid: false,
 			controls: [],
 			legend: ['Training points', 'True pattern'],
 			readouts: []
@@ -39,6 +40,7 @@ const lesson: LessonDef = {
 			title: 'Too simple: underfitting',
 			body: 'Here the [[param:model]] is a straight line. A line cannot bend, so it misses the shape of the [[data:data]] however you place it.\n\nThis is **underfitting**: the model is too simple for the pattern, so even its error on the dots stays high.',
 			params: { degree: 1 },
+			grid: false,
 			controls: [],
 			legend: ['Training points', 'Model'],
 			readouts: ['train']
@@ -47,6 +49,7 @@ const lesson: LessonDef = {
 			title: 'Flexible enough',
 			body: 'Now the [[param:curve]] has a few bends. It follows the overall shape of the [[data:dots]] without chasing any single one.\n\nTry the **Degree** slider a step or two either way and see how the curve changes.',
 			params: { degree: 4 },
+			grid: false,
 			controls: ['degree'],
 			legend: ['Training points', 'Model'],
 			readouts: ['train']
@@ -55,6 +58,7 @@ const lesson: LessonDef = {
 			title: 'Too flexible: overfitting',
 			body: 'Push the degree up to 10. The [[param:curve]] now bends to chase individual [[data:dots]], and the [[data:training error]] keeps shrinking.\n\nBut between the dots it swings, and sometimes leaves the plot. It is memorizing the noise instead of learning the pattern. That is **overfitting**.',
 			params: { degree: 10 },
+			grid: false,
 			controls: ['degree'],
 			legend: ['Training points', 'Model'],
 			readouts: ['train'],
@@ -70,12 +74,14 @@ const lesson: LessonDef = {
 			title: 'Test it on points it has never seen',
 			body: 'The green [[ok:rings]] are fresh measurements that were not used for fitting. The wiggly [[param:curve]] misses many of them, because its wiggles were shaped by the old dots.\n\nLower the **Degree** and watch the test error in the top corner fall.',
 			params: { degree: 10, test: 1, truthLine: 1 },
+			grid: false,
 			controls: ['degree']
 		},
 		{
 			title: 'The sweet spot',
 			body: 'The chart shows both errors at every degree. The [[data:training error]] only ever falls. The [[ok:test error]] falls, then climbs again.\n\nThe best model sits at the bottom of the test curve. Slide the **Degree** and watch the [[param:marker]] move along it, then push it to 12 and see the test error shoot up.',
 			params: { degree: 10, test: 1, chart: 1 },
+			grid: false,
 			controls: ['degree'],
 			legend: ['Training points', 'Test points', 'Model'],
 			deepDive: {
@@ -90,6 +96,7 @@ const lesson: LessonDef = {
 			title: 'A new sample, a new curve',
 			body: 'The faint [[param:curves]] are fits to 20 other samples of the same pattern. At high degree they disagree wildly: a different sample gives a very different curve. That is high **variance**.\n\nSet the degree to 1 and they agree, but all miss the [[muted:pattern]]. That is high **bias**. Press **New sample** to draw fresh dots.',
 			params: { degree: 10, ghosts: 1, truthLine: 1 },
+			grid: false,
 			controls: ['degree', 'resample'],
 			legend: ['Training points', 'Model', 'True pattern'],
 			readouts: ['train'],
@@ -101,6 +108,7 @@ const lesson: LessonDef = {
 			title: 'Two cures: more data or a penalty',
 			body: 'Raise **Training points** and the wiggles calm down: more dots leave less room to memorize noise. Or keep the data and raise **Penalty**, which charges the model for large coefficients and so keeps the [[param:curve]] smooth.\n\nWatch the [[ok:test error]] as you try each.',
 			params: { degree: 10, test: 1, chart: 1, ghosts: 1 },
+			grid: false,
 			legend: ['Training points', 'Test points', 'Model'],
 			deepDive: {
 				note: 'The penalty is called ridge regression. The coefficient c_0 is left out so the curve can still sit at any height.',

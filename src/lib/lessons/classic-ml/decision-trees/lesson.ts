@@ -58,6 +58,7 @@ const lesson: LessonDef = {
 			title: 'Finding the best first question',
 			body: 'How does a tree pick its questions? It tries every cut and keeps the best. The chart shows how mixed the two sides of the [[grad:cut]] are for every cut position. Low means both sides are nearly pure, with 0 meaning each side holds a single class.\n\nMove **Cut at** to the lowest point of the curve, or press **Find best**. Switch **Cut direction** to try horizontal cuts too.',
 			params: { scenario: 3, depth: 0, split: 1, axis: START_CUT.axis, cut: START_CUT.threshold },
+			grid: false,
 			...TRAIN_ONLY,
 			controls: ['axis', 'cut', 'best'],
 			deepDive: {
@@ -92,6 +93,7 @@ const lesson: LessonDef = {
 			title: 'Too deep overfits',
 			body: 'The [[ok:test points]] were not used to grow the tree. The chart shows both accuracies at every depth: [[data:training accuracy]] only climbs, while [[ok:test accuracy]] peaks and then falls.\n\nSlide **Max depth** and find the peak. Past it, the tree is learning noise.',
 			params: { scenario: 6, depth: MAX_DEPTH, test: 1, chart: 1 },
+			grid: false,
 			controls: ['depth']
 		},
 		{

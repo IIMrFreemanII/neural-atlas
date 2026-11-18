@@ -6,6 +6,11 @@ struct ViewU {
 };
 @group(0) @binding(0) var<uniform> view: ViewU;
 
+struct RevealU {
+	reveal: vec4f,  // x: 0..1 pen position along the arc length (1 = everything)
+};
+@group(1) @binding(0) var<uniform> rev: RevealU;
+
 struct VsIn {
 	@builtin(vertex_index) vi: u32,
 	@location(0) a: vec4f,      // ax, ay, az, width (css px)
@@ -78,16 +83,29 @@ fn fs(in: VsOut) -> @location(0) vec4f {
 	let s = in.local.x;
 	let sx = clamp(s, 0.0, len);
 	let dist = length(vec2f(s - sx, in.local.y)) - halfW;
-	let cov = clamp(0.5 - dist, 0.0, 1.0);
+	var cov = clamp(0.5 - dist, 0.0, 1.0);
+
+	var f = 0.0;
+	if (len > 1e-4) {
+		f = sx / len;
+	}
+	let t = mix(in.geom.z, in.geom.w, f);
+
+	let r = rev.reveal.x;
+	if (r < 1.0) {
+		// Soft ~1.5 device-px edge at the pen tip, measured along the segment.
+		let tPerPx = (in.geom.w - in.geom.z) / max(len, 1e-4);
+		let e = max(tPerPx * 1.5, 1e-6);
+		let pen = clamp((r - t) / e, 0.0, 1.0);
+		if (pen <= 0.0) {
+			discard;
+		}
+		cov = cov * pen;
+	}
 
 	var mult = 1.0;
 	let count = in.pulse.y;
 	if (count > 0.0) {
-		var f = 0.0;
-		if (len > 1e-4) {
-			f = sx / len;
-		}
-		let t = mix(in.geom.z, in.geom.w, f);
 		let phase = fract(t * count - view.time * in.pulse.x);
 		mult = 1.0 + in.pulse.z * bump(phase);
 	}

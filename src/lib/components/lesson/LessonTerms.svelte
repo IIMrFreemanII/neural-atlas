@@ -39,7 +39,7 @@
 					<button
 						type="button"
 						class="chip"
-						style:--tone={e.tone ? `var(--c-${e.tone})` : 'var(--c-text-2)'}
+						style:--tone={e.tone ? `var(--c-${e.tone})` : 'var(--ink-2)'}
 						aria-expanded={openId === e.id}
 						onclick={() => toggle(e.id)}>{e.term}</button
 					>
@@ -58,15 +58,15 @@
 <style>
 	.terms {
 		margin-top: 20px;
-		padding-top: 20px;
-		border-top: 1px solid var(--line);
+		padding-top: 16px;
+		border-top: 1px solid var(--rule);
 	}
 	h3 {
-		margin-bottom: 10px;
-		font-family: var(--font-body, inherit);
+		margin: 0 0 10px;
+		font-family: var(--font-body);
 		font-size: 12px;
-		font-weight: 500;
-		color: var(--c-muted);
+		font-weight: 400;
+		color: var(--ink-2);
 	}
 	.chips {
 		display: flex;
@@ -77,39 +77,38 @@
 		list-style: none;
 	}
 	.chip {
-		padding: 3px 10px;
-		border: 1px solid var(--line-strong);
-		border-radius: var(--r-pill);
+		padding: 2px 8px;
+		border: 1px solid var(--rule);
+		border-radius: 3px;
 		background: transparent;
 		font: inherit;
 		font-size: 12px;
-		color: var(--tone);
+		color: var(--ink-2);
 		cursor: pointer;
 	}
 	.chip:hover {
-		background: var(--glass);
+		color: var(--ink);
+		border-color: var(--rule-2);
 	}
 	.chip[aria-expanded='true'] {
-		background: var(--glass-strong);
+		color: var(--ink);
+		background: color-mix(in srgb, var(--tone) 12%, transparent);
 		border-color: var(--tone);
-	}
-	.chip:focus-visible {
-		outline: 1px solid var(--c-data);
-		outline-offset: 2px;
 	}
 	.panel.filled {
 		margin-top: 12px;
 		padding: 10px 12px;
-		border-radius: var(--r-md);
-		background: var(--glass);
+		border: 1px solid var(--rule);
+		border-radius: 4px;
+		background: color-mix(in srgb, var(--ink) 4%, transparent);
 	}
 	.panel p {
 		margin: 0 0 6px;
 		font-size: 13px;
-		color: var(--c-text-2);
+		color: var(--ink-2);
 	}
 	.panel a {
 		font-size: 13px;
-		color: var(--c-data);
+		color: var(--data);
 	}
 </style>

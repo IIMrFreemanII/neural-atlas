@@ -1,5 +1,5 @@
 import { Camera2D } from '../../../gpu/camera.ts';
-import { sequential, tone } from '../../../gpu/colors.ts';
+import { sheetFill, tone } from '../../../gpu/colors.ts';
 import { bezier, Lines } from '../../../gpu/primitives/lines.ts';
 import { Quads } from '../../../gpu/primitives/quads.ts';
 import type { Label, Scene, SceneContext, SceneFactory, ScenePointer, Tone } from '../../../gpu/types.ts';
@@ -282,14 +282,11 @@ export const createAttentionScene: SceneFactory = () => {
 			const w = arcsOn ? W[s][b.index] : 0;
 			const mask = arcsOn ? M[s][b.index] : 0;
 			const dim = 1 - 0.6 * mask;
-			q.set(nq++, {
-				x: b.x,
-				y: rowY,
-				w: b.w,
-				h: chipH,
-				color: tone('data', (0.14 + 0.5 * w) * dim, 0.9 * (hl === null || hl === 'data' || b.index === s ? 1 : 0.5)),
-				radius: 6
-			});
+			const ca = hl === null || hl === 'data' || b.index === s ? 1 : 0.5;
+			const px = 1 / sc;
+			q.set(nq++, { x: b.x, y: rowY, w: b.w, h: chipH, color: tone('data', 0.4 * dim, ca), radius: 6 });
+			q.set(nq++, { x: b.x, y: rowY, w: b.w - 2 * px, h: chipH - 2 * px, color: sheetFill(ca), radius: 5 });
+			q.set(nq++, { x: b.x, y: rowY, w: b.w - 2 * px, h: chipH - 2 * px, color: tone('data', (0.06 + 0.5 * w) * dim, ca), radius: 5 });
 			labels.push({
 				id: `chip-${b.index}`,
 				x: v.project(b.x, rowY)[0],
@@ -338,18 +335,8 @@ export const createAttentionScene: SceneFactory = () => {
 				const peak = 0.15 + 0.09 * d;
 				const hh = peak / 0.75;
 				const pts = bezier([sb.x, ya], [sb.x, ya + hh], [bj.x, ya + hh], [bj.x, ya], 28);
-				const pulse = !ctx.reducedMotion && w > 0.08;
 				const a = (0.15 + 0.85 * w) * vis * mData;
-				if (w > 0.15) {
-					nl = l.setPolyline(nl, pts, { width: 4 + 8 * w, color: tone('data', 1, 0.035 * w * vis * mData) });
-				}
-				nl = l.setPolyline(nl, pts, {
-					width: 1 + 5 * w,
-					color: tone('data', w < 0.2 ? 1 : 0.85, a),
-					pulseSpeed: pulse ? 0.35 : 0,
-					pulseCount: pulse ? 1 : 0,
-					pulseGain: pulse ? 0.6 * w : 0
-				});
+				nl = l.setPolyline(nl, pts, { width: 1 + 4 * w, color: tone('data', 1, a) });
 			}
 			for (const b of boxes) {
 				const w = clamp(W[s][b.index], 0, 1);
@@ -425,7 +412,7 @@ export const createAttentionScene: SceneFactory = () => {
 				if (vis < 0.02) continue;
 				const h = (row[j] / top) * MATCH_H;
 				const hh = Math.max(Math.abs(h), 0.004);
-				q.set(nq++, { x: b.x, y: MATCH_Y + h / 2, w: 0.1, h: hh, color: tone('text', 0.6, vis * mText), radius: 1.5 });
+				q.set(nq++, { x: b.x, y: MATCH_Y + h / 2, w: 0.1, h: hh, color: tone('text', 0.85, vis * mText), radius: 1.5 });
 				labels.push({
 					id: `score-${j}`,
 					x: v.project(b.x, MATCH_LAB_Y)[0],
@@ -449,6 +436,7 @@ export const createAttentionScene: SceneFactory = () => {
 				const vis = a * (1 - M[s][j]);
 				if (vis < 0.02) continue;
 				const h = Math.max(w * SHARE_H, 0.004);
+				q.set(nq++, { x: b.x, y: SHARE_BASE + SHARE_H / 2, w: 0.1, h: SHARE_H, color: tone('muted', 0.12, vis * mData), radius: 1.5 });
 				q.set(nq++, { x: b.x, y: SHARE_BASE + h / 2, w: 0.1, h, color: tone('data', 0.85, vis * mData), radius: 1.5 });
 				labels.push({
 					id: `share-${j}`,
@@ -511,8 +499,8 @@ export const createAttentionScene: SceneFactory = () => {
 				for (const b of boxes) {
 					const j = b.index;
 					const mk = M[i][j];
-					const base = sequential(clamp(W[i][j], 0, 1), 0.85, 0.95 * a * mData);
-					const dimc = tone('muted', 0.2, 0.5 * a * mData);
+					const base = tone('data', 0.1 + 0.9 * clamp(W[i][j], 0, 1), a * mData);
+					const dimc = tone('muted', 0.12, a * mData);
 					q.set(nq++, {
 						x: b.x,
 						y: matRowY(i),
@@ -575,7 +563,7 @@ export const createAttentionScene: SceneFactory = () => {
 		async init(c) {
 			ctx = c;
 			camera = new Camera2D();
-			quads = new Quads(c, { capacity: 320, blend: 'alpha' });
+			quads = new Quads(c, { capacity: 420, blend: 'alpha' });
 			lines = new Lines(c, { capacity: 900, blend: 'alpha' });
 			trainedData = buildTrained(await loadLm());
 		},

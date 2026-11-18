@@ -21,21 +21,21 @@ describe('constellation layout', () => {
 
 	it('keeps every star inside the map with room for its label', () => {
 		for (const s of stars) {
-			expect(s.x).toBeGreaterThanOrEqual(70);
-			expect(s.x).toBeLessThanOrEqual(MAP_W - 70);
+			expect(s.x).toBeGreaterThanOrEqual(60);
+			expect(s.x).toBeLessThanOrEqual(MAP_W - 40);
 			expect(s.y).toBeGreaterThanOrEqual(50);
 			expect(s.y).toBeLessThanOrEqual(MAP_H - 50);
 		}
 	});
 
-	it('keeps stars at least 75 units apart', () => {
+	it('keeps stars at least 70 units apart', () => {
 		for (let i = 0; i < stars.length; i++)
 			for (let j = i + 1; j < stars.length; j++)
-				expect(Math.hypot(stars[i].x - stars[j].x, stars[i].y - stars[j].y)).toBeGreaterThanOrEqual(75);
+				expect(Math.hypot(stars[i].x - stars[j].x, stars[i].y - stars[j].y)).toBeGreaterThanOrEqual(70);
 	});
 
-	it('draws no line within 30 units of a star it does not join', () => {
-		for (const l of links)
+	it('draws no track line within 30 units of a star it does not join (cross-track links are curves)', () => {
+		for (const l of links.filter((x) => !x.cross))
 			for (const s of stars) {
 				if (s.index === l.from || s.index === l.to) continue;
 				const a = stars[l.from];

@@ -17,12 +17,18 @@ export interface SegmentStyle {
 	pulseGain?: number;
 }
 
-/** Cumulative length fraction (0..1) at each point of a polyline. All 0 for a degenerate polyline. */
-export function lengthFractions(pts: ReadonlyArray<readonly [number, number]>): number[] {
+/** A polyline vertex: [x, y] or [x, y, z]. */
+export type PolyPoint = readonly [number, number] | readonly [number, number, number];
+
+/** Cumulative length fraction (0..1) at each point of a polyline (arc length in 3D when points have z). All 0 for a degenerate polyline. */
+export function lengthFractions(pts: ReadonlyArray<PolyPoint>): number[] {
 	const out: number[] = [0];
 	let total = 0;
 	for (let i = 1; i < pts.length; i++) {
-		total += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
+		const dx = pts[i][0] - pts[i - 1][0];
+		const dy = pts[i][1] - pts[i - 1][1];
+		const dz = (pts[i][2] ?? 0) - (pts[i - 1][2] ?? 0);
+		total += dz === 0 ? Math.hypot(dx, dy) : Math.hypot(dx, dy, dz);
 		out.push(total);
 	}
 	return total > 0 ? out.map((v) => v / total) : out.map(() => 0);
@@ -61,6 +67,9 @@ export class Lines {
 	private view: SceneContext['view'];
 	private buffer: GPUBuffer;
 	private pipeline: GPURenderPipeline;
+	private revealBuffer: GPUBuffer;
+	private revealGroup: GPUBindGroup;
+	private reveal = 1;
 
 	constructor(
 		ctx: Pick<SceneContext, 'gpu' | 'target' | 'view'>,
@@ -69,6 +78,8 @@ export class Lines {
 			/** @deprecated 'additive' draws exactly like 'alpha' since the paper redesign; remove glow layers instead. */
 			blend?: 'alpha' | 'additive';
 			depthTest?: boolean;
+			/** Write depth (so later layers can be occluded by this one). Default false. */
+			depthWrite?: boolean;
 		}
 	) {
 		const device = ctx.gpu.device;
@@ -81,13 +92,28 @@ export class Lines {
 			size: Math.max(16, this.data.byteLength),
 			usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST
 		});
+		const revealLayout = device.createBindGroupLayout({
+			label: 'lines reveal bgl',
+			entries: [{ binding: 0, visibility: GPUShaderStage.FRAGMENT, buffer: { type: 'uniform' } }]
+		});
+		this.revealBuffer = device.createBuffer({
+			label: 'lines reveal',
+			size: 16,
+			usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+		});
+		this.revealGroup = device.createBindGroup({
+			label: 'lines reveal group',
+			layout: revealLayout,
+			entries: [{ binding: 0, resource: { buffer: this.revealBuffer } }]
+		});
+		device.queue.writeBuffer(this.revealBuffer, 0, new Float32Array([1, 0, 0, 0]));
 		const module = createShader(device, 'lines shader', src);
 		const dst: GPUBlendFactor = 'one-minus-src-alpha';
 		this.pipeline = device.createRenderPipeline({
 			label: 'lines pipeline (alpha)',
 			layout: device.createPipelineLayout({
 				label: 'lines pipeline layout',
-				bindGroupLayouts: [ctx.view.bindGroupLayout]
+				bindGroupLayouts: [ctx.view.bindGroupLayout, revealLayout]
 			}),
 			vertex: {
 				module,
@@ -121,7 +147,7 @@ export class Lines {
 			primitive: { topology: 'triangle-list' },
 			depthStencil: {
 				format: ctx.target.depthFormat,
-				depthWriteEnabled: false,
+				depthWriteEnabled: opts.depthWrite ?? false,
 				depthCompare: opts.depthTest ? 'less-equal' : 'always'
 			},
 			multisample: { count: ctx.target.sampleCount }
@@ -149,17 +175,28 @@ export class Lines {
 		d[o + 15] = s.t1 ?? 1;
 	}
 
+	/**
+	 * Pen-stroke reveal: 0..1 of the arc length (the t0/t1 fraction of each segment) is drawn, with a soft
+	 * ~1.5 px edge at the pen tip. 1 (the default) draws everything. Applies to the whole layer.
+	 */
+	setReveal(r: number): void {
+		const v = Math.max(0, Math.min(1, r));
+		if (v === this.reveal) return;
+		this.reveal = v;
+		this.device.queue.writeBuffer(this.revealBuffer, 0, new Float32Array([v, 0, 0, 0]));
+	}
+
 	setPolyline(
 		start: number,
-		pts: ReadonlyArray<readonly [number, number]>,
+		pts: ReadonlyArray<PolyPoint>,
 		style: Omit<SegmentStyle, 'a' | 'b' | 't0' | 't1'>
 	): number {
 		const fr = lengthFractions(pts);
 		for (let i = 0; i + 1 < pts.length; i++) {
 			this.set(start + i, {
 				...style,
-				a: [pts[i][0], pts[i][1]],
-				b: [pts[i + 1][0], pts[i + 1][1]],
+				a: [pts[i][0], pts[i][1], pts[i][2]],
+				b: [pts[i + 1][0], pts[i + 1][1], pts[i + 1][2]],
 				t0: fr[i],
 				t1: fr[i + 1]
 			});
@@ -177,11 +214,13 @@ export class Lines {
 		if (n === 0) return;
 		pass.setPipeline(this.pipeline);
 		pass.setBindGroup(0, this.view.bindGroup);
+		pass.setBindGroup(1, this.revealGroup);
 		pass.setVertexBuffer(0, this.buffer);
 		pass.draw(6, n);
 	}
 
 	destroy(): void {
 		this.buffer.destroy();
+		this.revealBuffer.destroy();
 	}
 }

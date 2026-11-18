@@ -17,7 +17,7 @@
 {#if readouts.length}
 	<ul class="readouts">
 		{#each readouts as r (r.key)}
-			<li class="glass">
+			<li>
 				<span class="label">{r.label}</span>
 				<span class="value num" style:color="var(--c-{r.tone ?? 'text'})">{format(r, values[r.key])}</span>
 			</li>
@@ -28,27 +28,30 @@
 <style>
 	.readouts {
 		display: flex;
-		flex-wrap: wrap;
-		justify-content: flex-end;
-		gap: 6px;
 		margin: 0;
 		padding: 0;
 		list-style: none;
+		border: 1px solid var(--rule-2);
+		border-radius: 4px;
+		background-color: var(--sheet);
+		background-image: var(--grain);
+		box-shadow: var(--shadow);
 	}
 	li {
-		display: flex;
-		align-items: baseline;
-		gap: 8px;
-		height: 28px;
-		padding: 0 12px;
-		align-items: center;
-		border-radius: var(--r-pill);
-		font-size: 12px;
+		display: grid;
+		min-width: 96px;
+		padding: 6px 14px;
+	}
+	li + li {
+		border-left: 1px solid var(--rule);
 	}
 	.label {
-		color: var(--c-text-2);
+		font-size: 12px;
+		color: var(--ink-2);
 	}
 	.value {
-		font-size: 13px;
+		font-size: 18px;
+		font-weight: 500;
+		line-height: 1.4;
 	}
 </style>

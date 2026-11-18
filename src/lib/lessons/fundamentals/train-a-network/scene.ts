@@ -1,5 +1,5 @@
 import { Camera2D } from '../../../gpu/camera.ts';
-import { tone } from '../../../gpu/colors.ts';
+import { paperFill, tone } from '../../../gpu/colors.ts';
 import { Field } from '../../../gpu/primitives/field.ts';
 import { Lines } from '../../../gpu/primitives/lines.ts';
 import { Points } from '../../../gpu/primitives/points.ts';
@@ -29,6 +29,7 @@ export const createTrainScene: SceneFactory = () => {
 	let ctx: SceneContext;
 	let camera: Camera2D;
 	let field: Field;
+	let fieldB: Field;
 	let frame: Lines;
 	let dots: Points;
 	let chart: Lines;
@@ -114,7 +115,9 @@ export const createTrainScene: SceneFactory = () => {
 			}
 			diagram.node(L - 1, 0).value = accuracy;
 		}
+		fieldB.data.set(field.data);
 		field.upload();
+		fieldB.upload();
 	}
 
 	function reset(fromAction: boolean) {
@@ -177,11 +180,12 @@ export const createTrainScene: SceneFactory = () => {
 				const x = data.x[k * 2] + MAP_OX;
 				const y = data.x[k * 2 + 1];
 				if (pass === 0) {
-					dots.set(n++, { x, y, radius: 3.5, color: tone(t, 1.3, 0.95 * m) });
+					// thin paper ring under the ink dot so it reads on top of the wash
+					dots.set(n++, { x, y, radius: 5, color: paperFill(0.9) });
 				} else if (pass === 1) {
-					dots.set(n++, { x, y, radius: 3.5, ring: 1, color: tone(t, 0.3, 0.9 * m) });
+					dots.set(n++, { x, y, radius: 3.5, color: tone(t, m) });
 				} else if (wrong[k]) {
-					dots.set(n++, { x, y, radius: 6.5, ring: 1.2, color: tone('grad', 1.1, 0.8 * mGrad) });
+					dots.set(n++, { x, y, radius: 6.5, ring: 1.4, color: tone('grad', mGrad) });
 				}
 			}
 		}
@@ -192,7 +196,7 @@ export const createTrainScene: SceneFactory = () => {
 	function drawFrame(): void {
 		const x0 = MAP_OX - EXTENT;
 		const x1 = MAP_OX + EXTENT;
-		const c = tone('muted', 1, 0.6);
+		const c = tone('muted', 0.6);
 		const pts: Array<[number, number]> = [
 			[x0, -EXTENT],
 			[x1, -EXTENT],
@@ -209,7 +213,7 @@ export const createTrainScene: SceneFactory = () => {
 		const m = mul('grad');
 		const w = CHART.x1 - CHART.x0;
 		const h = CHART.y1 - CHART.y0;
-		const axis = tone('muted', 1, 0.6);
+		const axis = tone('muted', 0.6);
 		let n = 0;
 		chart.set(n++, { a: [CHART.x0, CHART.y0], b: [CHART.x0, CHART.y1], width: 1, color: axis });
 		chart.set(n++, { a: [CHART.x0, CHART.y0], b: [CHART.x1, CHART.y0], width: 1, color: axis });
@@ -221,8 +225,7 @@ export const createTrainScene: SceneFactory = () => {
 			CHART.y0 + h * clamp(lv / top, 0, 1)
 		]);
 		if (pts.length >= 2) {
-			n = chart.setPolyline(n, pts, { width: 7, color: tone('grad', 1, 0.08 * m) });
-			n = chart.setPolyline(n, pts, { width: 2, color: tone('grad', 1.5, 0.95 * m) });
+			n = chart.setPolyline(n, pts, { width: 2, color: tone('grad', m) });
 		}
 		chart.count = n;
 		chart.upload();
@@ -272,7 +275,9 @@ export const createTrainScene: SceneFactory = () => {
 			field = new Field(c, { cols: FIELD_N, rows: FIELD_N });
 			field.rect = [MAP_OX - EXTENT, -EXTENT, MAP_OX + EXTENT, EXTENT];
 			field.iso = 0.5;
-			field.isoColor = tone('text', 1, 0.9);
+			fieldB = new Field(c, { cols: FIELD_N, rows: FIELD_N });
+			fieldB.rect = field.rect;
+			fieldB.iso = -1;
 			field.isoWidth = 2;
 			frame = new Lines(c, { capacity: 8, blend: 'alpha' });
 			dots = new Points(c, { capacity: N_POINTS * 3, blend: 'alpha' });
@@ -320,9 +325,18 @@ export const createTrainScene: SceneFactory = () => {
 			}
 			if (dirty) refresh();
 
-			field.colorLo = tone('neg', 0.3, 0.55 * mul('neg'));
-			field.colorHi = tone('data', 0.3, 0.55 * mul('data'));
+			// Washes: light ink so the class regions read as tinted paper; the iso-line is the boundary.
+			// Two layers, each fading to transparent in its own ink, so unsure regions read as paper.
+			const neg = tone('neg', 0.22 * mul('neg'));
+			const pos = tone('data', 0.22 * mul('data'));
+			field.colorLo = neg;
+			field.colorHi = [neg[0], neg[1], neg[2], 0];
+			fieldB.colorLo = [pos[0], pos[1], pos[2], 0];
+			fieldB.colorHi = pos;
 			field.upload();
+			fieldB.upload();
+			field.isoColor = tone('text', 1);
+			drawFrame();
 			drawDots();
 			updateDiagram();
 
@@ -352,6 +366,7 @@ export const createTrainScene: SceneFactory = () => {
 			}
 		},
 		draw(pass) {
+			fieldB.draw(pass);
 			field.draw(pass);
 			frame.draw(pass);
 			dots.draw(pass);
@@ -375,6 +390,7 @@ export const createTrainScene: SceneFactory = () => {
 		},
 		dispose() {
 			field.destroy();
+			fieldB.destroy();
 			frame.destroy();
 			dots.destroy();
 			chart.destroy();

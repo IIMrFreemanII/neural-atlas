@@ -1,5 +1,5 @@
 import { Camera2D } from '../../../gpu/camera.ts';
-import { tone } from '../../../gpu/colors.ts';
+import { paperFill, tone } from '../../../gpu/colors.ts';
 import { Field } from '../../../gpu/primitives/field.ts';
 import { Lines } from '../../../gpu/primitives/lines.ts';
 import { Points } from '../../../gpu/primitives/points.ts';
@@ -27,7 +27,8 @@ const clamp = (v: number, a: number, b: number) => Math.min(b, Math.max(a, v));
 export const createDecisionBoundariesScene: SceneFactory = () => {
 	let ctx: SceneContext;
 	let camera: Camera2D;
-	let field: Field;
+	let field: Field; // class B (data ink) fading to paper at low probability, plus the boundary line
+	let fieldNeg: Field; // class A (neg ink) fading to paper at high probability
 	let frame: Lines;
 	let splitLines: Lines;
 	let queryLines: Lines;
@@ -114,6 +115,8 @@ export const createDecisionBoundariesScene: SceneFactory = () => {
 			if (ok) correct++;
 		}
 		accuracy = correct / N_POINTS;
+		fieldNeg.data.set(field.data);
+		fieldNeg.upload();
 		field.upload();
 		if (model === 1 && qActive) qNeighbors = knnNeighbors(data, k, qx, qy);
 		else qNeighbors = [];
@@ -172,9 +175,9 @@ export const createDecisionBoundariesScene: SceneFactory = () => {
 				const m = cls ? mData : mNeg;
 				const x = data.x[2 * i];
 				const y = data.x[2 * i + 1];
-				if (pass === 0) dots.set(n++, { x, y, radius: 3.5, color: tone(t, 1.3, 0.95 * m) });
-				else if (pass === 1) dots.set(n++, { x, y, radius: 3.5, ring: 1, color: tone(t, 0.3, 0.9 * m) });
-				else if (wrong[i]) dots.set(n++, { x, y, radius: 6.5, ring: 1.2, color: tone('grad', 1.1, 0.8 * mGrad) });
+				if (pass === 0) dots.set(n++, { x, y, radius: 5.2, color: paperFill(m) });
+				else if (pass === 1) dots.set(n++, { x, y, radius: 3.5, color: tone(t, m) });
+				else if (wrong[i]) dots.set(n++, { x, y, radius: 6.5, ring: 1.4, color: tone('grad', mGrad) });
 			}
 		}
 
@@ -192,9 +195,10 @@ export const createDecisionBoundariesScene: SceneFactory = () => {
 					width: 1,
 					color: tone(t, 0.9, 0.7 * m)
 				});
-				dots.set(n++, { x: data.x[2 * i], y: data.x[2 * i + 1], radius: 6, ring: 1.3, color: tone(t, 1, 0.85 * m) });
+				dots.set(n++, { x: data.x[2 * i], y: data.x[2 * i + 1], radius: 6, ring: 1.3, color: tone(t, m) });
 			}
-			dots.set(n++, { x: qx, y: qy, radius: 8, ring: 1.5, color: tone('text', 0.9, 0.85) });
+			dots.set(n++, { x: qx, y: qy, radius: 8, color: paperFill(0.9) });
+			dots.set(n++, { x: qx, y: qy, radius: 8, ring: 1.5, color: tone('text') });
 			const total = qNeighbors.length;
 			const aWins = ones * 2 > total;
 			const [px, py] = ctx.view.project(qx, qy);
@@ -223,10 +227,13 @@ export const createDecisionBoundariesScene: SceneFactory = () => {
 			field.rect = [-EXTENT, -EXTENT, EXTENT, EXTENT];
 			field.iso = 0.5;
 			field.isoWidth = 2;
+			fieldNeg = new Field(c, { cols: FIELD_N, rows: FIELD_N });
+			fieldNeg.rect = field.rect;
+			fieldNeg.iso = -1;
 			frame = new Lines(c, { capacity: 8, blend: 'alpha' });
 			splitLines = new Lines(c, { capacity: 300, blend: 'alpha' });
 			queryLines = new Lines(c, { capacity: MAX_K + 4, blend: 'alpha' });
-			dots = new Points(c, { capacity: N_POINTS * 3 + MAX_K + 4, blend: 'alpha' });
+			dots = new Points(c, { capacity: N_POINTS * 3 + MAX_K * 2 + 4, blend: 'alpha' });
 			drawFrame();
 		},
 		setParams(p) {
@@ -281,9 +288,16 @@ export const createDecisionBoundariesScene: SceneFactory = () => {
 				drawSplits();
 			}
 
-			field.colorLo = tone('neg', 0.3, 0.55 * mul('neg'));
-			field.colorHi = tone('data', 0.3, 0.55 * mul('data'));
-			field.isoColor = tone('text', 1, 0.9 * mul('text'));
+			// Class washes stay faint so the dots and the boundary carry the picture.
+			// Two layers that each fade to transparent, so uncertain areas read as paper, not grey.
+			const negC = tone('neg', 0.2 * mul('neg'));
+			const dataC = tone('data', 0.2 * mul('data'));
+			fieldNeg.colorLo = negC;
+			fieldNeg.colorHi = [negC[0], negC[1], negC[2], 0];
+			field.colorLo = [dataC[0], dataC[1], dataC[2], 0];
+			field.colorHi = dataC;
+			field.isoColor = tone('text', mul('text'));
+			fieldNeg.upload();
 			field.upload();
 
 			const labels: Label[] = [];
@@ -307,6 +321,7 @@ export const createDecisionBoundariesScene: SceneFactory = () => {
 			}
 		},
 		draw(pass) {
+			fieldNeg.draw(pass);
 			field.draw(pass);
 			frame.draw(pass);
 			splitLines.draw(pass);
@@ -347,6 +362,7 @@ export const createDecisionBoundariesScene: SceneFactory = () => {
 		},
 		dispose() {
 			field.destroy();
+			fieldNeg.destroy();
 			frame.destroy();
 			splitLines.destroy();
 			queryLines.destroy();

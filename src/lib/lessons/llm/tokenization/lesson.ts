@@ -92,6 +92,7 @@ while (merges.length < maxMerges) {
 			title: 'The same merges split new text',
 			body: 'The merges learned from the paragraphs now cut any text. Drag **Merges learned** and watch your text go from letters to whole words.\n\nRare words stay in several pieces, but they are never unknown, because the single characters are always there.',
 			params: { view: 0, mode: 2, chart: 1, merges: 40 },
+			grid: false,
 			controls: ['text', 'merges'],
 			legend: ['Single characters', 'Learned pieces'],
 			deepDive: {

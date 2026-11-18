@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Camera2D, OrbitCamera } from './camera.ts';
+import { Camera2D, OrbitCamera, OrbitRig } from './camera.ts';
 import { projectToCss, unprojectFromCss } from './view.ts';
 
 describe('Camera2D + projection', () => {
@@ -41,5 +41,23 @@ describe('Camera2D + projection', () => {
 		const [wx, wy] = unprojectFromCss(m, W, H, cx, cy);
 		expect(wx).toBeCloseTo(0.5, 4);
 		expect(wy).toBeCloseTo(0.25, 4);
+	});
+});
+
+describe('OrbitRig projection', () => {
+	it('matches OrbitCamera for the same pose and puts the target mid-stage, perspective and ortho', () => {
+		const cam = new OrbitCamera();
+		cam.target = [0.2, 0.1, -0.3];
+		const rig = new OrbitRig();
+		rig.setPose({ target: [0.2, 0.1, -0.3], azimuth: cam.azimuth, elevation: cam.elevation, distance: cam.distance });
+		const a = cam.matrix(2);
+		const b = rig.matrix(2);
+		for (let i = 0; i < 16; i++) expect(b[i]).toBeCloseTo(a[i], 5);
+		for (const ortho of [false, true]) {
+			rig.setPose({ target: [0.2, 0.1, -0.3], azimuth: 1, elevation: 0.4, distance: 4, ortho });
+			const [x, y] = projectToCss(rig.matrix(2), 800, 400, 0.2, 0.1, -0.3);
+			expect(x).toBeCloseTo(400, 3);
+			expect(y).toBeCloseTo(200, 3);
+		}
 	});
 });

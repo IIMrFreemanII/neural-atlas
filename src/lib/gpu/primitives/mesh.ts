@@ -1,8 +1,26 @@
+import { sheetFill, tone } from '../colors.ts';
 import type { SceneContext } from '../types.ts';
 import { createShader } from '../util.ts';
 import src from '../shaders/mesh.wgsl?raw';
 
-const UNIFORM_FLOATS = 20;
+const UNIFORM_FLOATS = 40;
+
+type Rgba = [number, number, number, number];
+
+export interface InkStyle {
+	/** Paper colour of the surface, linear straight RGBA. */
+	fill?: Rgba;
+	/** Mesh-line and hatch ink, linear straight RGBA (alpha = ink density). */
+	ink?: Rgba;
+	/** A mesh line every this many grid cells; 0 = none. */
+	gridEvery?: number;
+	/** Diagonal hatching that thickens as the surface turns away from the light. */
+	hatch?: boolean;
+	/** Iso-height contour lines every `bands` levels. */
+	contours?: boolean;
+	/** Contour ink, linear straight RGBA. */
+	contourInk?: Rgba;
+}
 
 /** Triangle-list indices for a cols x rows vertex grid: (cols-1)*(rows-1)*6 indices. */
 export function buildGridIndices(cols: number, rows: number): Uint32Array {
@@ -36,6 +54,22 @@ export class SurfaceMesh {
 	/** Number of iso-height contour lines across range; 0 = none. */
 	bands = 12;
 	opacity = 1;
+	/** 'shaded' = the colour ramp lit from LIGHT (default). 'ink' = paper fill, mesh lines, hatching and contours. */
+	style: 'shaded' | 'ink' = 'shaded';
+	/** Ink style: paper colour of the surface. */
+	inkFill: Rgba = sheetFill();
+	/** Ink style: mesh-line and hatch ink. */
+	ink: Rgba = tone('text', 0.55);
+	/** Ink style: a mesh line every this many grid cells; 0 = none. */
+	gridEvery = 4;
+	/** Ink style: hatch on/off. */
+	hatch = true;
+	/** Ink style: contour lines (every `bands` levels across `range`) on/off. */
+	contours = true;
+	/** Ink style: contour ink. */
+	contourInk: Rgba = tone('text', 0.8);
+	/** Ink style: hatch line spacing in CSS px. */
+	hatchSpacing = 5;
 
 	private device: GPUDevice;
 	private view: SceneContext['view'];
@@ -47,11 +81,12 @@ export class SurfaceMesh {
 	private bindGroup: GPUBindGroup;
 	private pipeline: GPURenderPipeline;
 
-	constructor(ctx: Pick<SceneContext, 'gpu' | 'target' | 'view'>, opts: { cols: number; rows: number }) {
+	constructor(ctx: Pick<SceneContext, 'gpu' | 'target' | 'view'>, opts: { cols: number; rows: number; style?: 'shaded' | 'ink' }) {
 		if (opts.cols < 2 || opts.rows < 2) throw new Error('SurfaceMesh needs cols >= 2 and rows >= 2');
 		const device = ctx.gpu.device;
 		this.device = device;
 		this.view = ctx.view;
+		this.style = opts.style ?? 'shaded';
 		this.cols = opts.cols;
 		this.rows = opts.rows;
 		this.heights = new Float32Array(opts.cols * opts.rows);
@@ -125,6 +160,16 @@ export class SurfaceMesh {
 		});
 	}
 
+	/** Set the ink-style options (any subset). Takes effect on the next upload(). */
+	setInk(o: InkStyle): void {
+		if (o.fill) this.inkFill = o.fill;
+		if (o.ink) this.ink = o.ink;
+		if (o.gridEvery !== undefined) this.gridEvery = o.gridEvery;
+		if (o.hatch !== undefined) this.hatch = o.hatch;
+		if (o.contours !== undefined) this.contours = o.contours;
+		if (o.contourInk) this.contourInk = o.contourInk;
+	}
+
 	upload(): void {
 		this.device.queue.writeBuffer(this.heightBuffer, 0, this.heights);
 		const u = this.uniformData;
@@ -137,6 +182,14 @@ export class SurfaceMesh {
 		u[15] = this.opacity;
 		u[16] = this.cols;
 		u[17] = this.rows;
+		u.set(this.inkFill, 20);
+		u.set(this.ink, 24);
+		u.set(this.contourInk, 28);
+		u[32] = this.style === 'ink' ? 1 : 0;
+		u[33] = this.gridEvery;
+		u[34] = this.hatch ? 1 : 0;
+		u[35] = this.contours ? 1 : 0;
+		u[36] = this.hatchSpacing;
 		this.device.queue.writeBuffer(this.uniform, 0, u);
 	}
 

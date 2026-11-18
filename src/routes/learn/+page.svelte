@@ -4,27 +4,40 @@
 
 <svelte:head><title>Lessons · Neural Atlas</title></svelte:head>
 
-<header>
+<div class="top"><header>
 	<h1>Lessons</h1>
 	<p>
-		Four tracks, each a short sequence of interactive lessons. Start anywhere; within a track, each
-		lesson builds on the one before it.
+		Four tracks, each a short run of interactive lessons. Start anywhere; inside a track, each lesson
+		builds on the one before it.
 	</p>
-</header>
+</header></div>
 <div class="grid"><TrackGrid /></div>
 
 <style>
+	.top {
+		max-width: 1280px;
+		margin: 0 auto 40px;
+		padding: 56px 48px 0;
+		box-sizing: border-box;
+	}
 	header {
-		max-width: 1120px;
-		margin: 0 auto;
-		padding: 48px 24px 28px;
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: 40px;
+		align-items: end;
+		padding-bottom: 22px;
+		border-bottom: 2px solid var(--ink);
 	}
 	h1 {
-		font-size: clamp(30px, 4vw, 40px);
-		margin-bottom: 8px;
+		font-family: var(--font-display);
+		font-weight: 500;
+		font-size: 60px;
+		line-height: 1;
+		letter-spacing: -0.02em;
 	}
 	p {
-		color: var(--c-text-2);
+		color: var(--ink-2);
+		font-size: 16px;
 		max-width: 60ch;
 	}
 	.grid {

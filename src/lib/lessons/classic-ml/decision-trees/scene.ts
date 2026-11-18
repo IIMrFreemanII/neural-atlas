@@ -1,5 +1,5 @@
 import { Camera2D } from '../../../gpu/camera.ts';
-import { mixColor, paperFill, tone } from '../../../gpu/colors.ts';
+import { mixColor, paperFill, sheetFill, tone } from '../../../gpu/colors.ts';
 import { Field } from '../../../gpu/primitives/field.ts';
 import { Lines, type SegmentStyle } from '../../../gpu/primitives/lines.ts';
 import { Points, type PointStyle } from '../../../gpu/primitives/points.ts';
@@ -25,7 +25,7 @@ import {
 	type SplitSegment,
 	type TreeNode
 } from '../../../ml/tree.ts';
-import { fitCamera, type Insets } from '../../fit.ts';
+import { fitCamera, lessonInsets } from '../../fit.ts';
 import { BOUNDS, FOREST_SEED, MAX_DEPTH, TEST, depthCurve, trainingData, type DepthPoint } from './data.ts';
 
 // World layout, y up. Everything is in world units; node boxes and dots are sized in CSS px.
@@ -40,7 +40,6 @@ const TREE_TOP = -3.75; // tree diagram panel
 const TREE_BOT = -5.05;
 const VIEW_TOP = 0.02;
 const VIEW_BOT = -5.15;
-const INSETS: Insets = { top: 64, right: 24, bottom: 110, left: 24 };
 
 const FIELD_N = 96;
 const N_FOREST = 50;
@@ -63,8 +62,7 @@ const fmt = (v: number) => {
 	return s === '-0.00' ? '0.00' : s.replace('-', '−');
 };
 const percent = (v: number) => `${Math.round(v * 100)}%`;
-const leafColor = (prob: number, alpha: number, intensity = 1): Rgba =>
-	mixColor(tone('neg', intensity, alpha), tone('data', intensity, alpha), prob);
+const leafColor = (prob: number, alpha: number): Rgba => mixColor(tone('neg', 1, alpha), tone('data', 1, alpha), prob);
 const classCounts = (n: TreeNode): [number, number] => {
 	const a = Math.round(n.prob * n.n);
 	return [a, n.n - a];
@@ -144,7 +142,8 @@ function geometry(s: number): Geo {
 export const createDecisionTreesScene: SceneFactory = () => {
 	let ctx: SceneContext;
 	let camera: Camera2D;
-	let field: Field;
+	let field: Field; // class B ink fading to paper at low probability, plus the iso line
+	let fieldNeg: Field; // class A ink fading to paper at high probability
 	let quads: Quads;
 	let ghostLines: Lines;
 	let planeLines: Lines;
@@ -391,17 +390,27 @@ export const createDecisionTreesScene: SceneFactory = () => {
 
 		if (isForest) {
 			field.rect = [g.pl, g.pb, g.pr, g.pt];
-			field.colorLo = tone('neg', 0.3, 0.55 * mN);
-			field.colorHi = tone('data', 0.3, 0.55 * mD);
-			field.isoColor = tone('text', 1, 0.9 * mT);
+			fieldNeg.rect = field.rect;
+			const negC = tone('neg', 0.2 * mN);
+			const dataC = tone('data', 0.2 * mD);
+			fieldNeg.colorLo = negC;
+			fieldNeg.colorHi = [negC[0], negC[1], negC[2], 0];
+			field.colorLo = [dataC[0], dataC[1], dataC[2], 0];
+			field.colorHi = dataC;
+			field.isoColor = tone('text', mT);
+			fieldNeg.data.set(field.data);
+			fieldNeg.upload();
 			field.upload();
 		} else {
 			for (const b of boxes) {
 				const [x0, y0] = toW(b.box[0], b.box[1]);
 				const [x1, y1] = toW(b.box[2], b.box[3]);
 				const hot = b.index === hover;
-				const a = (hot ? 0.36 : 0.17) * fade * mul(b.leaf.prob >= 0.5 ? 'data' : 'neg');
-				Q.add({ x: (x0 + x1) / 2, y: (y0 + y1) / 2, w: x1 - x0, h: y1 - y0, color: leafColor(b.leaf.prob, a) });
+				// Majority class's ink, denser the purer the leaf; a 50/50 leaf stays near paper.
+				const maj = b.leaf.prob >= 0.5;
+				const purity = maj ? b.leaf.prob : 1 - b.leaf.prob;
+				const d = (0.04 + 0.14 * (2 * purity - 1)) * (hot ? 2 : 1);
+				Q.add({ x: (x0 + x1) / 2, y: (y0 + y1) / 2, w: x1 - x0, h: y1 - y0, color: tone(maj ? 'data' : 'neg', d * fade * mul(maj ? 'data' : 'neg')) });
 				if (hot) rect(PL, x0, y0, x1, y1, 1.5, tone('text', 1, 0.9 * mT));
 				if (b.index === probeLeaf) rect(PL, x0, y0, x1, y1, 2, tone('grad', 1, 0.95 * mG));
 			}
@@ -413,7 +422,7 @@ export const createDecisionTreesScene: SceneFactory = () => {
 			for (const sp of gs) {
 				const [ax, ay] = sp.axis === 0 ? toW(sp.threshold, sp.lo) : toW(sp.lo, sp.threshold);
 				const [bx, by] = sp.axis === 0 ? toW(sp.threshold, sp.hi) : toW(sp.hi, sp.threshold);
-				seg(GL, ax, ay, bx, by, 1, tone('muted', 1.3, 0.3));
+				seg(GL, ax, ay, bx, by, 1, tone('muted', 1, 0.3));
 			}
 		}
 
@@ -447,7 +456,7 @@ export const createDecisionTreesScene: SceneFactory = () => {
 		if (showTest >= 0.5) {
 			for (let i = 0; i < TEST.n; i++) {
 				const [x, y] = toW(TEST.x[2 * i], TEST.x[2 * i + 1]);
-				D.add({ x, y, radius: 3, ring: 1, color: tone('ok', 1.1, hl === 'ok' ? 0.95 : 0.45 * mO) });
+				D.add({ x, y, radius: 3, ring: 1, color: tone('ok', 1, hl === 'ok' ? 0.95 : 0.45 * mO) });
 			}
 		}
 		for (let pass = 0; pass < 2; pass++) {
@@ -456,14 +465,15 @@ export const createDecisionTreesScene: SceneFactory = () => {
 				const [x, y] = toW(train.x[2 * i], train.x[2 * i + 1]);
 				const t: Tone = cls ? 'data' : 'neg';
 				const m = cls ? mD : mN;
-				if (pass === 0) D.add({ x, y, radius: 3.5, color: tone(t, 1.3, 0.95 * m) });
-				else D.add({ x, y, radius: 3.5, ring: 1, color: tone(t, 0.3, 0.9 * m) });
+				if (pass === 0) D.add({ x, y, radius: 5, color: paperFill(m) });
+				else D.add({ x, y, radius: 3.5, color: tone(t, m) });
 			}
 		}
 		if (probeOn >= 0.5 && !isForest && probe) {
 			const [x, y] = toW(probe[0], probe[1]);
-			D.add({ x, y, radius: 10, ring: 2, color: tone('grad', 1.1, 0.95 * mG) });
-			D.add({ x, y, radius: 4, color: tone('grad', 1.2, mG) });
+			D.add({ x, y, radius: 10, color: paperFill(0.9 * mG) });
+			D.add({ x, y, radius: 10, ring: 2, color: tone('grad', 1, 0.95 * mG) });
+			D.add({ x, y, radius: 4, color: tone('grad', 1, mG) });
 			const flip = v.project(x, y)[0] + 110 > v.project(g.pr, 0)[0];
 			label('probe', x, y, answer, { tone: 'grad', size: 11, align: flip ? 'right' : 'left', x: flip ? -16 : 16, opacity: mG });
 		}
@@ -495,7 +505,7 @@ export const createDecisionTreesScene: SceneFactory = () => {
 			for (const i of path) {
 				if (i === 0) continue;
 				const p = lay[i].parent;
-				seg(TL, pos[p][0], pos[p][1] - (many ? 0 : u(boxH / 2)), pos[i][0], pos[i][1] + top(i), 2.6, tone('grad', 1.1, 0.95 * mG));
+				seg(TL, pos[p][0], pos[p][1] - (many ? 0 : u(boxH / 2)), pos[i][0], pos[i][1] + top(i), 2.6, tone('grad', 1, 0.95 * mG));
 			}
 
 			// nodes
@@ -509,24 +519,24 @@ export const createDecisionTreesScene: SceneFactory = () => {
 					const side = u(leafPx);
 					if (leafPx >= 8 || hot || onPath) {
 						const o = u(hot || onPath ? 3.5 : 2);
-						const oc = onPath ? tone('grad', 1.1, 0.95 * mG) : tone('text', 1, hot ? 0.95 : 0.35);
+						const oc = onPath ? tone('grad', 1, 0.95 * mG) : tone('text', 1, hot ? 0.95 : 0.35);
 						Q.add({ x, y, w: side + o, h: side + o, radius: 2, color: oc });
 					}
-					Q.add({ x, y, w: side, h: side, radius: 1.5, color: leafColor(n.node.prob, 0.95 * mc * fade, 1.1) });
+					Q.add({ x, y, w: side, h: side, radius: 1.5, color: leafColor(n.node.prob, 0.95 * mc * fade) });
 					leafHits.push({ x, y, r: Math.max(8, leafPx / 2 + 4) });
 					if (!many) {
 						const [a, b] = classCounts(n.node);
 						label(`n${i}`, x, y - side / 2, `${a} · ${b}`, { tone: 'text', y: 11, opacity: (hot ? 1 : 0.75) * mT });
 					}
 				} else if (many) {
-					D.add({ x, y, radius: onPath ? 3.6 : 2.4, color: onPath ? tone('grad', 1.1, 0.95 * mG) : tone('text', 1, 0.6 * mT) });
+					D.add({ x, y, radius: onPath ? 3.6 : 2.4, color: onPath ? tone('grad', 1, 0.95 * mG) : tone('text', 1, 0.6 * mT) });
 				} else {
 					const w = u(boxW);
 					const h = u(boxH);
 					const o = u(onPath ? 3.5 : 2);
-					const oc = onPath ? tone('grad', 1.1, 0.95 * mG) : tone('text', 1, 0.5 * mT);
+					const oc = onPath ? tone('grad', 1, 0.95 * mG) : tone('text', 1, 0.5 * mT);
 					Q.add({ x, y, w: w + o, h: h + o, radius: 6, color: oc });
-					Q.add({ x, y, w, h, radius: 5, color: paperFill(0.97) });
+					Q.add({ x, y, w, h, radius: 5, color: sheetFill(0.97) });
 					label(`n${i}`, x, y, question(n.node), { tone: 'text', opacity: mT * fade });
 				}
 			});
@@ -587,12 +597,12 @@ export const createDecisionTreesScene: SceneFactory = () => {
 				tickY(cy(0.25), '0.25', 'yt1');
 				tickY(cy(0.5), '0.5', 'yt2');
 				for (const t of [-1, 0, 1]) tickX(cx(t), fmt(t).replace('.00', ''), `xt${t}`);
-				poly(CL, curve.map((p): [number, number] => [cx(p.threshold), cy(p.impurity)]), 2.2, tone('grad', 1.2, 0.95 * a * mc));
+				poly(CL, curve.map((p): [number, number] => [cx(p.threshold), cy(p.impurity)]), 2.2, tone('grad', 1, 0.95 * a * mc));
 				const mx = cx(clamp(cut, BOUNDS[0], BOUNDS[2]));
 				const my = cy(impurity);
 				seg(CL, mx, g.cb, mx, my, 1, tone('grad', 1, 0.5 * a * mc));
-				D.add({ x: mx, y: my, radius: 8, ring: 1.6, color: tone('grad', 1.1, 0.9 * a * mc) });
-				D.add({ x: mx, y: my, radius: 3.6, color: tone('grad', 1.3, a * mc) });
+				D.add({ x: mx, y: my, radius: 8, ring: 1.6, color: tone('grad', 1, 0.9 * a * mc) });
+				D.add({ x: mx, y: my, radius: 3.6, color: tone('grad', 1, a * mc) });
 				// Above the plot, over the marker, so the value never meets the curve or the ring.
 				// Kept clear of the 'impurity' caption at the top-left corner and inside the right edge.
 				const impX = v.project(mx, g.ct)[0];
@@ -610,13 +620,13 @@ export const createDecisionTreesScene: SceneFactory = () => {
 				for (let d = 0; d <= MAX_DEPTH; d += 2) tickX(cx(d), String(d), `xt${d}`);
 				const trainPts = dCurve.map((p): [number, number] => [cx(p.depth), cy(p.train)]);
 				const testPts = dCurve.map((p): [number, number] => [cx(p.depth), cy(p.test)]);
-				poly(CL, testPts, 2.2, tone('ok', 1.3, 0.95 * a * mO));
-				poly(CL, trainPts, 2.2, tone('data', 1.3, 0.95 * a * mD));
+				poly(CL, testPts, 2.2, tone('ok', 1, 0.95 * a * mO));
+				poly(CL, trainPts, 2.2, tone('data', 1, 0.95 * a * mD));
 				const dm = clamp(eff, 0, MAX_DEPTH);
 				seg(CL, cx(dm), g.cb, cx(dm), g.ct, 1.5, tone('text', 1, 0.45 * a * mT));
 				for (let d = 0; d <= MAX_DEPTH; d++) {
-					D.add({ x: testPts[d][0], y: testPts[d][1], radius: d === dm ? 4.5 : 2.4, color: tone('ok', 1.3, 0.95 * a * mO) });
-					D.add({ x: trainPts[d][0], y: trainPts[d][1], radius: d === dm ? 4.5 : 2.4, color: tone('data', 1.3, 0.95 * a * mD) });
+					D.add({ x: testPts[d][0], y: testPts[d][1], radius: d === dm ? 4.5 : 2.4, color: tone('ok', 1, 0.95 * a * mO) });
+					D.add({ x: trainPts[d][0], y: trainPts[d][1], radius: d === dm ? 4.5 : 2.4, color: tone('data', 1, 0.95 * a * mD) });
 				}
 				label('cx', (g.cl + g.cr) / 2, g.cb, 'tree depth', { y: 32, opacity: a });
 				label('cy', g.cl, g.ct, 'accuracy', { y: -14, align: 'left', opacity: a });
@@ -660,7 +670,9 @@ export const createDecisionTreesScene: SceneFactory = () => {
 			field = new Field(c, { cols: FIELD_N, rows: FIELD_N });
 			field.iso = 0.5;
 			field.isoWidth = 2;
-			quads = new Quads(c, { capacity: 900 });
+			fieldNeg = new Field(c, { cols: FIELD_N, rows: FIELD_N });
+			fieldNeg.iso = -1;
+			quads = new Quads(c, { capacity: 900, blend: 'alpha' });
 			ghostLines = new Lines(c, { capacity: 1000, blend: 'alpha' });
 			planeLines = new Lines(c, { capacity: 400, blend: 'alpha' });
 			treeLines = new Lines(c, { capacity: 4096, blend: 'alpha' });
@@ -712,7 +724,7 @@ export const createDecisionTreesScene: SceneFactory = () => {
 			}
 
 			geo = geometry(s);
-			fitCamera(camera, v, { x0: -geo.comp / 2 - 0.05, x1: geo.comp / 2 + 0.05, y0: VIEW_BOT, y1: VIEW_TOP }, INSETS);
+			fitCamera(camera, v, { x0: -geo.comp / 2 - 0.05, x1: geo.comp / 2 + 0.05, y0: VIEW_BOT, y1: VIEW_TOP }, lessonInsets(v));
 			v.setViewProj(camera.matrix(v.aspect));
 			pxu = Math.max(1, v.project(1, 0)[0] - v.project(0, 0)[0]);
 
@@ -725,7 +737,10 @@ export const createDecisionTreesScene: SceneFactory = () => {
 			emitReadouts();
 		},
 		draw(pass) {
-			if (forest >= 0.5) field.draw(pass);
+			if (forest >= 0.5) {
+				fieldNeg.draw(pass);
+				field.draw(pass);
+			}
 			quads.draw(pass);
 			ghostLines.draw(pass);
 			planeLines.draw(pass);
@@ -791,6 +806,7 @@ export const createDecisionTreesScene: SceneFactory = () => {
 		},
 		dispose() {
 			field.destroy();
+			fieldNeg.destroy();
 			quads.destroy();
 			ghostLines.destroy();
 			planeLines.destroy();

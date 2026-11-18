@@ -1,19 +1,20 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
-	import type { Tone } from '../../gpu/types.ts';
+	import { page } from '$app/state';
+	import type { Insets, Tone } from '../../gpu/types.ts';
 	import type { LessonDef, LessonMeta, Params, Track } from '../../lessons/types.ts';
 	import { lessonKey } from '../../content/curriculum.ts';
 	import { initialTexts, questionControls, questionParams } from '../../lessons/questions.ts';
 	import { pageLegend, pageReadouts } from '../../lessons/chips.ts';
 	import { progress } from '../../state/progress.svelte.ts';
 	import { settings } from '../../state/settings.svelte.ts';
-	import Icon from '../shell/Icon.svelte';
+	import { ui } from '../../state/ui.svelte.ts';
 	import ControlBar from './ControlBar.svelte';
 	import Legend from './Legend.svelte';
 	import Narration from './Narration.svelte';
 	import Readouts from './Readouts.svelte';
-	import Sidebar from './Sidebar.svelte';
 	import Stage from './Stage.svelte';
+	import ViewChip from './ViewChip.svelte';
 
 	interface Props {
 		lesson: LessonDef;
@@ -40,9 +41,21 @@
 		i < S
 			? { ...lesson.defaults, ...lesson.steps[i].params }
 			: questionParams(lesson, lesson.questions![i - S]);
-	const clamp = (i: number) => Math.min(Math.max(0, Math.floor(i) || 0), S + Q - 1);
+	/** The pages are the steps, then the questions; one more virtual page after them says the lesson is complete. */
+	const clampPage = (i: number) => Math.min(Math.max(0, Math.floor(i) || 0), S + Q - 1);
+	const clamp = (i: number) => Math.min(Math.max(0, Math.floor(i) || 0), S + Q);
 
-	let stepIndex = $state(untrack(() => clamp(progress.getStep(key))));
+	/** A `?step=N` link opens step N; otherwise the learner's saved place. */
+	function startPage(): number {
+		const raw = page.url.searchParams.get('step');
+		if (raw !== null && /^\d+$/.test(raw)) {
+			const n = Number(raw);
+			if (n >= 1 && n <= S) return n - 1;
+		}
+		return clampPage(progress.getStep(key));
+	}
+
+	let stepIndex = $state(untrack(startPage));
 	let params = $state.raw<Params>(untrack(() => targetFor(stepIndex)));
 	let highlight = $state<Tone | null>(null);
 	let readoutValues = $state<Record<string, number | string>>({});
@@ -54,14 +67,20 @@
 		texts = { ...texts, [id]: value };
 		stage?.command(`${id}:${value}`);
 	}
-	let collapsed = $state(false);
+	/** The learner has turned a 3D figure away from the step's own view (reported by the scene as 'view:moved'). */
+	let viewMoved = $state(false);
+	/** The figure can be turned by dragging and has not been yet ('view:drag'). */
+	let viewDrag = $state(false);
 
-	// The Stage is re-created when the motion setting changes, so its scene starts from the lesson's
-	// initial text again and has emitted nothing yet.
+	// The Stage is re-created when the motion setting or the theme changes, so its scene starts from the
+	// lesson's initial text again and has emitted nothing yet.
+	const stageKey = $derived(`${settings.reducedMotion}|${settings.theme}`);
 	$effect(() => {
-		void settings.reducedMotion;
+		void stageKey;
 		texts = {};
 		readoutValues = {};
+		viewMoved = false;
+		viewDrag = false;
 	});
 
 	if (untrack(() => stepIndex >= S - 1)) progress.complete(key);
@@ -119,9 +138,13 @@
 		const n = clamp(i);
 		if (n === stepIndex) return;
 		stepIndex = n;
-		progress.setStep(key, n);
+		highlight = null;
+		viewMoved = false;
+		viewDrag = false;
+		progress.setStep(key, Math.min(n, S + Q - 1));
 		if (n >= S - 1) progress.complete(key);
-		applyStep(n);
+		// The complete page keeps the last page's figure.
+		if (n < S + Q) applyStep(n);
 	}
 
 	function setParam(k: string, v: number) {
@@ -138,23 +161,38 @@
 			if (typeof v === 'number' && Number.isFinite(v) && params[pk] !== v) setParam(pk, v);
 			return;
 		}
+		if (k === 'view:moved') {
+			viewMoved = Number(v) === 1;
+			return;
+		}
+		if (k === 'view:drag') {
+			viewDrag = Number(v) === 1;
+			return;
+		}
 		readoutValues = { ...readoutValues, [k]: v };
 	}
 
-	const question = $derived(stepIndex >= S ? lesson.questions![stepIndex - S] : null);
+	const complete = $derived(stepIndex >= S + Q);
+	/** The page whose figure is on the stage: the open page, or the last one when the lesson is complete. */
+	const pageIdx = $derived(Math.min(stepIndex, S + Q - 1));
+	const question = $derived(pageIdx >= S ? lesson.questions![pageIdx - S] : null);
 	const visibleControls = $derived(
-		question
-			? questionControls(lesson, question)
-			: lesson.steps[stepIndex].controls === undefined
-				? lesson.controls
-				: lesson.controls.filter((c) =>
-						lesson.steps[stepIndex].controls!.includes('id' in c ? c.id : c.key)
-					)
+		complete
+			? []
+			: question
+				? questionControls(lesson, question)
+				: lesson.steps[pageIdx].controls === undefined
+					? lesson.controls
+					: lesson.controls.filter((c) =>
+							lesson.steps[pageIdx].controls!.includes('id' in c ? c.id : c.key)
+						)
 	);
 
-	const page = $derived(question ?? lesson.steps[stepIndex]);
-	const visibleLegend = $derived(pageLegend(lesson, page));
-	const visibleReadouts = $derived(pageReadouts(lesson, page));
+	const current = $derived(question ?? lesson.steps[pageIdx]);
+	const visibleLegend = $derived(complete ? [] : pageLegend(lesson, current));
+	const visibleReadouts = $derived(complete ? [] : pageReadouts(lesson, current));
+	/** Steps whose scene draws its own grid turn the paper grid off. Questions and the complete page use the last step's value. */
+	const gridOn = $derived(lesson.steps[Math.min(pageIdx, S - 1)].grid !== false);
 
 	const solved = $derived(
 		(lesson.questions ?? []).map((_, j) => progress.isSolved(key, j))
@@ -167,6 +205,20 @@
 		touched = false;
 	});
 	let stageCell: HTMLDivElement | undefined = $state();
+
+	// Parts of the stage covered by the floating chips, the control bar and the card (or its tab).
+	const CARD_W = 380;
+	const TAB_W = 44;
+	const side = $derived((ui.cardFolded ? TAB_W : CARD_W) + 32);
+	let legendH = $state(0);
+	let readoutsH = $state(0);
+	let barH = $state(0);
+	const insets: Insets = $derived({
+		top: Math.max(legendH, readoutsH) + 24,
+		right: side,
+		bottom: barH + 32,
+		left: 24
+	});
 	$effect(() => {
 		const el = stageCell;
 		if (!el) return;
@@ -187,7 +239,7 @@
 	const HOLD_MS = 400;
 	let hold: ReturnType<typeof setTimeout> | undefined;
 	$effect(() => {
-		const q = question;
+		const q = complete ? null : question;
 		const j = stepIndex - S;
 		let reached = false;
 		if (q && q.kind === 'task' && touched && !tweening && !untrack(() => progress.isSolved(key, j))) {
@@ -244,39 +296,36 @@
 
 <a class="skip-link" href="#lesson-stage">Skip to the lesson</a>
 
-<div class="layout" class:collapsed>
-	<div class="side">
-		<Sidebar currentKey={key} onclose={() => (collapsed = true)} />
-	</div>
+<div class="area" style:--side="{side}px">
+	<div class="paper" aria-hidden="true"></div>
+	<div class="grid" class:off={!gridOn} class:still={settings.reducedMotion} aria-hidden="true"></div>
 
 	<div class="stage-cell" id="lesson-stage" tabindex="-1" bind:this={stageCell}>
-		{#key `${settings.reducedMotion}|${settings.theme}`}
+		{#key stageKey}
 			<Stage
 				bind:this={stage}
 				createScene={lesson.createScene}
 				{params}
 				{highlight}
+				{insets}
 				onreadout={onreadout}
 			/>
 		{/key}
-		<div class="top">
-			<div class="tl">
-				{#if collapsed}
-					<button
-						type="button"
-						class="reopen glass"
-						aria-label="Show lesson list"
-						onclick={() => (collapsed = false)}
-					>
-						<Icon name="chevron-right" />
-					</button>
-				{/if}
-				<Legend items={visibleLegend} />
-			</div>
-			<div class="tr"><Readouts readouts={visibleReadouts} values={readoutValues} /></div>
+		<div class="tl" bind:clientHeight={legendH}>
+			<Legend items={visibleLegend} {highlight} onhighlight={(t) => (highlight = t)} />
+		</div>
+		<div class="tr" bind:clientHeight={readoutsH}>
+			<Readouts readouts={visibleReadouts} values={readoutValues} />
+		</div>
+		<div class="vc">
+			<ViewChip
+				moved={viewMoved && !complete}
+				drag={viewDrag && !complete}
+				onreset={() => stage?.command('view:reset')}
+			/>
 		</div>
 		{#if visibleControls.length}
-			<div class="bottom">
+			<div class="bottom" bind:clientHeight={barH}>
 				<ControlBar
 					controls={visibleControls}
 					{params}
@@ -296,6 +345,9 @@
 		{next}
 		{stepIndex}
 		{solved}
+		{highlight}
+		folded={ui.cardFolded}
+		onfold={(b) => ui.setCardFolded(b)}
 		onsolve={(j) => progress.solve(key, j)}
 		onstep={goTo}
 		onhighlight={(t) => (highlight = t)}
@@ -303,82 +355,81 @@
 </div>
 
 <style>
-	/* Desktop-only layout: lesson list | stage | narration, filling the window below the top bar. */
-	.layout {
-		display: grid;
+	/* Desktop-only: one positioned area below the top bar. The stage fills it; everything else floats on it. */
+	.area {
+		position: relative;
 		height: calc(100vh - var(--topbar-h));
-		grid-template-columns: 240px minmax(0, 1fr) 360px;
-		grid-template-rows: minmax(0, 1fr);
 		overflow: hidden;
 	}
-	.layout.collapsed {
-		grid-template-columns: 0 minmax(0, 1fr) 360px;
+	.paper,
+	.grid,
+	.stage-cell {
+		position: absolute;
+		inset: 0;
 	}
-	.side {
-		min-width: 0;
-		overflow: hidden;
+	.paper {
+		background-color: var(--pg);
+		background-image: var(--grain);
 	}
-	.collapsed .side {
-		visibility: hidden;
+	/* The paper grid; steps whose scene draws its own grid fade it out. */
+	.grid {
+		background-image:
+			linear-gradient(var(--grid-major) 1px, transparent 1px),
+			linear-gradient(90deg, var(--grid-major) 1px, transparent 1px),
+			linear-gradient(var(--grid-minor) 1px, transparent 1px),
+			linear-gradient(90deg, var(--grid-minor) 1px, transparent 1px);
+		background-size:
+			120px 120px,
+			120px 120px,
+			24px 24px,
+			24px 24px;
+		transition: opacity 0.4s;
+	}
+	.grid.off {
+		opacity: 0;
+	}
+	.grid.still {
+		transition: none;
 	}
 	.stage-cell {
 		outline: none;
-		position: relative;
-		min-height: 0;
 		overflow: hidden;
-		background: var(--bg-void);
 	}
-	.top,
+	.tl,
+	.tr,
+	.vc,
 	.bottom {
 		position: absolute;
 		z-index: 2;
 		pointer-events: none;
 	}
-	/* Legend on the left, readouts on the right, each as wide as its chips; they wrap only when the two meet. */
-	.top {
-		top: 12px;
-		left: 12px;
-		right: 12px;
-		display: flex;
-		justify-content: space-between;
-		align-items: flex-start;
-		gap: 12px;
-	}
 	.tl {
-		display: flex;
-		align-items: flex-start;
-		gap: 8px;
-		flex: 0 1 auto;
-		min-width: 0;
+		top: 16px;
+		left: 16px;
 	}
+	.tl :global(button) {
+		pointer-events: auto;
+	}
+	/* Readouts sit left of the card (or its tab). */
 	.tr {
-		flex: 0 1 auto;
-		min-width: 0;
-		margin-left: auto;
+		top: 16px;
+		right: var(--side);
+	}
+	/* The camera chip and the drag hint share one spot, centred in the part of the stage the card leaves free. */
+	.vc {
+		top: 16px;
+		left: 0;
+		right: var(--side);
+		display: flex;
+		justify-content: center;
+		align-items: flex-start;
+	}
+	.vc :global(.drag-hint) {
+		margin-top: 6px;
 	}
 	.bottom {
 		bottom: 16px;
-		left: 0;
-		right: 0;
-		display: flex;
-		justify-content: center;
-	}
-	.bottom :global(.bar),
-	.reopen {
-		pointer-events: auto;
-	}
-	.reopen {
-		display: grid;
-		place-items: center;
-		flex: none;
-		width: 28px;
-		height: 28px;
-		padding: 0;
-		color: var(--c-text-2);
-		cursor: pointer;
-	}
-	.reopen:hover {
-		color: var(--c-text);
-		background: var(--glass-strong);
+		left: 24px;
+		right: var(--side);
 	}
 </style>

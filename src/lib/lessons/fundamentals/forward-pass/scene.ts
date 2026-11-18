@@ -1,5 +1,5 @@
 import { Camera2D } from '../../../gpu/camera.ts';
-import { diverging, tone } from '../../../gpu/colors.ts';
+import { diverging, sheetFill, tone } from '../../../gpu/colors.ts';
 import { Lines } from '../../../gpu/primitives/lines.ts';
 import { Quads } from '../../../gpu/primitives/quads.ts';
 import type { Label, Scene, SceneContext, SceneFactory, Tone } from '../../../gpu/types.ts';
@@ -181,9 +181,23 @@ export const createForwardPassScene: SceneFactory = () => {
 			const { ppu } = pxPerUnit();
 			const fits = CELL * ppu >= 36;
 			let qi = 0;
-			const quad = (x: number, y: number, color: [number, number, number, number]) => {
-				const c: [number, number, number, number] = [color[0] * 0.7, color[1] * 0.7, color[2] * 0.7, color[3]];
-				quads.set(qi++, { x, y, w: CELL, h: CELL, radius: 5, color: c });
+			let ln = 0;
+			// A cell is a sheet-colored box with a value wash on top and a thin muted outline.
+			const quad = (x: number, y: number, v: number, f: number) => {
+				quads.set(qi++, { x, y, w: CELL, h: CELL, color: sheetFill(f) });
+				quads.set(qi++, { x, y, w: CELL, h: CELL, color: diverging(v, 1, f) });
+				const h = CELL / 2;
+				ln = arrow.setPolyline(
+					ln,
+					[
+						[x - h, y - h],
+						[x + h, y - h],
+						[x + h, y + h],
+						[x - h, y + h],
+						[x - h, y - h]
+					],
+					{ width: 1, color: tone('muted', 0.5 * f) }
+				);
 			};
 			const lab = (
 				id: string,
@@ -213,7 +227,7 @@ export const createForwardPassScene: SceneFactory = () => {
 				const val = aIn[i] * cIn;
 				const f = matrix * dimFor('data', val) * (0.5 + 0.5 * cIn);
 				const y = rowY(i, nIn);
-				quad(X_IN, y, diverging(val, f, f));
+				quad(X_IN, y, val, f);
 				if (fits && cIn > 0.5)
 					lab(`m-in${i}`, X_IN, y, fmt(aIn[i]), { opacity: dimFor('data', val) });
 			}
@@ -223,16 +237,16 @@ export const createForwardPassScene: SceneFactory = () => {
 					const w = W[j * nIn + i];
 					const f = matrix * dimFor('param', w);
 					const x = X_W0 + i * PITCH;
-					quad(x, y, diverging(w / 1.5, f, f));
+					quad(x, y, w / 1.5, f);
 					if (fits) lab(`m-w${j}.${i}`, x, y, fmt(w), { opacity: dimFor('param', w) });
 				}
 				const bf = matrix * dimFor('param', b[j]);
-				quad(X_B, y, diverging(b[j] / 1.5, bf, bf));
+				quad(X_B, y, b[j] / 1.5, bf);
 				if (fits) lab(`m-b${j}`, X_B, y, fmt(b[j]), { opacity: dimFor('param', b[j]) });
 
 				const val = aOut[j] * cOut;
 				const of = matrix * dimFor('data', val) * (0.5 + 0.5 * cOut);
-				quad(X_OUT, y, diverging(val, of, of));
+				quad(X_OUT, y, val, of);
 				if (fits && cOut > 0.5) lab(`m-out${j}`, X_OUT, y, fmt(aOut[j]), { opacity: dimFor('data', val) });
 			}
 			quads.count = qi;
@@ -249,12 +263,12 @@ export const createForwardPassScene: SceneFactory = () => {
 				dy: 22
 			});
 			const a = matrix;
-			const col = tone('muted', 1, 0.6 * a);
+			const col = tone('muted', 0.6 * a);
 			const hw = 0.09;
-			arrow.set(0, { a: [ARROW.x0, PANEL_Y], b: [ARROW.x1, PANEL_Y], width: 2, color: col });
-			arrow.set(1, { a: [ARROW.x1 - hw, PANEL_Y + hw], b: [ARROW.x1, PANEL_Y], width: 2, color: col });
-			arrow.set(2, { a: [ARROW.x1 - hw, PANEL_Y - hw], b: [ARROW.x1, PANEL_Y], width: 2, color: col });
-			arrow.count = 3;
+			arrow.set(ln++, { a: [ARROW.x0, PANEL_Y], b: [ARROW.x1, PANEL_Y], width: 2, color: col });
+			arrow.set(ln++, { a: [ARROW.x1 - hw, PANEL_Y + hw], b: [ARROW.x1, PANEL_Y], width: 2, color: col });
+			arrow.set(ln++, { a: [ARROW.x1 - hw, PANEL_Y - hw], b: [ARROW.x1, PANEL_Y], width: 2, color: col });
+			arrow.count = ln;
 		}
 		quads.upload();
 		arrow.upload();
@@ -279,8 +293,8 @@ export const createForwardPassScene: SceneFactory = () => {
 			camera = new Camera2D();
 			diagram = new NetworkDiagram(c, SIZES);
 			diagram.rect = NET;
-			quads = new Quads(c, { capacity: 32, blend: 'alpha' });
-			arrow = new Lines(c, { capacity: 8, blend: 'alpha' });
+			quads = new Quads(c, { capacity: 64, blend: 'alpha' });
+			arrow = new Lines(c, { capacity: 128, blend: 'alpha' });
 		},
 		setParams(params) {
 			p = { ...params };

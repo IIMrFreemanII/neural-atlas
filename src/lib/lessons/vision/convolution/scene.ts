@@ -1,12 +1,12 @@
 import { Camera2D } from '../../../gpu/camera.ts';
-import { diverging, tone } from '../../../gpu/colors.ts';
+import { diverging, sheetFill, tone } from '../../../gpu/colors.ts';
 import { Lines } from '../../../gpu/primitives/lines.ts';
 import { Quads } from '../../../gpu/primitives/quads.ts';
 import type { Label, Scene, SceneContext, SceneFactory, ScenePointer, Tone } from '../../../gpu/types.ts';
 import { conv2d, makeGrid, patchAt, type Grid } from '../../../ml/conv.ts';
 import { strokeSegment } from '../../../ml/raster.ts';
 import { fitCamera, lessonInsets, type WorldRect } from '../../fit.ts';
-import { cellAt, cellCenter, toPixel, writeGrid, type GridLayout } from '../shared/grid.ts';
+import { cellAt, cellCenter, gridSize, toPixel, writeGrid, type GridLayout } from '../shared/grid.ts';
 import { IMAGES, KERNELS, N } from './data.ts';
 
 const WORLD: WorldRect = { x0: -2.6, x1: 2.6, y0: -1.65, y1: 2.2 };
@@ -34,6 +34,8 @@ const fmt = (v: number, d: number) => {
 	const s = Math.abs(v).toFixed(d);
 	return v < 0 && Number(s) !== 0 ? '−' + s : s;
 };
+/** Light ink under the weight's number so the label stays readable; a zero weight is bare. */
+const kernelInk = (w: number, kmax: number) => (w === 0 ? 0 : 0.08 + 0.14 * (Math.abs(w) / kmax));
 const signTone = (v: number): Tone => (v > 0.05 ? 'data' : v < -0.05 ? 'neg' : 'muted');
 
 export const createConvolutionScene: SceneFactory = () => {
@@ -163,8 +165,23 @@ export const createConvolutionScene: SceneFactory = () => {
 		const count = reachedCount();
 		const cop = calcOp;
 
-		// image
-		let q = writeGrid(quads, 0, image.data, IMG_L, (val) => tone('text', 0.08 + 0.7 * val, mImg));
+		// sheets under the grids: image, output, kernel, and the arithmetic row
+		let q = 0;
+		const sheet = (g: GridLayout, a: number, m = 0.02) => {
+			const [w, h] = gridSize(g);
+			quads.set(q++, { x: g.x + w / 2, y: g.y - h / 2, w: w + 2 * m, h: h + 2 * m, color: sheetFill(a), radius: 0 });
+		};
+		sheet(IMG_L, 1);
+		sheet({ ...IMG_L, x: OUT_X }, 1);
+		sheet(K_L, 1, 0.04);
+		if (cop > 0.01) {
+			sheet(PATCH_L, cop, 0.04);
+			sheet(PK_L, cop, 0.04);
+			sheet(PROD_L, cop, 0.04);
+		}
+
+		// image: ink density is the pixel value
+		q = writeGrid(quads, q, image.data, IMG_L, (val) => tone('text', val, mImg));
 		if (pad === 1) {
 			const padL: GridLayout = { x: IMG_X - CELL, y: TOP + CELL, cell: CELL, cols: N + 2, rows: N + 2 };
 			const s = CELL * 0.92;
@@ -172,17 +189,17 @@ export const createConvolutionScene: SceneFactory = () => {
 				for (let c = 0; c < N + 2; c++) {
 					if (r > 0 && r < N + 1 && c > 0 && c < N + 1) continue;
 					const [x, y] = cellCenter(padL, c, r);
-					quads.set(q++, { x, y, w: s, h: s, color: tone('muted', 0.3, 0.7 * mImg) });
+					quads.set(q++, { x, y, w: s, h: s, color: tone('muted', 0.3, mImg) });
 				}
 			}
 		}
 		// output
 		q = writeGrid(quads, q, out.data, outL, (val, i) =>
-			i < count ? diverging(val / norm, 0.6, mO) : tone('text', 0.05, mO)
+			i < count ? diverging(val / norm, 1, mO) : tone('text', 0, 0)
 		);
 		// kernel
 		const kmax = Math.max(1, ...Array.from(kernel.data, Math.abs));
-		q = writeGrid(quads, q, kernel.data, K_L, (w) => tone('param', 0.08 + 0.45 * (Math.abs(w) / kmax), mK));
+		q = writeGrid(quads, q, kernel.data, K_L, (w) => tone('param', kernelInk(w, kmax), mK));
 
 		// the current patch and its arithmetic
 		const opts = { stride, pad };
@@ -196,9 +213,9 @@ export const createConvolutionScene: SceneFactory = () => {
 			pmax = Math.max(pmax, Math.abs(prod[i]));
 		}
 		if (cop > 0.01) {
-			q = writeGrid(quads, q, patch.data, PATCH_L, (val) => tone('text', 0.04 + 0.18 * val, cop * mImg));
-			q = writeGrid(quads, q, kernel.data, PK_L, (w) => tone('param', 0.08 + 0.45 * (Math.abs(w) / kmax), cop * mK));
-			q = writeGrid(quads, q, prod, PROD_L, (val) => diverging(val / pmax, 0.35, cop * mO));
+			q = writeGrid(quads, q, patch.data, PATCH_L, (val) => tone('text', 0.22 * val, cop * mImg));
+			q = writeGrid(quads, q, kernel.data, PK_L, (w) => tone('param', kernelInk(w, kmax), cop * mK));
+			q = writeGrid(quads, q, prod, PROD_L, (val) => diverging(val / pmax, 0.22, cop * mO));
 		}
 		quads.count = q;
 		quads.upload();
@@ -212,6 +229,10 @@ export const createConvolutionScene: SceneFactory = () => {
 		n = arrow(n, IMG_X + N * CELL + 0.08, K_L.x - 0.08, MID_Y, arrowC);
 		n = arrow(n, 1.5 * K_CELL + 0.08, OUT_X - 0.08, MID_Y, arrowC);
 		if (cop > 0.01) {
+			for (const g of [K_L, PATCH_L, PK_L, PROD_L]) {
+				if (g === K_L) n = rect(n, g.x - 0.04, g.y + 0.04, g.x + 3 * g.cell + 0.04, g.y - 3 * g.cell - 0.04, 1, frameC);
+				else n = rect(n, g.x - 0.04, g.y + 0.04, g.x + 3 * g.cell + 0.04, g.y - 3 * g.cell - 0.04, 1, tone('muted', 1, 0.6 * cop));
+			}
 			n = lines.setPolyline(
 				n,
 				[
@@ -221,24 +242,35 @@ export const createConvolutionScene: SceneFactory = () => {
 				{ width: 1, color: tone('muted', 1, 0.35 * cop) }
 			);
 		}
+		// number cells: the value reads through a 1px outline per cell, the wash stays light
+		const cellBox = (g: GridLayout, i: number, c: [number, number, number, number]) => {
+			const [cx, cy] = cellCenter(g, i % 3, Math.floor(i / 3));
+			const h = (g.cell * (1 - (g.gap ?? 0.08))) / 2;
+			n = rect(n, cx - h, cy + h, cx + h, cy - h, 1, c);
+		};
+		for (let i = 0; i < 9; i++) {
+			cellBox(K_L, i, tone('param', 0.6, mK));
+			if (cop > 0.01) {
+				cellBox(PATCH_L, i, tone('text', 0.6, cop * mImg));
+				cellBox(PK_L, i, tone('param', 0.6, cop * mK));
+				cellBox(PROD_L, i, tone(signTone(prod[i]), 0.6, cop * mO));
+			}
+		}
 		// window in the image and matching output cell
 		if (calc >= 0.5) {
-			const wc = tone('param', 1.4, 0.95 * mK);
+			const wc = tone('param', 1, mK);
 			const wx = IMG_X + (curCol * stride - pad) * CELL;
 			const wy = TOP - (curRow * stride - pad) * CELL;
-			const halo: [number, number, number, number] = [0, 0, 0, 0.85 * mK];
-			n = rect(n, wx, wy, wx + 3 * CELL, wy - 3 * CELL, 5, halo);
-			n = rect(n, wx, wy, wx + 3 * CELL, wy - 3 * CELL, 2, wc);
+			n = rect(n, wx, wy, wx + 3 * CELL, wy - 3 * CELL, 2.5, wc);
 			const ox = outL.x + curCol * CELL;
 			const oy = outL.y - curRow * CELL;
-			n = rect(n, ox, oy, ox + CELL, oy - CELL, 5, halo);
-			n = rect(n, ox, oy, ox + CELL, oy - CELL, 2, wc);
+			n = rect(n, ox, oy, ox + CELL, oy - CELL, 2.5, wc);
 		}
 		// hovered pixel (step 1 reads values off the image)
 		if (hoverImg && calc < 0.5) {
 			const px = IMG_X + hoverImg.col * CELL;
 			const py = TOP - hoverImg.row * CELL;
-			n = rect(n, px, py, px + CELL, py - CELL, 1.5, tone('text', 0.9, 0.7 * mImg));
+			n = rect(n, px, py, px + CELL, py - CELL, 1.5, tone('text', 1, mImg));
 		}
 		lines.count = n;
 		lines.upload();
@@ -301,8 +333,8 @@ export const createConvolutionScene: SceneFactory = () => {
 		init(c) {
 			ctx = c;
 			camera = new Camera2D();
-			quads = new Quads(c, { capacity: 1500, blend: 'alpha' });
-			lines = new Lines(c, { capacity: 80, blend: 'alpha' });
+			quads = new Quads(c, { capacity: 1600, blend: 'alpha' });
+			lines = new Lines(c, { capacity: 240, blend: 'alpha' });
 			loadImage();
 			loadKernel();
 			recompute();

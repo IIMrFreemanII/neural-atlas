@@ -1,12 +1,12 @@
 import { Camera2D } from '../../../gpu/camera.ts';
-import { diverging, mixColor, tone } from '../../../gpu/colors.ts';
+import { diverging, sheetFill, tone } from '../../../gpu/colors.ts';
 import { Lines } from '../../../gpu/primitives/lines.ts';
 import { Quads } from '../../../gpu/primitives/quads.ts';
 import type { Label, Scene, SceneContext, SceneFactory, ScenePointer, Tone } from '../../../gpu/types.ts';
 import { strokeSegment } from '../../../ml/raster.ts';
 import { mulberry32 } from '../../../ml/rng.ts';
 import { CLASSES, DIM, GRID, IMAGE, PATCH, PATCHES, TOKENS, vitForward, type VitTrace } from '../../../ml/vit.ts';
-import { fitCamera, type Insets, type WorldRect } from '../../fit.ts';
+import { fitCamera, lessonInsets, type WorldRect } from '../../fit.ts';
 import { CLASS_NAMES, SAMPLES } from '../cnn-features/data.ts';
 import { WEIGHTS } from './weights.ts';
 
@@ -14,9 +14,6 @@ import { WEIGHTS } from './weights.ts';
 // Design space: x from -320 to 320, y up, 0 near the token row.
 const S = 118;
 const px = (n: number) => n / S;
-
-/** The chips row matters here (legend and one readout), so the insets are fixed like the decision trees lesson. */
-const INSETS: Insets = { top: 64, right: 24, bottom: 110, left: 24 };
 
 // Drawing: 16 x 16 cells of 10 px, top left corner at (GX, GY). One patch is 40 px.
 const CELL = 13;
@@ -227,9 +224,9 @@ export const createVitScene: SceneFactory = () => {
 		return trace.layers[clamp(layer, 1, 2) - 1].attn[clamp(head, 1, 2) - 1][eff()];
 	}
 
+	/** A pixel is ink: density is its value. */
 	function cellColor(v: number, a: number): Rgba {
-		const boost = hl === 'data' ? 1.3 : 1;
-		return mixColor(tone('text', 0.07, a), tone('data', 0.78 * boost, a), clamp(v, 0, 1));
+		return tone('data', clamp(v, 0, 1), a);
 	}
 
 	function drawScene() {
@@ -245,15 +242,12 @@ export const createVitScene: SceneFactory = () => {
 			quads.set(n++, { x: px(x), y: px(y), w: px(w), h: px(h), color, radius });
 		};
 
-		// 1. the drawing, as 16 patches that can move: empty cells, then the attention tint, then the ink on top
-		for (let o = 0; o < PATCHES; o++) {
-			const x0 = GX + curCol[o] * PATCH_PX;
-			const y0 = GY - curRow[o] * PATCH_PX;
-			for (let r = 0; r < PATCH; r++) {
-				for (let c = 0; c < PATCH; c++) {
-					q(x0 + (c + 0.5) * CELL, y0 - (r + 0.5) * CELL, CELL * 0.92, CELL * 0.92, tone('text', 0.07, mD * mT));
-				}
-			}
+		// 1. the drawing, as 16 patches that can move: the sheet, then the attention tint, then the ink on top
+		q(GX + SIDE / 2, GY - SIDE / 2, SIDE, SIDE, sheetFill(1));
+		// sheets under the tokens
+		{
+			const fbs = frameBottom();
+			for (let i = 0; i < TOKENS; i++) q(ROW_X(i), (FRAME_TOP + fbs) / 2, 2 * TOK_HALF, FRAME_TOP - fbs, sheetFill(1));
 		}
 		if (colA[3] > 0.01) {
 			for (let s = 0; s < PATCHES; s++) {
@@ -261,10 +255,9 @@ export const createVitScene: SceneFactory = () => {
 				const w = attn[1 + s];
 				const x0 = GX + curCol[o] * PATCH_PX;
 				const y0 = GY - curRow[o] * PATCH_PX;
-				q(x0 + PATCH_PX / 2, y0 - PATCH_PX / 2, PATCH_PX - 1, PATCH_PX - 1, tone('grad', 0.9, attnAlpha(w) * colA[3] * mG));
+				q(x0 + PATCH_PX / 2, y0 - PATCH_PX / 2, PATCH_PX - 1, PATCH_PX - 1, tone('grad', 1, attnAlpha(w) * colA[3] * mG));
 			}
 		}
-		const boost = hl === 'data' ? 1.3 : 1;
 		for (let o = 0; o < PATCHES; o++) {
 			const [pr, pc] = patchOrigin(o);
 			const x0 = GX + curCol[o] * PATCH_PX;
@@ -273,7 +266,7 @@ export const createVitScene: SceneFactory = () => {
 				for (let c = 0; c < PATCH; c++) {
 					const v = base[(pr * PATCH + r) * IMAGE + pc * PATCH + c];
 					if (v < 0.02) continue;
-					q(x0 + (c + 0.5) * CELL, y0 - (r + 0.5) * CELL, CELL * 0.92, CELL * 0.92, tone('data', 0.78 * boost, Math.min(1, v * 1.5) * mD * mT));
+					q(x0 + (c + 0.5) * CELL, y0 - (r + 0.5) * CELL, CELL * 0.92, CELL * 0.92, tone('data', Math.min(1, v * 1.5), mD * mT));
 				}
 			}
 		}
@@ -283,7 +276,7 @@ export const createVitScene: SceneFactory = () => {
 		if (colA[3] > 0.01) {
 			for (let i = 0; i < TOKENS; i++) {
 				const w = attn[i];
-				q(ROW_X(i), (FRAME_TOP + fb) / 2, 2 * TOK_HALF, FRAME_TOP - fb, tone('grad', 0.9, attnAlpha(w) * colA[3] * mG));
+				q(ROW_X(i), (FRAME_TOP + fb) / 2, 2 * TOK_HALF, FRAME_TOP - fb, tone('grad', 1, attnAlpha(w) * colA[3] * mG));
 			}
 		}
 
@@ -313,7 +306,7 @@ export const createVitScene: SceneFactory = () => {
 				const a = colA[0] * mD * (i === 0 ? 1 : flightOf(i - 1) >= 1 ? 1 : 0);
 				if (a <= 0) continue;
 				for (let d = 0; d < DIM; d++) {
-					q(ROW_X(i), STRIP_TOP - (d + 0.5) * STRIP_CELL, 2 * TOK_HALF - 6, STRIP_CELL * 0.85, diverging(dStrip[i * DIM + d] / stripScale, 0.85, a));
+					q(ROW_X(i), STRIP_TOP - (d + 0.5) * STRIP_CELL, 2 * TOK_HALF - 6, STRIP_CELL * 0.85, diverging(dStrip[i * DIM + d] / stripScale, 1, a));
 				}
 			}
 		}
@@ -321,7 +314,7 @@ export const createVitScene: SceneFactory = () => {
 		// 6. position marks
 		if (colA[1] > 0.01) {
 			for (let i = 0; i < TOKENS; i++) {
-				q(ROW_X(i), 7, 2 * TOK_HALF - 6, 2, tone('param', 0.95, colA[1] * mP));
+				q(ROW_X(i), 7, 2 * TOK_HALF - 6, 2, tone('param', 1, colA[1] * mP));
 			}
 		}
 
@@ -333,10 +326,10 @@ export const createVitScene: SceneFactory = () => {
 			const h = BAR_H + 6 * colA[4];
 			for (let c = 0; c < CLASSES; c++) {
 				const y = barY(c);
-				q(BAR_X + BAR_W / 2, y, BAR_W, h, tone('muted', 0.5, 0.35 * colA[2] * mO));
+				q(BAR_X + BAR_W / 2, y, BAR_W, h, sheetFill(colA[2] * mO));
 				const w = Math.max(1, BAR_W * dProb[c]);
 				const isTop = c === top;
-				q(BAR_X + w / 2, y, w, h, isTop ? tone('ok', 0.75, colA[2] * mO * dim) : tone('muted', 0.9, colA[2] * mO * dim * 0.8));
+				q(BAR_X + w / 2, y, w, h, isTop ? tone('ok', 1, colA[2] * mO * dim) : tone('muted', 0.6, colA[2] * mO * dim));
 			}
 		}
 		quads.count = n;
@@ -356,15 +349,15 @@ export const createVitScene: SceneFactory = () => {
 		};
 
 		// patch grid over the drawing
-		const grid = tone('text', 0.55, 0.7 * mT);
+		const grid = tone('muted', 1, 0.8 * mT);
 		for (let k = 0; k <= GRID; k++) {
-			seg(GX + k * PATCH_PX, GY, GX + k * PATCH_PX, GY - SIDE, grid, 1.5);
-			seg(GX, GY - k * PATCH_PX, GX + SIDE, GY - k * PATCH_PX, grid, 1.5);
+			seg(GX + k * PATCH_PX, GY, GX + k * PATCH_PX, GY - SIDE, grid, 1);
+			seg(GX, GY - k * PATCH_PX, GX + SIDE, GY - k * PATCH_PX, grid, 1);
 		}
 		// token frames
 		for (let i = 0; i < TOKENS; i++) {
 			const cls = i === 0;
-			box(ROW_X(i), (FRAME_TOP + fb) / 2, 2 * TOK_HALF, FRAME_TOP - fb, cls ? tone('param', 1, 0.9 * mP) : tone('muted', 1, 0.6 * mT), cls ? 1.5 : 1);
+			box(ROW_X(i), (FRAME_TOP + fb) / 2, 2 * TOK_HALF, FRAME_TOP - fb, cls ? tone('param', 1, mP) : tone('muted', 1, 0.7 * mT), cls ? 1.5 : 1);
 		}
 		// the focused token
 		if (colA[3] > 0.01) {
@@ -375,13 +368,13 @@ export const createVitScene: SceneFactory = () => {
 				const f = eff();
 				const s = f - 1;
 				const o = perm[s];
-				box(ROW_X(f), (FRAME_TOP + fb) / 2, 2 * TOK_HALF + 4, FRAME_TOP - fb + 4, tone('text', 1, 0.9 * a * mT), 2);
-				box(GX + curCol[o] * PATCH_PX + PATCH_PX / 2, GY - curRow[o] * PATCH_PX - PATCH_PX / 2, PATCH_PX, PATCH_PX, tone('text', 1, 0.95 * a * mT), 2.5);
+				box(ROW_X(f), (FRAME_TOP + fb) / 2, 2 * TOK_HALF + 4, FRAME_TOP - fb + 4, tone('text', 1, a * mT), 2);
+				box(GX + curCol[o] * PATCH_PX + PATCH_PX / 2, GY - curRow[o] * PATCH_PX - PATCH_PX / 2, PATCH_PX, PATCH_PX, tone('text', 1, a * mT), 2.5);
 			}
 		}
 		// class token to the answer
 		if (colA[4] > 0.01) {
-			const c = tone('ok', 1, 0.75 * colA[4] * mO);
+			const c = tone('ok', 1, colA[4] * mO);
 			const pts: Array<[number, number]> = [
 				[px(ROW_X(0)), px(FRAME_TOP)],
 				[px(ROW_X(0)), px(ARROW_Y)],
@@ -499,7 +492,7 @@ export const createVitScene: SceneFactory = () => {
 			rect.x1 += (target.x1 - rect.x1) * kr;
 			rect.y0 += (target.y0 - rect.y0) * kr;
 			rect.y1 += (target.y1 - rect.y1) * kr;
-			fitCamera(camera, v, rect, INSETS);
+			fitCamera(camera, v, rect, lessonInsets(v));
 			v.setViewProj(camera.matrix(v.aspect));
 
 			if (netDirty) runNet();

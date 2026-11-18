@@ -8,7 +8,7 @@ export interface PointStyle {
 	x: number;
 	y: number;
 	z?: number;
-	/** CSS px, screen space. */
+	/** CSS px, screen space; with `size: 'world'` layers, world units instead. */
 	radius: number;
 	color: [number, number, number, number];
 	/** 0 = filled disc; > 0 = ring stroke width in CSS px. */
@@ -33,6 +33,12 @@ export class Points {
 			/** @deprecated 'additive' draws exactly like 'alpha' since the paper redesign; remove glow layers instead. */
 			blend?: 'alpha' | 'additive';
 			depthTest?: boolean;
+			/** 'flat' = the disc/ring/glow sprite (default). 'sphere' = a matte ball lit from LIGHT with a thin ink rim. */
+			shade?: 'flat' | 'sphere';
+			/** 'px' = radius in CSS px (default). 'world' = radius in world units, so it scales with perspective. */
+			size?: 'px' | 'world';
+			/** Write depth. Default false. */
+			depthWrite?: boolean;
 		}
 	) {
 		const device = ctx.gpu.device;
@@ -48,14 +54,14 @@ export class Points {
 		const module = createShader(device, 'points shader', src);
 		const dst: GPUBlendFactor = 'one-minus-src-alpha';
 		this.pipeline = device.createRenderPipeline({
-			label: 'points pipeline (alpha)',
+			label: `points pipeline (${opts.shade ?? 'flat'}, ${opts.size ?? 'px'})`,
 			layout: device.createPipelineLayout({
 				label: 'points pipeline layout',
 				bindGroupLayouts: [ctx.view.bindGroupLayout]
 			}),
 			vertex: {
 				module,
-				entryPoint: 'vs',
+				entryPoint: opts.size === 'world' ? 'vs_world' : 'vs',
 				buffers: [
 					{
 						arrayStride: FLOATS * 4,
@@ -70,7 +76,7 @@ export class Points {
 			},
 			fragment: {
 				module,
-				entryPoint: 'fs',
+				entryPoint: opts.shade === 'sphere' ? 'fs_sphere' : 'fs',
 				targets: [
 					{
 						format: ctx.target.format,
@@ -92,7 +98,7 @@ export class Points {
 			primitive: { topology: 'triangle-list' },
 			depthStencil: {
 				format: ctx.target.depthFormat,
-				depthWriteEnabled: false,
+				depthWriteEnabled: opts.depthWrite ?? false,
 				depthCompare: opts.depthTest ? 'less-equal' : 'always'
 			},
 			multisample: { count: ctx.target.sampleCount }

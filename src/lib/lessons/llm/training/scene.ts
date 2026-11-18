@@ -1,5 +1,5 @@
 import { Camera2D } from '../../../gpu/camera.ts';
-import { tone } from '../../../gpu/colors.ts';
+import { sheetFill, tone } from '../../../gpu/colors.ts';
 import { Lines } from '../../../gpu/primitives/lines.ts';
 import { Points } from '../../../gpu/primitives/points.ts';
 import { Quads } from '../../../gpu/primitives/quads.ts';
@@ -84,6 +84,28 @@ const cyAt = (loss: number) => PY0_ + (clamp(loss, 0, LOSS_MAX) / LOSS_MAX) * (P
 
 type Pt = [number, number];
 
+/** A sheet-coloured box with a 1px outline in tone `t` (density `outline`) and an optional tone wash. Returns the next quad index. */
+function boxed(
+	quads: Quads,
+	qn: number,
+	ppw: number,
+	b: { x: number; y: number; w: number; h: number },
+	radius: number,
+	t: Tone,
+	outline: number,
+	wash: number,
+	a: number
+): number {
+	const px = 2 / ppw;
+	const iw = Math.max(0, b.w - px);
+	const ih = Math.max(0, b.h - px);
+	const ir = Math.max(0, radius - 1);
+	quads.set(qn++, { x: b.x, y: b.y, w: b.w, h: b.h, radius, color: tone(t, outline, a) });
+	quads.set(qn++, { x: b.x, y: b.y, w: iw, h: ih, radius: ir, color: sheetFill(a) });
+	if (wash > 0) quads.set(qn++, { x: b.x, y: b.y, w: iw, h: ih, radius: ir, color: tone(t, wash, a) });
+	return qn;
+}
+
 interface Hit {
 	x0: number;
 	x1: number;
@@ -96,7 +118,6 @@ export const createTrainingScene: SceneFactory = () => {
 	let camera: Camera2D;
 	let quads: Quads;
 	let frame: Lines;
-	let under: Lines;
 	let over: Lines;
 	let dots: Points;
 
@@ -200,7 +221,6 @@ export const createTrainingScene: SceneFactory = () => {
 		const cy = (loss: number) => cyAt(loss) + dy0;
 		const a = chartMix;
 		let k = 0;
-		let c = 0;
 		let o = 0;
 		let pn = 0;
 		if (a > 0.005) {
@@ -258,14 +278,12 @@ export const createTrainingScene: SceneFactory = () => {
 			const my = cy(loss);
 			if (step > 0) pts.push([mx, my]);
 			if (pts.length > 1) {
-				c = under.setPolyline(0, pts, { width: 9, color: tone('grad', 1, 0.14 * a * mG) });
-				o = over.setPolyline(0, pts, { width: 2.5, color: tone('grad', 1.5, 0.9 * a * mG) });
+				o = over.setPolyline(0, pts, { width: 2.5, color: tone('grad', 1, a * mG) });
 			}
 
 			// marker, guide and label
 			frame.set(k++, { a: [mx, PY0], b: [mx, my], width: 1, color: tone('grad', 1, 0.28 * a * mG) });
-			dots.set(pn++, { x: mx, y: my, radius: 11, softness: 1, color: tone('grad', 1.2, 0.5 * a * mG) });
-			dots.set(pn++, { x: mx, y: my, radius: 4.5, color: tone('grad', 1.8, 0.98 * a * mG) });
+			dots.set(pn++, { x: mx, y: my, radius: 5, color: tone('grad', 1, a * mG) });
 			const [mpx, mpy] = v.project(mx, my);
 			const [rightPx] = v.project(PX1, 0);
 			const [, topPx] = v.project(0, PY1);
@@ -294,7 +312,7 @@ export const createTrainingScene: SceneFactory = () => {
 						x: cx(ck.step),
 						y: cy(ck.validLoss),
 						radius: isCur ? 4 : 3.5,
-						color: tone('text', 1.1, 0.95 * vm * mT)
+						color: tone('text', 1, vm * mT)
 					});
 				});
 				const ck = LOG.checkpoints[cur];
@@ -316,7 +334,6 @@ export const createTrainingScene: SceneFactory = () => {
 			}
 		}
 		frame.count = k;
-		under.count = c;
 		over.count = o;
 		dots.count = pn;
 		return qn;
@@ -361,12 +378,8 @@ export const createTrainingScene: SceneFactory = () => {
 			const isGiven = box.index < given.length;
 			const isEnd = !isGiven && written[box.index - given.length] === '<end>';
 			const fade = a * (isGiven ? promptAlpha * mText : textAlpha * mData);
-			const color = isEnd
-				? tone('muted', 0.35, 0.9 * fade)
-				: isGiven
-					? tone('text', 0.16, 0.9 * fade)
-					: tone('data', 0.24, 0.9 * fade);
-			quads.set(qn++, { x: box.x, y: box.y, w: box.w, h: box.h, color, radius: 6 });
+			const [ct, co, cw]: [Tone, number, number] = isEnd ? ['muted', 0.4, 0] : isGiven ? ['muted', 0.55, 0] : ['data', 0.7, 0.08];
+			qn = boxed(quads, qn, ppw, box, 6, ct, co, cw, fade);
 			const [lx, ly] = v.project(box.x, box.y);
 			labels.push({
 				id: `story${box.index}`,
@@ -437,11 +450,7 @@ export const createTrainingScene: SceneFactory = () => {
 			const j = box.index;
 			const isSel = j === sel;
 			const dim = j > sel ? 0.35 : 1;
-			if (isSel) {
-				const rim = 2 / ppw;
-				quads.set(qn++, { x: box.x, y: box.y, w: box.w + 2 * rim, h: box.h + 2 * rim, color: tone('ok', 0.9, 0.95 * a * mOk), radius: 8 });
-			}
-			quads.set(qn++, { x: box.x, y: box.y, w: box.w, h: box.h, color: tone('text', isSel ? 0.22 : 0.16, 0.9 * a * mText * dim), radius: 6 });
+			qn = boxed(quads, qn, ppw, box, 6, isSel ? 'ok' : 'muted', isSel ? 1 : 0.55, isSel ? 0.15 : 0, a * (isSel ? mOk : mText) * dim);
 			const [px, py] = v.project(box.x, box.y);
 			labels.push({ id: `probe${j}`, x: px, y: py, text: box.text, mono: true, size: PROBE_FONT, tone: 'text', opacity: a * mText * dim });
 			if (j === 0) continue;
@@ -452,7 +461,7 @@ export const createTrainingScene: SceneFactory = () => {
 				y: trackCy,
 				w: tw,
 				h: trackH,
-				color: isSel ? tone('ok', 0.3, 0.3 * a * mOk) : tone('muted', 1, 0.28 * a * mOk),
+				color: isSel ? tone('ok', 0.12, a * mOk) : tone('muted', 0.12, a * mOk),
 				radius: 4
 			});
 			const value = bars[j - 1];
@@ -463,7 +472,7 @@ export const createTrainingScene: SceneFactory = () => {
 					y: TRACK_TOP - trackH + inset + bh / 2,
 					w: tw - 2 * inset,
 					h: bh,
-					color: tone('ok', 0.9, 0.95 * a * mOk),
+					color: tone('ok', isSel ? 1 : 0.85, a * mOk),
 					radius: 2
 				});
 			}
@@ -511,7 +520,6 @@ export const createTrainingScene: SceneFactory = () => {
 		quads.count = qn;
 		quads.upload();
 		frame.upload();
-		under.upload();
 		over.upload();
 		dots.upload();
 		ctx.labels.set(labels);
@@ -537,9 +545,8 @@ export const createTrainingScene: SceneFactory = () => {
 		init(c) {
 			ctx = c;
 			camera = new Camera2D();
-			quads = new Quads(c, { capacity: 320, blend: 'alpha' });
+			quads = new Quads(c, { capacity: 640, blend: 'alpha' });
 			frame = new Lines(c, { capacity: 140 + 3 * LOG.checkpoints.length, blend: 'alpha' });
-			under = new Lines(c, { capacity: LOG.curveStep.length + 4, blend: 'alpha' });
 			over = new Lines(c, { capacity: LOG.curveStep.length + 4, blend: 'alpha' });
 			dots = new Points(c, { capacity: LOG.checkpoints.length + 6, blend: 'alpha' });
 		},
@@ -686,7 +693,6 @@ export const createTrainingScene: SceneFactory = () => {
 		draw(pass) {
 			quads.draw(pass);
 			frame.draw(pass);
-			under.draw(pass);
 			over.draw(pass);
 			dots.draw(pass);
 		},
@@ -739,7 +745,6 @@ export const createTrainingScene: SceneFactory = () => {
 		dispose() {
 			quads.destroy();
 			frame.destroy();
-			under.destroy();
 			over.destroy();
 			dots.destroy();
 		}

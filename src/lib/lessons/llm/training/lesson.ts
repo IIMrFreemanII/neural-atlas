@@ -77,6 +77,7 @@ const lesson: LessonDef = {
 			title: 'Loss: one number for how wrong',
 			body: `The [[grad:loss]] turns those bars into one number. A right token with a full bar costs nothing. A right token with a nearly empty bar costs a lot. The loss is the average cost over all tokens.\n\nThe dashed line is the loss of guessing blindly, with every token equally likely: ${UNIFORM}. The untrained model starts just above it. Training has one goal, to push the loss down.`,
 			params: { at: 0, story: 0 },
+			grid: false,
 			controls: [],
 			legend: ['Loss', 'Right token', 'Given text'],
 			readouts: ['loss', 'choices'],
@@ -95,6 +96,7 @@ const lesson: LessonDef = {
 			title: 'Nudge every weight, then repeat',
 			body: `One training step: read ${LOG.batch} snippets of ${LOG.ctx} tokens, measure the [[grad:loss]], and let backpropagation work out how each weight should change to lower it. Then nudge all ${WEIGHTS} weights a tiny bit that way.\n\nPress **Train** to run all ${STEPS} steps. The weights were saved at ${N} moments along the way, called checkpoints. What the model writes and the bars under the sentence change at each one. Every mark on the axis doubles the number of steps, because most of the change happens early.`,
 			params: { at: 0 },
+			grid: false,
 			controls: ['train', 'reset', 'at'],
 			deepDive: {
 				note: `The nudge is done by Adam, an optimizer that adapts the size of the step for each weight. The learning rate climbs to ${LM_TRAINING.learningRate[0]} over the first 200 steps, then falls smoothly to ${LM_TRAINING.learningRate[1]}.`,
@@ -108,12 +110,14 @@ const lesson: LessonDef = {
 			title: 'What it learns first',
 			body: 'Drag **Checkpoint** slowly from the start. After 25 steps the model has learned one thing: the full stop is the most common token, so it [[data:writes]] nothing else. By step 100 it uses a few more tokens, still only very common ones. By step 200 it writes whole sentences, but it gets stuck repeating one. From step 400 on it opens a story the way the finished model does.\n\nNow turn **Roll the dice** on, which shows more of what the model considers likely. At step 800 it names a character and uses a different name in the very next sentence. At step 3,200 the name stays the same.',
 			params: { at: nearestCheckpoint(25) },
+			grid: false,
 			controls: ['at', 'prompt', 'dice']
 		},
 		{
 			title: 'Tested on stories it never saw',
 			body: 'A model can also lower its loss by memorizing the training text. To check for that, some stories were set aside and never used for training.\n\nThe [[text:white dots]] show the loss on those unseen stories. They stay close to the [[grad:training loss]], so the model learned patterns that carry over to new text. When a model memorizes, the dots stop falling while the training loss keeps going down.',
 			params: { at: LAST, valid: 1, story: 0 },
+			grid: false,
 			controls: ['at'],
 			legend: ['Loss', 'Right token', 'Given text'],
 			deepDive: {
@@ -124,6 +128,7 @@ const lesson: LessonDef = {
 			title: 'The same loop, far bigger',
 			body: `On unseen stories this model ends at a loss of ${FINAL.validLoss.toFixed(2)}. That is like choosing among ${choices(FINAL.validLoss)} tokens at each position, down from ${VOCAB}. It got there in ${STEPS} steps, about 40 minutes on one computer.\n\nThe models you chat with are trained by the same loop: guess the next token, measure the loss, nudge the weights. They have billions of weights, read trillions of tokens and train for weeks on thousands of chips.`,
 			params: { at: LAST, valid: 1 },
+			grid: false,
 			controls: ['train', 'reset', 'at', 'prompt', 'dice'],
 			deepDive: {
 				note: `This model was trained on one file of ${LM_TRAINING.stories.toLocaleString('en-US')} short stories and read it about ${PASSES} times. Its tokens are whole words. Large models read most of their text only once, because they have so much of it.`

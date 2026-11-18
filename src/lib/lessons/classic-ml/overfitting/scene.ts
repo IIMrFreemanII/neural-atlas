@@ -1,5 +1,5 @@
 import { Camera2D } from '../../../gpu/camera.ts';
-import { tone } from '../../../gpu/colors.ts';
+import { paperFill, tone } from '../../../gpu/colors.ts';
 import { Lines } from '../../../gpu/primitives/lines.ts';
 import { Points } from '../../../gpu/primitives/points.ts';
 import type { Label, Scene, SceneContext, SceneFactory, Tone } from '../../../gpu/types.ts';
@@ -192,8 +192,7 @@ export const createOverfittingScene: SceneFactory = () => {
 
 		let c = 0;
 		if (fit >= 0.5) {
-			c = clippedCurve(curveLines, 0, curveY, 9, tone('param', 1, 0.1 * mP));
-			c = clippedCurve(curveLines, c, curveY, 2.5, tone('param', 1.5, 0.95 * mP));
+			c = clippedCurve(curveLines, 0, curveY, 2.5, tone('param', 1, mP));
 		}
 		curveLines.count = c;
 		curveLines.upload();
@@ -205,14 +204,14 @@ export const createOverfittingScene: SceneFactory = () => {
 			for (let i = 0; i < train.x.length; i++) {
 				if (!inside(train.y[i])) continue;
 				const p = { x: px(train.x[i]), y: train.y[i] * yScale, radius: 4.5 };
-				if (pass === 0) dots.set(d++, { ...p, color: tone('data', 1.3, 0.95 * mD) });
-				else dots.set(d++, { ...p, ring: 1, color: tone('data', 0.3, 0.9 * mD) });
+				if (pass === 0) dots.set(d++, { ...p, radius: 6, color: paperFill(mD) });
+				else dots.set(d++, { ...p, color: tone('data', mD) });
 			}
 		}
 		if (showTest >= 0.5) {
 			for (let i = 0; i < test.x.length; i++) {
 				if (!inside(test.y[i])) continue;
-				dots.set(d++, { x: px(test.x[i]), y: test.y[i] * yScale, radius: 3, ring: 1.3, color: tone('ok', 1.2, 0.9 * mO) });
+				dots.set(d++, { x: px(test.x[i]), y: test.y[i] * yScale, radius: 3.2, ring: 1.4, color: tone('ok', mO) });
 			}
 		}
 		dots.count = d;
@@ -238,12 +237,12 @@ export const createOverfittingScene: SceneFactory = () => {
 				trainPts.push([cx(dd), cy(trainErrs[dd - 1])]);
 				testPts.push([cx(dd), cy(testErrs[dd - 1])]);
 			}
-			q = chartLines.setPolyline(q, testPts, { width: 2, color: tone('ok', 1.4, 0.9 * mO * a) });
-			q = chartLines.setPolyline(q, trainPts, { width: 2, color: tone('data', 1.4, 0.9 * mD * a) });
+			q = chartLines.setPolyline(q, testPts, { width: 2, color: tone('ok', 1, 0.9 * mO * a) });
+			q = chartLines.setPolyline(q, trainPts, { width: 2, color: tone('data', 1, 0.9 * mD * a) });
 			chartLines.set(q++, { a: [cx(degree), -yl], b: [cx(degree), yl], width: 1.5, color: tone('param', 1, 0.6 * mP * a) });
 			for (let dd = 1; dd <= MAX_DEGREE; dd++) {
-				chartDots.set(cd++, { x: testPts[dd - 1][0], y: testPts[dd - 1][1], radius: 2.8, color: tone('ok', 1.4, 0.95 * mO * a) });
-				chartDots.set(cd++, { x: trainPts[dd - 1][0], y: trainPts[dd - 1][1], radius: 2.8, color: tone('data', 1.4, 0.95 * mD * a) });
+				chartDots.set(cd++, { x: testPts[dd - 1][0], y: testPts[dd - 1][1], radius: 2.8, color: tone('ok', 1, 0.95 * mO * a) });
+				chartDots.set(cd++, { x: trainPts[dd - 1][0], y: trainPts[dd - 1][1], radius: 2.8, color: tone('data', 1, 0.95 * mD * a) });
 			}
 			for (let dd = 2; dd <= MAX_DEGREE; dd += 2) {
 				const [lx, ly] = v.project(cx(dd), -yl);

@@ -65,6 +65,7 @@ const lesson: LessonDef = {
 			title: 'The code is a place',
 			body: 'Two numbers are a position on a plane: the first goes across, the second goes up. So every drawing\'s [[data:code]] is a point on this map.\n\nSwitch shapes and watch the point jump. Each shape lands somewhere else.',
 			params: { show: 2, scenario: 3 },
+			grid: false,
 			controls: ['sample'],
 			readouts: []
 		},
@@ -72,24 +73,28 @@ const lesson: LessonDef = {
 			title: 'A map of all drawings',
 			body: 'Here are the codes of 800 different drawings, colored by shape. The encoder was never told the shape names, yet drawings of the same shape landed together.\n\nThis plane is the network\'s **latent space**. Latent means hidden: it is a space inside the network, not something it was shown. Press **Clear** and draw your own shape on the left to see where it lands.',
 			params: { show: 3, scenario: 4 },
+			grid: false,
 			controls: ['sample', 'clear']
 		},
 		{
 			title: 'Walk the map',
 			body: 'Now leave the encoder out. Drag the point across the map, or use the sliders, and the [[param:decoder]] draws whatever belongs at that place.\n\nInside a cluster you get a clean shape. Watch how the drawing changes as the point crosses from one cluster to the next.',
 			params: { show: 3, scenario: 5 },
+			grid: false,
 			controls: ['zx', 'zy']
 		},
 		{
 			title: 'Drawings nobody made',
 			body: 'This point lies between two clusters, where no training drawing landed. The decoder still draws something: a blend, part one shape and part the other.\n\nThat is the idea behind generating new images: pick a point no example came from, and let the decoder draw it.',
 			params: { show: 3, pin: 1, zx: 0.32, zy: -0.21, scenario: 6 },
+			grid: false,
 			controls: ['zx', 'zy']
 		},
 		{
 			title: 'Every point is a drawing',
 			body: 'Here the decoder has drawn a picture at every place of a grid over the map. The shapes turn into each other gradually, because nearby codes give similar drawings.\n\nThe next lesson, diffusion, generates images another way: it starts from pure noise and removes it step by step. Large image generators combine both ideas and run diffusion inside a latent space, with many more than two numbers.',
 			params: { show: 4, scenario: 7 },
+			grid: false,
 			controls: ['zx', 'zy']
 		}
 	],
