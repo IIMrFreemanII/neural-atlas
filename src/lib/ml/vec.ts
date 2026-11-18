@@ -12,13 +12,6 @@ export function norm(a: ArrayLike<number>): number {
 	return Math.sqrt(dot(a, a));
 }
 
-/** a + s * b */
-export function addScaled(a: ArrayLike<number>, b: ArrayLike<number>, s = 1): Vec {
-	const out = new Array<number>(a.length);
-	for (let i = 0; i < a.length; i++) out[i] = a[i] + s * b[i];
-	return out;
-}
-
 /** M v, where M has one row per output component. */
 export function matVec(m: Mat, v: ArrayLike<number>): Vec {
 	return m.map((row) => dot(row, v));
