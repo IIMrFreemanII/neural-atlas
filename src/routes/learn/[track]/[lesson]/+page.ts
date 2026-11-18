@@ -1,5 +1,10 @@
 import { error } from '@sveltejs/kit';
-import { findLesson, nextReadyLesson } from '#lib/content/curriculum.ts';
+import { allLessons, findLesson, nextReadyLesson } from '#lib/content/curriculum.ts';
+
+/** The lessons the build writes a page for. Nothing links to them in the empty prerendered pages. */
+export function entries() {
+	return allLessons.filter((l) => l.status === 'ready').map((l) => ({ track: l.track, lesson: l.id }));
+}
 
 export async function load({ params }: { params: { track: string; lesson: string } }) {
 	const found = findLesson(params.track, params.lesson);

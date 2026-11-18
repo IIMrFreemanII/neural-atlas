@@ -15,7 +15,9 @@ export default defineConfig({
 				runes: ({ filename }) =>
 					filename.split(/[/\\]/).includes('node_modules') ? undefined : true
 			},
-			adapter: adapter({ fallback: 'index.html' }),
+			// Every page is prerendered; GitHub Pages answers any other address with 404.html, which is the
+			// app, so it shows its own "not found" page.
+			adapter: adapter({ fallback: '404.html' }),
 			paths: { base }
 		})
 	],

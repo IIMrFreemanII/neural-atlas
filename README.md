@@ -77,8 +77,11 @@ with uncommitted changes, so that the published site always matches a commit.
 - Pages serves a project at `/<repository>/`, so the script builds with `BASE_PATH` set to the repository's
   name. Internal links must therefore go through `resolve()` from `$app/paths`, or `lessonLink()` from
   `src/lib/link.ts`; a link written as `href="/learn"` leaves the site there.
-- The script copies the app to `404.html`. Pages answers an address it has no file for, such as a link
-  straight to a lesson, with that page: the lesson opens, but the HTTP status is 404.
+- The build writes an HTML file for every page, each lesson included, so a link straight to a lesson is
+  answered with status 200. The pages are empty shells that the app fills in the browser (there is no
+  server rendering, since every visual needs WebGPU). Lessons are listed for the build by `entries()` in
+  `src/routes/learn/[track]/[lesson]/+page.ts`. Any other address gets `404.html`, the app's own "not
+  found" page.
 - Each deploy replaces the single commit on `gh-pages` with a forced push. The branch holds build output
   only.
 

@@ -74,6 +74,15 @@ test('/playground sends you to the training lesson', async ({ page }) => {
 	await expect(page).toHaveURL(/\/learn\/fundamentals\/train-a-network$/);
 });
 
+test('the build has a page for every address, so a link straight to one answers 200', async ({
+	request
+}) => {
+	const paths = [...PAGES.map(([p]) => p), '/playground'];
+	for (const meta of allLessons) if (meta.status === 'ready') paths.push(lessonHref(meta));
+	for (const p of paths) expect((await request.get(p)).status(), p).toBe(200);
+	expect((await request.get('/learn/no-such-track/no-such-lesson')).status()).toBe(404);
+});
+
 test('the home map links to every lesson', async ({ page }) => {
 	await page.goto('/');
 	for (const meta of allLessons) {

@@ -20,10 +20,6 @@ email=$(git config user.email)
 
 BASE_PATH="/$repo" npm run build
 
-# The app is a single page app with one HTML file. GitHub Pages answers every address it has no file for
-# with 404.html, so a copy of the app there makes links straight to a lesson work.
-cp build/index.html build/404.html
-
 out=$(mktemp -d)
 trap 'rm -rf "$out"' EXIT
 cp -R build/. "$out"
