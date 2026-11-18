@@ -52,14 +52,17 @@ const STEP: Record<string, number> = {
 	'fundamentals/neuron': 6,
 	'fundamentals/activations': 7,
 	'fundamentals/loss-landscape': 7,
+	'fundamentals/gradient-descent': 6,
 	'classic-ml/linear-regression': 6,
 	'classic-ml/k-means': 7,
 	'classic-ml/decision-trees': 6,
+	'llm/tokenization': 6,
 	'llm/embeddings': 2,
 	'llm/attention': 8,
 	'llm/training': 6,
 	'vision/vit': 5,
-	'vision/autoencoder': 7
+	'vision/autoencoder': 7,
+	'vision/diffusion': 2
 };
 
 async function waitForServer(): Promise<void> {
