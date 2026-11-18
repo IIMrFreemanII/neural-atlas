@@ -108,6 +108,8 @@ export const createSamplingScene: SceneFactory = () => {
 	let tPre = new Array<number>(ROWS).fill(0);
 	let tFinal = new Array<number>(ROWS).fill(0);
 	let tCut = new Array<number>(ROWS).fill(0);
+	/** For the 'others' row: the share of its probability (before cutting) that top-k / top-p removes. */
+	let tCutShare = new Array<number>(ROWS).fill(0);
 	let probs: number[] = [];
 	let rowNames: string[] = new Array<string>(ROWS).fill('');
 	// displayed (eased) values
@@ -115,6 +117,7 @@ export const createSamplingScene: SceneFactory = () => {
 	const dPre = new Array<number>(ROWS).fill(0);
 	const dFinal = new Array<number>(ROWS).fill(0);
 	const dCut = new Array<number>(ROWS).fill(0);
+	const dCutShare = new Array<number>(ROWS).fill(0);
 	let snap = true;
 
 	let dirty = true;
@@ -151,11 +154,14 @@ export const createSamplingScene: SceneFactory = () => {
 			if (probs[i] > 0) kept++;
 			if (probs[i] > probs[best]) best = i;
 		}
+		let othersKept = 0;
+		for (let i = SHOWN; i < V; i++) if (probs[order[i]] > 0) othersKept += pre[order[i]];
 		for (let r = 0; r < ROWS; r++) {
 			tBase[r] = sum(base, r);
 			tPre[r] = sum(pre, r);
 			tFinal[r] = sum(probs, r);
 			tCut[r] = tFinal[r] <= 0 && tPre[r] > 0 ? 1 : 0;
+			tCutShare[r] = r === ROWS - 1 && tFinal[r] > 0 && tPre[r] > 0 ? clamp(1 - othersKept / tPre[r], 0, 1) : 0;
 			rowNames[r] = r < SHOWN ? tokenText(lm, order[r]) : `all ${Math.max(0, V - SHOWN)} others`;
 		}
 		topText = `${tokenText(lm, best)} ${percent(probs[best]).replace('<1%', '1%')}`;
@@ -266,6 +272,7 @@ export const createSamplingScene: SceneFactory = () => {
 		step(dPre, tPre);
 		step(dFinal, tFinal);
 		step(dCut, tCut);
+		step(dCutShare, tCutShare);
 		snap = false;
 		return moving;
 	}
@@ -332,6 +339,11 @@ export const createSamplingScene: SceneFactory = () => {
 				quads.set(qn++, { x: BAR_X + w / 2, y, w, h: BAR_H, color: tone('neg', 0.42, 0.9 * cut * mNeg), radius: 3 });
 			}
 			const wf = dFinal[r] * BAR_LEN;
+			// The others row, partly cut: the removed part continues the bar in the cut colour.
+			const wCutPart = dPre[r] * dCutShare[r] * BAR_LEN;
+			if (r === ROWS - 1 && wCutPart > 0.004) {
+				quads.set(qn++, { x: BAR_X + wf + wCutPart / 2, y, w: wCutPart, h: BAR_H, color: tone('neg', 0.42, 0.9 * mNeg), radius: 3 });
+			}
 			if (wf > 0.004) {
 				const picked = r === flashRow;
 				const color = picked
@@ -353,7 +365,7 @@ export const createSamplingScene: SceneFactory = () => {
 				opacity: dim * (isCutTarget ? mNeg : mData)
 			});
 			// percentage or "cut"
-			const endLen = isCutTarget ? dPre[r] : dFinal[r];
+			const endLen = isCutTarget ? dPre[r] : dFinal[r] + (r === ROWS - 1 ? dPre[r] * dCutShare[r] : 0);
 			const txt = isCutTarget ? 'cut' : percent(tFinal[r]);
 			if (txt) {
 				const tickLen = showTicks ? dBase[r] : 0;

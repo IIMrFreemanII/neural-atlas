@@ -420,8 +420,12 @@ export const createCnnFeaturesScene: SceneFactory = () => {
 			const targets = [1, 1, 1, show >= 2 ? 1 : 0, show >= 3 ? 1 : 0, show >= 4 ? 1 : 0];
 			for (let i = 0; i < 6; i++) {
 				const dv = targets[i] - colA[i];
-				if (Math.abs(dv) < 0.002) colA[i] = targets[i];
-				else {
+				if (Math.abs(dv) < 0.002) {
+					if (dv !== 0) {
+						colA[i] = targets[i];
+						moving = true; // redraw once at the exact target so no residual alpha stays on screen
+					}
+				} else {
 					colA[i] += dv * ka;
 					moving = true;
 				}

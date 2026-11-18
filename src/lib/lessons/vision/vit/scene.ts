@@ -519,11 +519,14 @@ export const createVitScene: SceneFactory = () => {
 				moving = true;
 			}
 			const ka = instant ? 1 : 1 - Math.exp(-fr.dt / 0.09);
-			const targets = [show >= 2 ? 1 : 0, show >= 3 && positions === 1 ? 1 : 0, show >= 3 ? 1 : 0, show >= 4 ? 1 : 0, show >= 6 ? 1 : 0];
+			const targets = [show >= 2 ? 1 : 0, show >= 3 && positions === 1 ? 1 : 0, show >= 3 ? 1 : 0, show >= 4 && show !== 6 ? 1 : 0, show >= 6 ? 1 : 0];
 			for (let i = 0; i < colA.length; i++) {
 				const dv = targets[i] - colA[i];
-				if (Math.abs(dv) < 0.002) colA[i] = targets[i];
-				else {
+				if (Math.abs(dv) < 0.002) {
+					// Draw once more at the exact target, or a faint remnant stays on screen.
+					if (dv !== 0) moving = true;
+					colA[i] = targets[i];
+				} else {
 					colA[i] += dv * ka;
 					moving = true;
 				}

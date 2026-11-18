@@ -11,6 +11,8 @@ const SIZES = [2, 2, 1];
 const SEED = 17;
 const WORLD: WorldRect = { x0: -1.8, x1: 2.8, y0: -1.2, y1: 1.2 };
 const NODE_R = 15;
+/** Extra px between the ŷ node's caption/value and the node centre, so the halo ring (up to NODE_R + 13) stays clear of them. */
+const OUT_RING_PAD = 12;
 /** World x of the target scale, to the right of the output node. */
 const TARGET_X = 2.05;
 /** World units of bar length per unit of error. */
@@ -222,7 +224,13 @@ export const createBackpropScene: SceneFactory = () => {
 			let nl = 0;
 			let nd = 0;
 			let ng = 0;
-			const labels: Label[] = [...diagram.labels(v), ...edgeLabels];
+			// The ŷ node carries the largest highlight ring; push its name and value just outside it.
+			const labels: Label[] = [
+				...diagram.labels(v).map((lb) =>
+					lb.id === 'net-n2.0' ? { ...lb, y: lb.y - OUT_RING_PAD } : lb.id === 'net-v2.0' ? { ...lb, y: lb.y + OUT_RING_PAD } : lb
+				),
+				...edgeLabels
+			];
 
 			const [ox, oy] = diagram.nodePos(2, 0);
 			const [opx, opy] = v.project(ox, oy);
@@ -290,7 +298,7 @@ export const createBackpropScene: SceneFactory = () => {
 				labels.push({
 					id: 'bp-d-out',
 					x: opx,
-					y: opy + NODE_R + 40,
+					y: opy + NODE_R + 40 + OUT_RING_PAD,
 					text: `δ ${fmtSig(dOut)}`,
 					tone: 'grad',
 					mono: true,

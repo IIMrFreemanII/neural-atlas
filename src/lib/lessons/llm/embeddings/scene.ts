@@ -8,7 +8,7 @@ import { analogy, nearest } from '../../../ml/embedding.ts';
 import { fitCamera, lessonInsets, type WorldRect } from '../../fit.ts';
 import { pxPerWorld } from '../shared/chips.ts';
 import { writeStrip } from '../shared/strip.ts';
-import { ANALOGIES, CATEGORIES, CENTROIDS_3D, POINTS, RELATIONS, VECTORS, WORDS, indexOf, project3D } from './data.ts';
+import { ANALOGIES, CATEGORIES, POINTS, RELATIONS, VECTORS, WORDS, indexOf, project3D } from './data.ts';
 
 const WORLD: WorldRect = { x0: -2.6, x1: 2.6, y0: -2.1, y1: 2.1 };
 const CX = -0.75;
@@ -23,8 +23,6 @@ const SPIN_SLOW = 0.05; // while a relation or analogy is showing
 const DRAG_RAD_PER_PX = 0.01;
 const DRAG_SLOP = 4;
 const HOVER_PX = 14;
-/** How far past its centroid, in picture units, a category name sits. Real clusters are loose, so it clears the dots. */
-const CAT_PUSH = 0.5;
 const PLAY_SECONDS = 1.2;
 const NEIGHBOR_ZOOM = 2.2; // the most the view zooms in on a word and its neighbors
 /** Reduced motion: Play shows the question for this long, then the answer, with no travel between. */
@@ -501,21 +499,32 @@ export const createEmbeddingsScene: SceneFactory = () => {
 			for (const pair of LANDMARKS) for (const i of pair) add(i, 0.3 + 0.7 * depthT(i));
 		}
 
-		// Category names at their centroids, pushed outward from the cloud center.
+		// Category names above the on-screen cloud of each group: centered on its visible dots, just over the topmost one.
 		CATEGORIES.forEach((cat, k) => {
-			const c = CENTROIDS_3D[k];
-			const len = Math.hypot(c[0], c[1], c[2]) || 1;
-			const push = (len + CAT_PUSH) / len;
-			const [wx, wy, wz] = rot(c[0] * push, c[1] * push, c[2] * push);
-			const [cx, cy] = ctx.view.project(wx, wy);
+			let sumX = 0;
+			let top = Infinity;
+			let count = 0;
+			let vis = 0;
+			let wz = 0;
+			for (let i = 0; i < N; i++) {
+				if (WORDS[i].category !== k || fade[i] < 0.3) continue;
+				sumX += px[i];
+				top = Math.min(top, py[i]);
+				wz += sz[i];
+				vis = Math.max(vis, fade[i]);
+				count++;
+			}
+			if (count === 0) return;
+			const depth = wz / count;
 			labels.push({
 				id: `cat-${k}`,
-				x: cx,
-				y: cy,
+				x: sumX / count,
+				// Clear of a word label, which can sit one line (13px) above its dot.
+				y: top - 30,
 				text: cat.name,
 				tone: cat.tone,
 				size: 12,
-				opacity: fadeAt(wx, wy) * clamp(colors, 0, 1) * (0.45 + 0.55 * clamp((wz + 1) / 2, 0, 1)) * mul(cat.tone) * (dimOthers ? 0.5 : 1)
+				opacity: vis * clamp(colors, 0, 1) * (0.45 + 0.55 * clamp((depth + 1) / 2, 0, 1)) * mul(cat.tone) * (dimOthers ? 0.5 : 1)
 			});
 		});
 		return labels;
@@ -633,7 +642,8 @@ export const createEmbeddingsScene: SceneFactory = () => {
 			lastWordOut = w;
 			ctx.emit('word', w);
 		}
-		const best = showAnalogy >= 0.5 && markerT >= 1 ? WORDS[anaFound].word : '—';
+		// Whatever the stage panel names as closest: the analogy answer, else the first listed neighbor.
+		const best = showAnalogy >= 0.5 ? (markerT >= 1 ? WORDS[anaFound].word : '—') : nbrs.length > 0 ? WORDS[nbrs[0].index].word : '—';
 		if (best !== lastBestOut) {
 			lastBestOut = best;
 			ctx.emit('best', best);

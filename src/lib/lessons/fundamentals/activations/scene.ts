@@ -28,6 +28,87 @@ const RANGES: Record<ActivationId, [number, number]> = {
 	5: [-1.5, 5]
 };
 
+
+// ---- label placement -------------------------------------------------------------------------
+// Captions that sit near curves are placed by scoring candidate spots against everything drawn
+// around them (axes, ticks, curves, tangent), so they stay clear at any slider value.
+
+type Px = [number, number];
+type Box = { x0: number; y0: number; x1: number; y1: number };
+type Cand = { x: number; y: number; align: 'left' | 'center' | 'right'; cost: number };
+
+const MONO_W = 7.3;
+const TEXT_W = 6.6;
+const TEXT_H = 16;
+
+function boxOf(x: number, y: number, text: string, align: 'left' | 'center' | 'right', mono: boolean): Box {
+	const w = text.length * (mono ? MONO_W : TEXT_W);
+	const x0 = align === 'left' ? x : align === 'right' ? x - w : x - w / 2;
+	return { x0, x1: x0 + w, y0: y - TEXT_H / 2, y1: y + TEXT_H / 2 };
+}
+
+/** Pixel-space points every few px along a polyline, so a line counts by its length. */
+function densify(poly: Px[], step = 4): Px[] {
+	const out: Px[] = [];
+	for (let i = 0; i < poly.length; i++) {
+		out.push(poly[i]);
+		if (i === 0) continue;
+		const [ax, ay] = poly[i - 1];
+		const [bx, by] = poly[i];
+		const n = Math.floor(Math.hypot(bx - ax, by - ay) / step);
+		for (let k = 1; k < n; k++) out.push([ax + ((bx - ax) * k) / n, ay + ((by - ay) * k) / n]);
+	}
+	return out;
+}
+
+function boxesOverlap(a: Box, b: Box) {
+	return a.x0 < b.x1 && b.x0 < a.x1 && a.y0 < b.y1 && b.y0 < a.y1;
+}
+
+/** Pick the candidate whose text box touches the fewest obstacle points and boxes. */
+function pickSpot(
+	text: string,
+	mono: boolean,
+	cands: Cand[],
+	pts: Px[],
+	boxes: Box[],
+	bounds: Box,
+	extra?: (b: Box, c: Cand) => number
+): { cand: Cand; box: Box } {
+	const PAD = 3;
+	let best = cands[0];
+	let bestBox = boxOf(best.x, best.y, text, best.align, mono);
+	let bestScore = Infinity;
+	for (const c of cands) {
+		const b = boxOf(c.x, c.y, text, c.align, mono);
+		let score = c.cost;
+		if (b.x0 < bounds.x0 || b.x1 > bounds.x1 || b.y0 < bounds.y0 || b.y1 > bounds.y1) score += 200;
+		for (const p of pts) if (p[0] > b.x0 - PAD && p[0] < b.x1 + PAD && p[1] > b.y0 - PAD && p[1] < b.y1 + PAD) score += 1;
+		for (const o of boxes) if (boxesOverlap(b, { x0: o.x0 - PAD, x1: o.x1 + PAD, y0: o.y0 - PAD, y1: o.y1 + PAD })) score += 60;
+		if (extra) score += extra(b, c);
+		if (score < bestScore) {
+			bestScore = score;
+			best = c;
+			bestBox = b;
+		}
+	}
+	return { cand: best, box: bestBox };
+}
+
+/** Candidate spots on rings of the given radii around (x, y); text anchors away from the center. */
+function ring(x: number, y: number, radii: number[], baseCost: number, steps = 12): Cand[] {
+	const out: Cand[] = [];
+	for (const r of radii) {
+		for (let i = 0; i < steps; i++) {
+			const a = (i / steps) * Math.PI * 2;
+			const dx = Math.cos(a) * r;
+			const dy = Math.sin(a) * r;
+			out.push({ x: x + dx, y: y + dy, align: dx > 6 ? 'left' : dx < -6 ? 'right' : 'center', cost: baseCost + r * 0.05 });
+		}
+	}
+	return out;
+}
+
 const clamp = (v: number, a: number, b: number) => Math.min(b, Math.max(a, v));
 
 export const createActivationsScene: SceneFactory = () => {
@@ -170,43 +251,92 @@ export const createActivationsScene: SceneFactory = () => {
 		const pm = mul('muted') * o;
 		const [ox0, oy0] = v.project(-Z_MAX, y0);
 		void ox0;
+		const fixed: Box[] = [];
 		for (const t of [-4, -2, 2, 4]) {
 			const [px, py] = v.project(t, y0);
 			labels.push({ id: `tz${t}`, x: px, y: py + 14, text: String(t), tone: 'muted', mono: true, opacity: 0.8 * pm });
+			fixed.push(boxOf(px, py + 14, String(t), 'center', true));
 		}
 		const yTicks = [1];
 		if (act === 0 || act === 3 || act === 5) yTicks.push(-1);
 		for (const t of yTicks) {
 			const [px, py] = v.project(0, yOf(t));
 			labels.push({ id: `ty${t}`, x: px - 8, y: py, text: String(t), tone: 'muted', mono: true, align: 'right', opacity: 0.8 * pm });
+			fixed.push(boxOf(px - 8, py, String(t), 'right', true));
 		}
 		const [axR, axY] = v.project(Z_MAX, y0);
 		labels.push({ id: 'axz', x: axR, y: axY + 14, text: 'z', tone: 'muted', opacity: pm });
+		fixed.push(boxOf(axR, axY + 14, 'z', 'center', false));
 		const [axX, axT] = v.project(0, Y_HI);
 		labels.push({ id: 'axo', x: axX + 8, y: axT - 4, text: 'output', tone: 'muted', align: 'left', opacity: pm });
+		fixed.push(boxOf(axX + 8, axT - 4, 'output', 'left', false));
 		void oy0;
 
 		const [dpx, dpy] = v.project(zc, oy);
-		const [, spy] = v.project(zc, sy);
-		const derivAbove = sh > 0.002 && spy < dpy;
+
+		// Everything the two value captions must stay clear of, in pixels.
+		const toPx = (poly: Pt[]): Px[] => poly.map(([a, b]) => v.project(a, b));
+		const obst: Px[] = [];
+		obst.push(...densify([v.project(-Z_MAX, y0), v.project(Z_MAX, y0)]));
+		obst.push(...densify([v.project(0, Y_LO), v.project(0, Y_HI)]));
+		obst.push(...densify([v.project(zc, y0), [dpx, dpy]]));
+		for (const piece of curvePieces((zz) => activate(act, zz), act === 4)) obst.push(...densify(toPx(piece), 3));
+		if (sh > 0.002) {
+			const dsplit = act === 2 || act === 5;
+			for (const piece of curvePieces((zz) => derivative(act, zz), dsplit)) obst.push(...densify(toPx(piece), 3));
+		}
+		// the ball and its glow core
+		for (let i = 0; i < 8; i++) {
+			const a = (i / 8) * Math.PI * 2;
+			obst.push([dpx + Math.cos(a) * 9, dpy + Math.sin(a) * 9]);
+		}
+		obst.push([dpx, dpy]);
+		const bounds: Box = { x0: 12, x1: ctx.view.width - 12, y0: 134, y1: ctx.view.height - 80 };
+
+		// output value: right beside the ball, on whichever side is emptiest
+		const outText = out.toFixed(2);
+		const outPick = pickSpot(outText, true, ring(dpx, dpy, [20, 28, 38], 0), obst, fixed, bounds);
 		labels.push({
 			id: 'outv',
-			x: dpx - 12,
-			y: dpy - 14,
-			text: out.toFixed(2),
+			x: outPick.cand.x,
+			y: outPick.cand.y,
+			text: outText,
 			tone: 'data',
 			mono: true,
-			align: 'right',
+			align: outPick.cand.align,
 			opacity: dm
 		});
+
+		// slope caption: at an end of the tangent segment (or by the slope dot), clear of the output value
 		if (sh > 0.002) {
+			const k = (slope * (Y_HI - Y_LO)) / (hi - lo);
+			const l = Math.hypot(1, k);
+			const hx = (1 / l) * 0.9;
+			const hy = (k / l) * 0.9;
+			const [e1x, e1y] = v.project(zc + hx, oy + hy);
+			const [e0x, e0y] = v.project(zc - hx, oy - hy);
+			const sp = v.project(zc, sy);
+			const slopeObst = [...obst];
+			slopeObst.push(...densify([[e0x, e0y], [e1x, e1y]]));
+			for (let i = 0; i < 8; i++) {
+				const a = (i / 8) * Math.PI * 2;
+				slopeObst.push([sp[0] + Math.cos(a) * 7, sp[1] + Math.sin(a) * 7]);
+			}
+			const slopeText = `slope ${slope.toFixed(2)}`;
+			const cands = [
+				...ring(e1x, e1y, [14, 24, 34], 0),
+				...ring(e0x, e0y, [14, 24, 34], 0.5),
+				...ring(sp[0], sp[1], [14, 24], 2)
+			];
+			const pick = pickSpot(slopeText, true, cands, slopeObst, [...fixed, outPick.box], bounds);
 			labels.push({
 				id: 'slopev',
-				x: dpx,
-				y: spy + (derivAbove ? -20 : 20),
-				text: `slope ${slope.toFixed(2)}`,
+				x: pick.cand.x,
+				y: pick.cand.y,
+				text: slopeText,
 				tone: 'grad',
 				mono: true,
+				align: pick.cand.align,
 				opacity: gm * sh
 			});
 		}
@@ -259,29 +389,59 @@ export const createActivationsScene: SceneFactory = () => {
 		lines.count = n;
 		dots.count = d;
 
-		// labels
-		const tEnd = target(X_MAX);
-		const fEnd = cy(evalFit(act, units, fit, X_MAX));
-		const [ex, ey] = v.project(wx(X_MAX), 0);
-		const [, tpy] = v.project(0, tEnd);
-		const [, fpy] = v.project(0, fEnd);
-		void ey;
-		const fitAbove = fpy < tpy;
-		labels.push(
-			{ id: 'tgt', x: ex, y: tpy + (fitAbove ? 18 : -18), text: 'target', tone: 'muted', align: 'right', opacity: mm },
-			{ id: 'net', x: ex, y: fpy + (fitAbove ? -18 : 18), text: 'network output', tone: 'data', align: 'right', opacity: dm }
-		);
+		// labels: "target" and "network output" go in free space beside the curve they name
+		const px = (x: number, y: number): Px => v.project(wx(x), y);
+		const tgtPx = densify(xs.map((x) => px(x, target(x))), 3);
+		const fitPx = densify(xs.map((x) => px(x, cy(evalFit(act, units, fit, x)))), 3);
+		const obst: Px[] = [...tgtPx, ...fitPx];
+		obst.push(...densify([v.project(wx(X_MIN), 0), v.project(wx(X_MAX), 0)]));
+		for (let k = 0; k < units; k++) {
+			obst.push(...densify(xs.map((x) => v.project(wx(x), cy(fit.v[k] * unit(act, units, k, x)))), 3));
+		}
+		for (let i = 0; i < GAPS; i++) {
+			const x = X_MIN + ((X_MAX - X_MIN) * (i + 0.5)) / GAPS;
+			obst.push(...densify([px(x, cy(target(x))), px(x, cy(evalFit(act, units, fit, x)))]));
+		}
 		const [hx, hy] = v.project(0, Y_HI + 0.15);
+		const unitsText = `${units} hidden ${units === 1 ? 'unit' : 'units'}`;
+		const fixed: Box[] = [boxOf(hx, hy, unitsText, 'center', true)];
+		const bounds: Box = { x0: 12, x1: ctx.view.width - 12, y0: 134, y1: ctx.view.height - 80 };
+		const near = (p: Px, pts: Px[]) => {
+			let m = Infinity;
+			for (const q of pts) m = Math.min(m, Math.hypot(p[0] - q[0], p[1] - q[1]));
+			return m;
+		};
+		const spots = (pts: Px[]): Cand[] => {
+			const out: Cand[] = [];
+			for (let i = 0; i < pts.length; i += 6) {
+				for (const d of [14, 22, 32]) {
+					out.push({ x: pts[i][0], y: pts[i][1] - d, align: 'center', cost: d * 0.05 });
+					out.push({ x: pts[i][0], y: pts[i][1] + d, align: 'center', cost: d * 0.05 });
+				}
+			}
+			return out;
+		};
+		const own = (mine: Px[], other: Px[]) => (b: Box) => {
+			const c: Px = [(b.x0 + b.x1) / 2, (b.y0 + b.y1) / 2];
+			return near(c, mine) > near(c, other) ? 40 : 0;
+		};
+		const tPick = pickSpot('target', false, spots(tgtPx), obst, fixed, bounds, own(tgtPx, fitPx));
+		const nPick = pickSpot('network output', false, spots(fitPx), obst, [...fixed, tPick.box], bounds, own(fitPx, tgtPx));
+		labels.push(
+			{ id: 'tgt', x: tPick.cand.x, y: tPick.cand.y, text: 'target', tone: 'muted', align: 'center', opacity: mm },
+			{ id: 'net', x: nPick.cand.x, y: nPick.cand.y, text: 'network output', tone: 'data', align: 'center', opacity: dm }
+		);
 		labels.push({
 			id: 'nunits',
 			x: hx,
 			y: hy,
-			text: `${units} hidden ${units === 1 ? 'unit' : 'units'}`,
+			text: unitsText,
 			tone: 'param',
 			mono: true,
 			opacity: pm
 		});
 	}
+
 
 	const scene: Scene = {
 		init(c) {

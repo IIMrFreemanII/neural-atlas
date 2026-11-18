@@ -47,7 +47,7 @@ const lesson: LessonDef = {
 			title: 'A network is layers of neurons',
 			body: `This network has an input layer on the left, two hidden layers in the middle and one output neuron on the right. The [[data:inputs]] are just two numbers.
 
-Every neuron connects to every neuron in the next layer. Each connection has a [[param:weight]], and the weights are what the network knows.`,
+Every neuron connects to every neuron in the next layer. Each connection carries a [[param:weight]] of its own, and the weights are what the network knows.`,
 			params: { wave: 0 },
 			controls: []
 		},

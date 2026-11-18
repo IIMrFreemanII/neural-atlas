@@ -173,14 +173,15 @@ export const createLossLandscapeScene: SceneFactory = () => {
 		glow2.count = gl;
 		dots2.count = d;
 
-		const [px, pyRaw] = v.project(-PLOT_LIM, PLOT_LIM + 0.1);
+		// Centered above the top of the y axis (and its "y" label) so no axis line crosses the text.
+		const [px, pyRaw] = v.project(0, PLOT_LIM + 0.15);
 		// Keep the formula below the legend chips, which wrap to two rows in this lesson.
-		const py = Math.max(pyRaw, 104);
+		const py = Math.max(pyRaw - 24, 104);
 		const text =
 			model === 0
 				? `y = ${fmt(w)}·x ${fmtAdd(b)}`
 				: `y = tanh(${fmt(w)}·x ${fmtAdd(b)})`;
-		labels.push({ id: 'formula', x: px, y: py, text, tone: 'param', mono: true, align: 'left', opacity: pm });
+		labels.push({ id: 'formula', x: px, y: py, text, tone: 'param', mono: true, opacity: pm });
 		const [xx, xy] = v.project(PLOT_LIM + 0.15, 0);
 		const [yx, yy] = v.project(0, PLOT_LIM + 0.15);
 		labels.push(

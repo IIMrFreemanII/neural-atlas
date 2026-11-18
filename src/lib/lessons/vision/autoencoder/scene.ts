@@ -209,7 +209,7 @@ export const createAutoencoderScene: SceneFactory = () => {
 
 	function easeNum(v: number, target: number, k: number, eps: number): [number, boolean] {
 		const dv = target - v;
-		return Math.abs(dv) < eps ? [target, false] : [v + dv * k, true];
+		return Math.abs(dv) < eps ? [target, dv !== 0] : [v + dv * k, true];
 	}
 
 	function paint(wx: number, wy: number, fresh: boolean) {
@@ -381,7 +381,7 @@ export const createAutoencoderScene: SceneFactory = () => {
 				tone: 'text',
 				mono: true,
 				size: 11,
-				opacity: mapA * codeAll * (1 - labA)
+				opacity: mapA * codeAll * (1 - labA) * (1 - tilesA)
 			});
 			if (labA > 0.01) {
 				const dim = hl === null ? 1 : 0.3;
@@ -477,11 +477,11 @@ export const createAutoencoderScene: SceneFactory = () => {
 			moving = mv || moving;
 			[codeA, mv] = easeNum(codeA, dead ? 0.3 : 1, ka, 0.002);
 			moving = mv || moving;
-			[dotsA, mv] = easeNum(dotsA, show >= 4 ? 0.15 : show >= 3 ? 0.75 : 0, ka, 0.002);
+			[dotsA, mv] = easeNum(dotsA, show >= 4 ? 0 : show >= 3 ? 0.75 : 0, ka, 0.002);
 			moving = mv || moving;
 			[tilesA, mv] = easeNum(tilesA, show >= 4 ? 1 : 0, ka, 0.002);
 			moving = mv || moving;
-			[labA, mv] = easeNum(labA, show >= 3 ? 1 : 0, ka, 0.002);
+			[labA, mv] = easeNum(labA, show === 3 ? 1 : 0, ka, 0.002);
 			moving = mv || moving;
 			snap = false;
 

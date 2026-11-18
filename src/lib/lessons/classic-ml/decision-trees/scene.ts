@@ -434,10 +434,10 @@ export const createDecisionTreesScene: SceneFactory = () => {
 						const [wx, wy] = toW(sp.threshold, sp.lo + 0.82 * (sp.hi - sp.lo));
 						const [sx] = v.project(wx, wy);
 						const flip = sx + 74 > v.project(g.pr, 0)[0];
-						label(`q${i}`, wx, wy, txt, { tone: 'text', align: flip ? 'right' : 'left', x: flip ? -5 : 5, opacity: 0.85 * mT * fade });
+						label(`q${i}`, wx, wy, txt, { tone: 'text', size: 12, align: flip ? 'right' : 'left', x: flip ? -5 : 5, opacity: mT * fade });
 					} else {
 						const [wx, wy] = toW((sp.lo + sp.hi) / 2, sp.threshold);
-						label(`q${i}`, wx, wy, txt, { tone: 'text', y: -8, opacity: 0.85 * mT * fade });
+						label(`q${i}`, wx, wy, txt, { tone: 'text', size: 12, y: -9, opacity: mT * fade });
 					}
 				});
 			}
@@ -593,7 +593,12 @@ export const createDecisionTreesScene: SceneFactory = () => {
 				seg(CL, mx, g.cb, mx, my, 1, tone('grad', 1, 0.5 * a * mc));
 				D.add({ x: mx, y: my, radius: 8, ring: 1.6, color: tone('grad', 1.1, 0.9 * a * mc) });
 				D.add({ x: mx, y: my, radius: 3.6, color: tone('grad', 1.3, a * mc) });
-				label('imp', mx, my, impurity.toFixed(3), { tone: 'grad', size: 11, y: 16, align: mx > (g.cl + g.cr) / 2 ? 'right' : 'left', x: mx > (g.cl + g.cr) / 2 ? -10 : 10, opacity: a * mc });
+				// Above the plot, over the marker, so the value never meets the curve or the ring.
+				// Kept clear of the 'impurity' caption at the top-left corner and inside the right edge.
+				const impX = v.project(mx, g.ct)[0];
+				const impMin = v.project(g.cl, g.ct)[0] + 76;
+				const impMax = v.project(g.cr, g.ct)[0] - 16;
+				label('imp', mx, g.ct, impurity.toFixed(3), { tone: 'grad', size: 11, y: -22, x: clamp(impX, impMin, impMax) - impX, opacity: a * mc });
 				label('cx', (g.cl + g.cr) / 2, g.cb, `cut position along x${axis + 1}`, { y: 32, opacity: a });
 				label('cy', g.cl, g.ct, 'impurity', { y: -14, align: 'left', opacity: a });
 			} else {

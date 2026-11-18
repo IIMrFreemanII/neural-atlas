@@ -244,7 +244,9 @@
 		font-size: 12px;
 		white-space: nowrap;
 		will-change: transform;
-		/* A dark halo keeps labels readable where they cross bright lines. */
+		/* A dark outline and halo keep labels readable where they cross bright lines. */
+		-webkit-text-stroke: 3px var(--bg-void, #07080d);
+		paint-order: stroke fill;
 		text-shadow:
 			0 0 3px var(--bg-void, #07080d),
 			0 0 6px var(--bg-void, #07080d),
