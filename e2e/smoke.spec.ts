@@ -83,6 +83,26 @@ test('the build has a page for every address, so a link straight to one answers 
 	expect((await request.get('/learn/no-such-track/no-such-lesson')).status()).toBe(404);
 });
 
+test('each page names itself in its HTML, for link previews', async ({ request }) => {
+	for (const meta of allLessons.filter((l) => l.status === 'ready')) {
+		const html = await (await request.get(lessonHref(meta))).text();
+		const head = `${meta.track}/${meta.id}`;
+		expect(html, head).toContain(`<title>${meta.title} · Neural Atlas</title>`);
+		expect(html, head).toContain(`<meta property="og:title" content="${meta.title} · Neural Atlas" />`);
+	}
+	expect(await (await request.get('/glossary')).text()).toContain('<title>Glossary · Neural Atlas</title>');
+});
+
+test('the tab title follows navigation in the app', async ({ page }) => {
+	await page.goto('/learn/fundamentals/neuron');
+	await expect(page).toHaveTitle('The neuron · Neural Atlas');
+	await page.getByRole('link', { name: 'Learn', exact: true }).click();
+	await expect(page).toHaveTitle('Lessons · Neural Atlas');
+	await page.locator('a.brand').click();
+	await expect(page).toHaveTitle('Neural Atlas');
+	expect(await page.locator('head title').count()).toBe(1);
+});
+
 test('the home map links to every lesson', async ({ page }) => {
 	await page.goto('/');
 	for (const meta of allLessons) {

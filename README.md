@@ -82,6 +82,9 @@ with uncommitted changes, so that the published site always matches a commit.
   server rendering, since every visual needs WebGPU). Lessons are listed for the build by `entries()` in
   `src/routes/learn/[track]/[lesson]/+page.ts`. Any other address gets `404.html`, the app's own "not
   found" page.
+- Link previews and search engines do not run the app, so `src/hooks.server.ts` writes each page's title
+  and description (a lesson's title and summary from `curriculum.ts`) into its HTML while the build
+  prerenders it. The texts are in `src/lib/page-meta.ts`.
 - Each deploy replaces the single commit on `gh-pages` with a forced push. The branch holds build output
   only.
 
