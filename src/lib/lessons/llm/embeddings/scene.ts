@@ -24,6 +24,8 @@ const DRAG_RAD_PER_PX = 0.01;
 const DRAG_SLOP = 4;
 const HOVER_PX = 14;
 const PLAY_SECONDS = 1.2;
+/** Reduced motion: Play shows the question for this long, then the answer, with no travel between. */
+const PLAY_HOLD_REDUCED = 0.6;
 const N = WORDS.length;
 
 // Side panel, world units.
@@ -300,13 +302,19 @@ export const createEmbeddingsScene: SceneFactory = () => {
 		selected = anaFound;
 	}
 
+	/** How far the marker has travelled, 0..1. Under reduced motion it waits at the start, then lands. */
+	function markerEase(): number {
+		if (ctx.reducedMotion) return markerT >= 1 ? 1 : 0;
+		return easeInOut(markerT);
+	}
+
 	function frameUpdate(dt: number) {
 		if (spin >= 0.5 && !down && !ctx.reducedMotion && dt > 0) {
 			yaw += (relation > 0 || showAnalogy >= 0.5 ? SPIN_SLOW : SPIN_SPEED) * dt;
 			dirty = true;
 		}
 		if (markerT < 1 && dt > 0) {
-			markerT = Math.min(1, markerT + dt / PLAY_SECONDS);
+			markerT = Math.min(1, markerT + dt / (ctx.reducedMotion ? PLAY_HOLD_REDUCED : PLAY_SECONDS));
 			if (markerT >= 1) landAnalogy();
 			dirty = true;
 		}
@@ -406,7 +414,7 @@ export const createEmbeddingsScene: SceneFactory = () => {
 			const f1 = Math.min(fade[ana.a], fade[ana.b]);
 			nl = arrow(nl, sx[ana.a], sy[ana.a], sx[ana.b], sy[ana.b], 2, tone('param', 1, 0.9 * m * f1), scale, 7);
 			// The same offset again, starting at c.
-			const e = easeInOut(markerT);
+			const e = markerEase();
 			const bx = sx[ana.c] + (tipX - sx[ana.c]) * e;
 			const by = sy[ana.c] + (tipY - sy[ana.c]) * e;
 			const f2 = Math.min(fade[ana.c], fadeAt(tipX, tipY));
@@ -437,7 +445,7 @@ export const createEmbeddingsScene: SceneFactory = () => {
 			dots.set(n++, { x: tipX, y: tipY, radius: 7, ring: 1.6, color: tone('ok', 1.1, 0.95 * mul('ok') * fadeAt(tipX, tipY)) });
 		}
 		if (ana && !anaDone) {
-			const e = easeInOut(markerT);
+			const e = markerEase();
 			const mx = sx[ana.c] + (tipX - sx[ana.c]) * e;
 			const my = sy[ana.c] + (tipY - sy[ana.c]) * e;
 			dots.set(n++, { x: mx, y: my, radius: 12, softness: 1, color: tone('text', 0.8, 0.25 * fadeAt(mx, my)) });
@@ -654,8 +662,7 @@ export const createEmbeddingsScene: SceneFactory = () => {
 		},
 		command(id) {
 			if (id === 'play' && showAnalogy >= 0.5) {
-				markerT = ctx.reducedMotion ? 1 : 0;
-				if (markerT >= 1) landAnalogy();
+				markerT = 0;
 				dirty = true;
 			}
 		},

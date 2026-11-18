@@ -37,9 +37,15 @@ npm install      # once
 npm run dev      # development server at http://localhost:5173
 npm run check    # type check (svelte-check)
 npm run test     # unit tests (Vitest)
+npm run test:e2e # smoke test (Playwright): builds the site, then loads every page and lesson
 npm run build    # static site in build/
 npm run preview  # serve the built site
 ```
+
+The smoke test drives the Chrome installed on your machine, headless, and fails on any console error. For
+each lesson it checks that the visual starts, draws something, and survives a walk through every step. In a
+browser without WebGPU it only checks that the "needs WebGPU" notice appears. To use Playwright's own
+browser instead, run `npx playwright install chromium` once and set `PW_CHANNEL=chromium`.
 
 `scripts/train-shapes-cnn.ts` retrains the small network used by the CNN feature maps lesson and rewrites its
 weights file (about 40 seconds, deterministic):
@@ -70,6 +76,7 @@ src/
     components/shell/           top bar, track list, constellation map
     state/                      progress and settings, kept in localStorage
   routes/                       home, /learn, /learn/<track>/<lesson>, /glossary
+e2e/                            Playwright smoke test
 ```
 
 A lesson is a `LessonDef` (`src/lib/lessons/types.ts`): a list of steps, each with narration and the scene

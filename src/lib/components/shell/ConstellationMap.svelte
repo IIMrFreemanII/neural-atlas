@@ -12,7 +12,7 @@
 	const SIDES: Record<string, Side> = {
 		'classic-ml/linear-regression': 'above',
 		'classic-ml/decision-boundaries': 'right',
-		'classic-ml/k-means': 'left',
+		'classic-ml/k-means': 'right',
 		'fundamentals/activations': 'above',
 		'fundamentals/forward-pass': 'above',
 		'fundamentals/loss-landscape': 'right',

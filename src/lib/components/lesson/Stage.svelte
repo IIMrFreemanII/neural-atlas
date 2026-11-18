@@ -192,6 +192,7 @@
 
 <div
 	class="stage"
+	data-status={status}
 	bind:this={container}
 	role="presentation"
 	onpointermove={(e) => sendPointer('move', e)}
