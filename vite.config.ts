@@ -6,6 +6,9 @@ import { sveltekit } from '@sveltejs/kit/vite';
 // repository's name, because GitHub Pages serves a project at https://<user>.github.io/<repository>/.
 declare const process: { env: Record<string, string | undefined> };
 const base = (process.env.BASE_PATH ?? '') as '' | `/${string}`;
+// The site's origin, e.g. https://<user>.github.io, which `npm run deploy` sets. The prerendered pages use it
+// for the full addresses that link previews need; without it they have no preview image.
+const origin = process.env.SITE_ORIGIN || undefined;
 
 export default defineConfig({
 	plugins: [
@@ -18,7 +21,7 @@ export default defineConfig({
 			// Every page is prerendered; GitHub Pages answers any other address with 404.html, which is the
 			// app, so it shows its own "not found" page.
 			adapter: adapter({ fallback: '404.html' }),
-			paths: { base }
+			paths: { base, origin }
 		})
 	],
 	test: {

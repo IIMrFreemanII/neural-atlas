@@ -18,7 +18,11 @@ commit=$(git rev-parse --short HEAD)
 name=$(git config user.name)
 email=$(git config user.email)
 
-BASE_PATH="/$repo" npm run build
+# The owner's name from https://github.com/<owner>/<repository>.git or git@github.com:<owner>/<repository>.git;
+# GitHub serves the site from https://<owner, lower case>.github.io.
+owner=$(basename "$(dirname "$(echo "$remote" | tr ':' '/')")" | tr '[:upper:]' '[:lower:]')
+
+BASE_PATH="/$repo" SITE_ORIGIN="https://$owner.github.io" npm run build
 
 out=$(mktemp -d)
 trap 'rm -rf "$out"' EXIT

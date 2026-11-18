@@ -89,7 +89,11 @@ test('each page names itself in its HTML, for link previews', async ({ request }
 		const head = `${meta.track}/${meta.id}`;
 		expect(html, head).toContain(`<title>${meta.title} · Neural Atlas</title>`);
 		expect(html, head).toContain(`<meta property="og:title" content="${meta.title} · Neural Atlas" />`);
+		// Its link-preview image (scripts/capture-previews.ts takes them; rerun it after adding a lesson).
+		const image = await request.get(`/previews/${meta.track}/${meta.id}.jpg`);
+		expect(image.status(), `${head} preview image`).toBe(200);
 	}
+	expect((await request.get('/previews/home.jpg')).status()).toBe(200);
 	expect(await (await request.get('/glossary')).text()).toContain('<title>Glossary · Neural Atlas</title>');
 });
 

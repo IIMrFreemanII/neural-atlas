@@ -85,6 +85,16 @@ with uncommitted changes, so that the published site always matches a commit.
 - Link previews and search engines do not run the app, so `src/hooks.server.ts` writes each page's title
   and description (a lesson's title and summary from `curriculum.ts`) into its HTML while the build
   prerenders it. The texts are in `src/lib/page-meta.ts`.
+- Each lesson's preview image is a screenshot of its scene in `static/previews/`. Previews need full
+  addresses, so the script builds with `SITE_ORIGIN` (`https://<owner>.github.io`); a build without it has
+  no preview images. After adding a lesson or changing how one looks, build and take the images again (it
+  needs Chrome with WebGPU; a lesson key such as `llm/sampling` takes only that one):
+
+  ```bash
+  npm run build && node --experimental-strip-types scripts/capture-previews.ts
+  ```
+
+  `STEP` in that script picks the step shown, for lessons whose first step is a poor picture.
 - Each deploy replaces the single commit on `gh-pages` with a forced push. The branch holds build output
   only.
 
