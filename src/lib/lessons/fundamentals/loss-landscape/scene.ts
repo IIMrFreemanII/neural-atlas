@@ -136,7 +136,7 @@ export const createLossLandscapeScene: SceneFactory = () => {
 		const g = grid(model);
 		const L = loss(model, w, b);
 		const near = L <= g.min * 1.02 + 1e-6 ? 1 : 0;
-		okT += (near - okT) * Math.min(1, dt * 10);
+		okT = ctx.reducedMotion ? near : okT + (near - okT) * Math.min(1, dt * 10);
 		const curveColor = (intensity: number, alpha: number) =>
 			mixColor(tone('param', intensity, alpha), tone('ok', intensity, alpha), okT);
 

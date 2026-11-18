@@ -7,8 +7,8 @@
 <header>
 	<h1>Lessons</h1>
 	<p>
-		Four tracks, each a short sequence of interactive lessons. Pick any ready lesson to begin; the
-		rest are on the way.
+		Four tracks, each a short sequence of interactive lessons. Start anywhere; within a track, each
+		lesson builds on the one before it.
 	</p>
 </header>
 <div class="grid"><TrackGrid /></div>

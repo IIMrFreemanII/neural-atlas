@@ -2,6 +2,19 @@ import type { LessonMeta, Track, TrackId } from '../lessons/types.ts';
 
 type Seed = [id: string, title: string, summary: string, minutes: number];
 
+/**
+ * Prerequisites that cross tracks, by lesson key. Within a track every lesson also builds on the one
+ * before it. Each of these is an idea the later lesson uses without re-teaching it.
+ */
+const CROSS_TRACK: Record<string, string[]> = {
+	// A kernel is a weighted sum, the same operation as a neuron.
+	'vision/convolution': ['fundamentals/neuron'],
+	// The feature maps come from a network whose kernels were learned by training.
+	'vision/cnn-features': ['fundamentals/train-a-network'],
+	// A block is a stack of layers that vectors flow through.
+	'llm/transformer-block': ['fundamentals/forward-pass']
+};
+
 function build(track: TrackId, seeds: Seed[], ready: Record<string, LessonMeta['load']>): LessonMeta[] {
 	return seeds.map(([id, title, summary, minutes], i) => {
 		const load = ready[id];
@@ -12,7 +25,10 @@ function build(track: TrackId, seeds: Seed[], ready: Record<string, LessonMeta['
 			summary,
 			minutes,
 			status: load ? 'ready' : 'soon',
-			prerequisites: i > 0 ? [`${track}/${seeds[i - 1][0]}`] : []
+			prerequisites: [
+				...(i > 0 ? [`${track}/${seeds[i - 1][0]}`] : []),
+				...(CROSS_TRACK[`${track}/${id}`] ?? [])
+			]
 		};
 		if (load) meta.load = load;
 		return meta;
@@ -60,7 +76,12 @@ export const tracks: Track[] = [
 				['k-means', 'K-means clustering', 'Group unlabeled points by alternating assignment and averaging.', 5],
 				['overfitting', 'Overfitting and underfitting', 'Too simple a model misses the pattern, too flexible a model memorizes noise.', 7]
 			],
-			{}
+			{
+				'linear-regression': () => import('../lessons/classic-ml/linear-regression/lesson.ts'),
+				'decision-boundaries': () => import('../lessons/classic-ml/decision-boundaries/lesson.ts'),
+				'k-means': () => import('../lessons/classic-ml/k-means/lesson.ts'),
+				overfitting: () => import('../lessons/classic-ml/overfitting/lesson.ts')
+			}
 		)
 	},
 	{
@@ -77,7 +98,13 @@ export const tracks: Track[] = [
 				['transformer-block', 'Inside a transformer block', 'Attention, a feed-forward layer and residual paths make one block.', 9],
 				['sampling', 'Next-token sampling', 'Temperature and top-p control how a model picks the next word.', 6]
 			],
-			{}
+			{
+				tokenization: () => import('../lessons/llm/tokenization/lesson.ts'),
+				embeddings: () => import('../lessons/llm/embeddings/lesson.ts'),
+				attention: () => import('../lessons/llm/attention/lesson.ts'),
+				'transformer-block': () => import('../lessons/llm/transformer-block/lesson.ts'),
+				sampling: () => import('../lessons/llm/sampling/lesson.ts')
+			}
 		)
 	},
 	{
@@ -92,7 +119,11 @@ export const tracks: Track[] = [
 				['cnn-features', 'CNN feature maps', 'Stacked convolutions build from edges to textures to objects.', 8],
 				['diffusion', 'Diffusion', 'Generate an image by learning to remove noise step by step.', 9]
 			],
-			{}
+			{
+				convolution: () => import('../lessons/vision/convolution/lesson.ts'),
+				'cnn-features': () => import('../lessons/vision/cnn-features/lesson.ts'),
+				diffusion: () => import('../lessons/vision/diffusion/lesson.ts')
+			}
 		)
 	}
 ];
@@ -113,6 +144,9 @@ export function nextReadyLesson(track: TrackId, id: string): LessonMeta | null {
 	if (i === -1) return null;
 	return all.slice(i + 1).find((l) => l.status === 'ready') ?? null;
 }
+
+/** Every lesson of every track, in curriculum order. */
+export const allLessons: LessonMeta[] = tracks.flatMap((t) => t.lessons);
 
 export function lessonHref(meta: LessonMeta): string {
 	return `/learn/${meta.track}/${meta.id}`;

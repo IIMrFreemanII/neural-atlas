@@ -66,6 +66,8 @@ export interface Label {
 	align?: 'left' | 'center' | 'right';
 	/** Use the monospace font (for numbers). Default false. */
 	mono?: boolean;
+	/** Font size in CSS px. Default 12. */
+	size?: number;
 	/** 0..1, default 1. */
 	opacity?: number;
 }
@@ -88,7 +90,11 @@ export interface SceneContext {
 	target: TargetInfo;
 	view: View;
 	labels: LabelSink;
-	/** Send a named value to the UI (shown as a readout chip), e.g. emit('loss', 0.42). */
+	/**
+	 * Send a named value to the UI (shown as a readout chip), e.g. emit('loss', 0.42).
+	 * A key of the form 'param:<key>' with a number instead writes that lesson param, e.g. emit('param:w', 0.8),
+	 * so its slider follows a value the scene is animating. The scene then receives it back through setParams.
+	 */
 	emit(key: string, value: number | string): void;
 	/** True when the user prefers reduced motion. Scenes should then avoid continuous decorative animation. */
 	reducedMotion: boolean;

@@ -5,10 +5,14 @@
 	import { createFrameLoop } from '../../gpu/frame.ts';
 	import { Renderer } from '../../gpu/renderer.ts';
 	import type { Label, Scene, SceneFactory, ScenePointer, Tone } from '../../gpu/types.ts';
+	import { settings } from '../../state/settings.svelte.ts';
 	import { ViewUniforms } from '../../gpu/view.ts';
 
 	interface Props {
-		/** Creates the scene. Read once on mount; remount the component (e.g. with {#key}) to change scenes. */
+		/**
+		 * Creates the scene. Read once on mount; remount the component (e.g. with {#key}) to change scenes.
+		 * The motion setting is also read once: wrap the Stage in {#key settings.reducedMotion} to follow it.
+		 */
 		createScene: SceneFactory;
 		/** Complete current param set. scene.setParams is called on every change. */
 		params?: Readonly<Record<string, number>>;
@@ -116,7 +120,7 @@
 						}
 					},
 					emit: (key, value) => onreadout?.(key, value),
-					reducedMotion: window.matchMedia('(prefers-reduced-motion: reduce)').matches
+					reducedMotion: settings.reducedMotion
 				});
 				if (destroyed) return;
 				s.setParams(params);
@@ -180,7 +184,8 @@
 			`transform: translate(${l.x}px, ${l.y}px) translate(${ALIGN[l.align ?? 'center']});` +
 			`opacity: ${l.opacity ?? 1};` +
 			`color: var(--c-${t}, ${TONE_HEX[t]});` +
-			`font-family: ${font};`
+			`font-family: ${font};` +
+			(l.size ? `font-size: ${l.size}px;` : '')
 		);
 	}
 </script>

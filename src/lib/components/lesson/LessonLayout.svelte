@@ -4,6 +4,7 @@
 	import type { LessonDef, LessonMeta, Params, Track } from '../../lessons/types.ts';
 	import { lessonKey } from '../../content/curriculum.ts';
 	import { progress } from '../../state/progress.svelte.ts';
+	import { settings } from '../../state/settings.svelte.ts';
 	import Icon from '../shell/Icon.svelte';
 	import ControlBar from './ControlBar.svelte';
 	import Legend from './Legend.svelte';
@@ -30,7 +31,6 @@
 		if (c.kind === 'toggle' || c.kind === 'select') discrete.add(c.key);
 	}
 
-	const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 	const targetFor = (i: number): Params => ({ ...lesson.defaults, ...lesson.steps[i].params });
 	const clamp = (i: number) => Math.min(Math.max(0, Math.floor(i) || 0), lesson.steps.length - 1);
 
@@ -39,7 +39,22 @@
 	let highlight = $state<Tone | null>(null);
 	let readoutValues = $state<Record<string, number | string>>({});
 	let stage: { command(id: string): void } | undefined = $state();
+	/** Current value of each 'text' control, by id. Kept here so it survives steps that hide the control. */
+	let texts = $state<Record<string, string>>({});
+
+	function setText(id: string, value: string) {
+		texts = { ...texts, [id]: value };
+		stage?.command(`${id}:${value}`);
+	}
 	let collapsed = $state(false);
+
+	// The Stage is re-created when the motion setting changes, so its scene starts from the lesson's
+	// initial text again and has emitted nothing yet.
+	$effect(() => {
+		void settings.reducedMotion;
+		texts = {};
+		readoutValues = {};
+	});
 
 	if (untrack(() => stepIndex === lesson.steps.length - 1)) progress.complete(key);
 
@@ -73,7 +88,7 @@
 	function applyStep(i: number) {
 		stopTween();
 		const target = targetFor(i);
-		const instant = reducedMotion();
+		const instant = settings.reducedMotion;
 		const items = new Map<string, [number, number]>();
 		const next: Params = { ...params };
 		for (const [k, v] of Object.entries(target)) {
@@ -103,40 +118,73 @@
 
 	$effect(() => stopTween);
 
+	/** Scene -> UI values. A key of the form 'param:<key>' writes that lesson param (so its slider follows the scene). */
+	function onreadout(k: string, v: number | string) {
+		if (k.startsWith('param:')) {
+			const pk = k.slice(6);
+			if (typeof v === 'number' && Number.isFinite(v) && params[pk] !== v) setParam(pk, v);
+			return;
+		}
+		readoutValues = { ...readoutValues, [k]: v };
+	}
+
 	const visibleControls = $derived(
 		lesson.steps[stepIndex].controls === undefined
 			? lesson.controls
 			: lesson.controls.filter((c) =>
-					lesson.steps[stepIndex].controls!.includes(c.kind === 'action' ? c.id : c.key)
+					lesson.steps[stepIndex].controls!.includes('id' in c ? c.id : c.key)
 				)
 	);
 
+	/** The action the space bar presses: the first visible one with a play icon. */
+	const mainAction = $derived(
+		visibleControls.find((c) => c.kind === 'action' && c.icon === 'play') as
+			| Extract<(typeof visibleControls)[number], { kind: 'action' }>
+			| undefined
+	);
+
+	/**
+	 * Lesson shortcuts. Left and right arrows change the step unless the focused element uses them itself
+	 * (a slider or a text field). Space presses the main action unless the focused element is one that
+	 * space already activates or types into.
+	 */
 	function onkeydown(e: KeyboardEvent) {
-		if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
-		if (e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return;
+		if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return;
 		const t = e.target as HTMLElement | null;
-		if (t && t.closest('input, select, textarea, button:not([data-term])')) return;
-		e.preventDefault();
-		goTo(stepIndex + (e.key === 'ArrowRight' ? 1 : -1));
+		if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+			if (t?.closest('input, select, textarea, [contenteditable]')) return;
+			e.preventDefault();
+			goTo(stepIndex + (e.key === 'ArrowRight' ? 1 : -1));
+		} else if (e.key === ' ') {
+			if (!mainAction) return;
+			if (t?.closest('input:not([type="range"]), select, textarea, button, a, summary, [contenteditable]'))
+				return;
+			e.preventDefault();
+			stage?.command(mainAction.id);
+		}
 	}
 
 </script>
 
 <svelte:window {onkeydown} />
 
+<a class="skip-link" href="#lesson-stage">Skip to the lesson</a>
+
 <div class="layout" class:collapsed>
 	<div class="side">
 		<Sidebar currentKey={key} onclose={() => (collapsed = true)} />
 	</div>
 
-	<div class="stage-cell">
-		<Stage
-			bind:this={stage}
-			createScene={lesson.createScene}
-			{params}
-			{highlight}
-			onreadout={(k, v) => (readoutValues = { ...readoutValues, [k]: v })}
-		/>
+	<div class="stage-cell" id="lesson-stage" tabindex="-1">
+		{#key settings.reducedMotion}
+			<Stage
+				bind:this={stage}
+				createScene={lesson.createScene}
+				{params}
+				{highlight}
+				onreadout={onreadout}
+			/>
+		{/key}
 		<div class="tl">
 			{#if collapsed}
 				<button
@@ -157,7 +205,10 @@
 					controls={visibleControls}
 					{params}
 					onparam={setParam}
+					{texts}
+					ontext={setText}
 					onaction={(id) => stage?.command(id)}
+					spaceAction={mainAction?.id}
 				/>
 			</div>
 		{/if}
@@ -193,6 +244,7 @@
 		visibility: hidden;
 	}
 	.stage-cell {
+		outline: none;
 		position: relative;
 		min-height: 0;
 		overflow: hidden;

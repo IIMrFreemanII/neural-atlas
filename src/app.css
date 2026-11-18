@@ -129,12 +129,27 @@ pre {
 	cursor: default;
 }
 
-@media (prefers-reduced-motion: reduce) {
-	*,
-	*::before,
-	*::after {
-		transition: none !important;
-		animation: none !important;
-		scroll-behavior: auto !important;
-	}
+/* Set by the root layout from the motion setting (the learner's choice, else the system preference). */
+:root[data-reduce-motion] *,
+:root[data-reduce-motion] *::before,
+:root[data-reduce-motion] *::after {
+	transition: none !important;
+	animation: none !important;
+	scroll-behavior: auto !important;
+}
+
+/* Shown only while focused: lets keyboard users jump past the navigation. */
+.skip-link {
+	position: absolute;
+	left: 12px;
+	top: -100px;
+	z-index: 100;
+	padding: 8px 14px;
+	border-radius: var(--r-sm);
+	background: var(--bg-panel);
+	border: 1px solid var(--line-strong);
+	font-size: 14px;
+}
+.skip-link:focus {
+	top: 8px;
 }

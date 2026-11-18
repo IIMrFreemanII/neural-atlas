@@ -16,6 +16,8 @@ const TARGET_X = 2.05;
 /** World units of bar length per unit of error. */
 const ERR_SCALE = 1.0;
 const RUN_RATE = 6;
+/** Reduced motion: discrete steps, at most 3 per second. */
+const RUN_RATE_REDUCED = 3;
 const DONE_LOSS = 0.001;
 const WEIGHT_VIS = 0.6;
 const DIM = 0.35;
@@ -111,7 +113,7 @@ export const createBackpropScene: SceneFactory = () => {
 			v.setViewProj(camera.matrix(v.aspect));
 
 			if (running && frame.dt > 0) {
-				acc += frame.dt * RUN_RATE;
+				acc += frame.dt * (ctx.reducedMotion ? RUN_RATE_REDUCED : RUN_RATE);
 				let n = Math.floor(acc);
 				acc -= n;
 				if (n > 5) {
@@ -126,7 +128,7 @@ export const createBackpropScene: SceneFactory = () => {
 			}
 
 			// ease visibility
-			const k = frame.dt > 0 ? 1 - Math.exp(-frame.dt * 9) : 0;
+			const k = ctx.reducedMotion ? 1 : frame.dt > 0 ? 1 - Math.exp(-frame.dt * 9) : 0;
 			const ease = (cur: number, goal: number) => cur + (goal - cur) * k;
 			vis.marker = ease(vis.marker, phase >= 1 ? 1 : 0);
 			vis.haloOut = ease(vis.haloOut, phase >= 2 ? 1 : 0);

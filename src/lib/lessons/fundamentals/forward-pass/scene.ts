@@ -69,7 +69,9 @@ export const createForwardPassScene: SceneFactory = () => {
 		const v = ctx.view;
 		if (sendT !== null) {
 			sendT += dt;
-			holdWave = Math.min(3, (3 * sendT) / SEND_SECONDS);
+			const u = (3 * sendT) / SEND_SECONDS;
+			// Reduced motion: the wave lights up one whole layer at a time instead of sweeping.
+			holdWave = Math.min(3, ctx.reducedMotion ? Math.floor(u) : u);
 			if (sendT >= SEND_SECONDS) sendT = null;
 		}
 		const wave = clamp(holdWave ?? p.wave ?? 3, 0, 3);
@@ -290,13 +292,8 @@ export const createForwardPassScene: SceneFactory = () => {
 		},
 		command(id) {
 			if (id !== 'send') return;
-			if (ctx.reducedMotion) {
-				holdWave = 3;
-				sendT = null;
-			} else {
-				holdWave = 0;
-				sendT = 0;
-			}
+			holdWave = 0;
+			sendT = 0;
 		},
 		highlight(t) {
 			hl = t;

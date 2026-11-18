@@ -423,7 +423,8 @@ export const createGradientDescentScene: SceneFactory = () => {
 			resetIfModeChanged();
 
 			if (running && frame.dt > 0) {
-				const rate = mode === '1d' ? 3 : 30;
+				// Reduced motion: discrete steps, at most 3 per second.
+				const rate = mode === '1d' || ctx.reducedMotion ? 3 : 30;
 				acc += frame.dt * rate;
 				let n = Math.floor(acc);
 				acc -= n;

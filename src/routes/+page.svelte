@@ -1,13 +1,16 @@
 <script lang="ts">
 	import Stage from '#lib/components/lesson/Stage.svelte';
-	import TrackGrid from '#lib/components/shell/TrackGrid.svelte';
+	import ConstellationMap from '#lib/components/shell/ConstellationMap.svelte';
 	import { createHeroScene } from '#lib/lessons/home/hero-scene.ts';
+	import { settings } from '#lib/state/settings.svelte.ts';
 </script>
 
 <svelte:head><title>Neural Atlas</title></svelte:head>
 
 <section class="hero">
-	<div class="bg"><Stage createScene={createHeroScene} /></div>
+	<div class="bg">
+		{#key settings.reducedMotion}<Stage createScene={createHeroScene} />{/key}
+	</div>
 	<div class="content">
 		<p class="eyebrow">Neural Atlas</p>
 		<h1>See how machines learn</h1>
@@ -22,12 +25,12 @@
 	</div>
 </section>
 
-<div class="grid"><TrackGrid /></div>
+<ConstellationMap />
 
 <style>
 	.hero {
 		position: relative;
-		min-height: min(72vh, 640px);
+		min-height: min(56vh, 520px);
 		display: flex;
 		align-items: center;
 		overflow: hidden;
@@ -70,8 +73,5 @@
 		height: 42px;
 		padding: 0 22px;
 		font-size: 15px;
-	}
-	.grid {
-		padding: 24px 0 80px;
 	}
 </style>

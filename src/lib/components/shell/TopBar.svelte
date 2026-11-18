@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/state';
+	import { settings } from '../../state/settings.svelte.ts';
 
 	const links = [
 		{ href: '/learn', label: 'Learn' },
@@ -24,13 +25,28 @@
 			<span>Neural Atlas</span>
 		</a>
 	</div>
-	<nav aria-label="Main">
-		{#each links as l (l.href)}
-			<a href={l.href} class:active={active(l.href)} aria-current={active(l.href) ? 'page' : undefined}>
-				{l.label}
-			</a>
-		{/each}
-	</nav>
+	<div class="right">
+		<nav aria-label="Main">
+			{#each links as l (l.href)}
+				<a href={l.href} class:active={active(l.href)} aria-current={active(l.href) ? 'page' : undefined}>
+					{l.label}
+				</a>
+			{/each}
+		</nav>
+		<div class="motion">
+			<span class="lbl" id="motion-label">Reduce motion</span>
+			<button
+				type="button"
+				role="switch"
+				class="switch"
+				class:on={settings.reducedMotion}
+				aria-checked={settings.reducedMotion}
+				aria-labelledby="motion-label"
+				title="Stops decorative animation and makes transitions instant"
+				onclick={() => settings.setReducedMotion(!settings.reducedMotion)}
+			><span class="knob"></span></button>
+		</div>
+	</div>
 </header>
 
 <style>
@@ -62,9 +78,60 @@
 		white-space: nowrap;
 		border-radius: var(--r-sm);
 	}
+	.right {
+		display: flex;
+		align-items: center;
+		gap: 20px;
+	}
 	nav {
 		display: flex;
 		gap: 4px;
+	}
+	.motion {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		padding-left: 20px;
+		border-left: 1px solid var(--line);
+	}
+	.lbl {
+		font-size: 12px;
+		color: var(--c-text-2);
+		white-space: nowrap;
+	}
+	.switch {
+		position: relative;
+		flex: none;
+		width: 30px;
+		height: 18px;
+		padding: 0;
+		border: 1px solid var(--line-strong);
+		border-radius: var(--r-pill);
+		background: transparent;
+		cursor: pointer;
+		transition:
+			background 0.15s,
+			border-color 0.15s;
+	}
+	.knob {
+		position: absolute;
+		top: 2px;
+		left: 2px;
+		width: 12px;
+		height: 12px;
+		border-radius: 50%;
+		background: var(--c-text-2);
+		transition:
+			transform 0.15s,
+			background 0.15s;
+	}
+	.switch.on {
+		background: color-mix(in srgb, var(--c-data) 25%, transparent);
+		border-color: var(--c-data);
+	}
+	.switch.on .knob {
+		transform: translateX(12px);
+		background: var(--c-data);
 	}
 	nav a {
 		padding: 6px 10px;

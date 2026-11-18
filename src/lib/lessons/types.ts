@@ -30,6 +30,16 @@ export type Control =
 			id: string;
 			label: string;
 			icon?: 'play' | 'step' | 'reset' | 'shuffle';
+	  }
+	| {
+			kind: 'text';
+			/** Every edit is sent to scene.command(`${id}:${value}`). Steps list this id in `controls`. */
+			id: string;
+			label: string;
+			/** Text shown before the learner types. The scene must start from the same text. */
+			initial: string;
+			/** Default 60. */
+			maxLength?: number;
 	  };
 
 /** A live value the scene emits with ctx.emit(key, value), shown as a chip over the stage. */
@@ -61,7 +71,7 @@ export interface Step {
 	/** Params for this step = { ...lesson.defaults, ...step.params }. Not cumulative across steps. */
 	params?: Params;
 	/**
-	 * Which controls are visible at this step: slider/toggle/select keys and action ids.
+	 * Which controls are visible at this step: slider/toggle/select keys and action/text ids.
 	 * Undefined = all of the lesson's controls. Empty array = none.
 	 */
 	controls?: string[];

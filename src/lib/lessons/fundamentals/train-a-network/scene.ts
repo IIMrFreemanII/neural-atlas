@@ -304,13 +304,18 @@ export const createTrainScene: SceneFactory = () => {
 			v.setViewProj(camera.matrix(v.aspect));
 
 			if (running && fr.dt > 0) {
-				acc += fr.dt * STEPS_PER_SECOND;
+				// Reduced motion: 3 visible updates per second, each doing the same 60 training steps
+				// that 1/3 s of full-speed training would, so the map and chart jump between updates.
+				const reduced = ctx.reducedMotion;
+				acc += fr.dt * (reduced ? 3 : STEPS_PER_SECOND);
 				let n = Math.floor(acc);
 				acc -= n;
-				if (n > MAX_STEPS_PER_FRAME) {
-					n = MAX_STEPS_PER_FRAME;
+				const cap = reduced ? 1 : MAX_STEPS_PER_FRAME;
+				if (n > cap) {
+					n = cap;
 					acc = 0;
 				}
+				n *= reduced ? STEPS_PER_SECOND / 3 : 1;
 				for (let i = 0; i < n && running; i++) doStep();
 			}
 			if (dirty) refresh();

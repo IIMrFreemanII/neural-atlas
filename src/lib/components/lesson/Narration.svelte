@@ -4,6 +4,7 @@
 	import { lessonHref } from '../../content/curriculum.ts';
 	import { parseBody } from '../../lessons/markup.ts';
 	import DeepDive from './DeepDive.svelte';
+	import LessonTerms from './LessonTerms.svelte';
 	import StepRail from './StepRail.svelte';
 
 	interface Props {
@@ -66,13 +67,29 @@
 		{#key stepIndex}
 			{#if step.deepDive}<DeepDive dive={step.deepDive} />{/if}
 		{/key}
+		<LessonTerms lessonKey={`${lesson.track}/${lesson.id}`} />
 	</div>
 	<footer>
-		<button type="button" class="btn" disabled={stepIndex === 0} onclick={() => onstep(stepIndex - 1)}>
-			Back
+		<button
+			type="button"
+			class="btn"
+			disabled={stepIndex === 0}
+			title="Shortcut: left arrow"
+			aria-keyshortcuts="ArrowLeft"
+			onclick={() => onstep(stepIndex - 1)}
+		>
+			<span class="key" aria-hidden="true">←</span> Back
 		</button>
 		{#if !last}
-			<button type="button" class="btn primary" onclick={() => onstep(stepIndex + 1)}>Next</button>
+			<button
+				type="button"
+				class="btn primary"
+				title="Shortcut: right arrow"
+				aria-keyshortcuts="ArrowRight"
+				onclick={() => onstep(stepIndex + 1)}
+			>
+				Next <span class="key" aria-hidden="true">→</span>
+			</button>
 		{:else if next}
 			<a class="btn primary" href={lessonHref(next)}>Next lesson</a>
 		{:else}
@@ -128,6 +145,10 @@
 		text-decoration: underline dotted;
 		text-underline-offset: 3px;
 		cursor: help;
+	}
+	.key {
+		font-family: var(--font-mono);
+		opacity: 0.7;
 	}
 	footer {
 		display: flex;
