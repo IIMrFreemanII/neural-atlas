@@ -1,12 +1,7 @@
 import type { Camera2D } from '../gpu/camera.ts';
-import type { View } from '../gpu/types.ts';
+import type { Insets, View } from '../gpu/types.ts';
 
-export interface Insets {
-	top: number;
-	right: number;
-	bottom: number;
-	left: number;
-}
+export type { Insets } from '../gpu/types.ts';
 
 export interface WorldRect {
 	x0: number;
@@ -18,8 +13,12 @@ export interface WorldRect {
 /**
  * The parts of a lesson stage covered by UI overlays, in CSS px:
  * legend and readout chips along the top, the control bar along the bottom.
+ * Returns view.insets when the host set them, else these defaults.
  */
-export function lessonInsets(view: Pick<View, 'width' | 'height'>): Insets {
+export function lessonInsets(
+	view: Pick<View, 'width' | 'height'> & { insets?: Insets | null }
+): Insets {
+	if (view.insets) return view.insets;
 	return {
 		top: 64,
 		right: 24,

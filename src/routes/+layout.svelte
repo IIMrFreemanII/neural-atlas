@@ -1,6 +1,7 @@
 <script lang="ts">
 	import '@fontsource-variable/inter';
-	import '@fontsource-variable/space-grotesk';
+	import '@fontsource-variable/newsreader/opsz.css';
+	import '@fontsource-variable/newsreader/opsz-italic.css';
 	import '@fontsource-variable/jetbrains-mono';
 	import '../app.css';
 	import favicon from '#lib/assets/favicon.svg';
@@ -11,6 +12,13 @@
 
 	$effect(() => {
 		document.documentElement.toggleAttribute('data-reduce-motion', settings.reducedMotion);
+	});
+
+	$effect(() => {
+		document.documentElement.dataset.theme = settings.theme;
+		document
+			.querySelector('meta[name="theme-color"]')
+			?.setAttribute('content', settings.theme === 'night' ? '#15181d' : '#eef0ea');
 	});
 </script>
 

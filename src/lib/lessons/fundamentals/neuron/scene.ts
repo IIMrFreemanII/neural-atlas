@@ -1,5 +1,5 @@
 import { Camera2D } from '../../../gpu/camera.ts';
-import { VOID, tone } from '../../../gpu/colors.ts';
+import { paperFill, tone } from '../../../gpu/colors.ts';
 import { Lines, bezier } from '../../../gpu/primitives/lines.ts';
 import { Points } from '../../../gpu/primitives/points.ts';
 import type { Label, Scene, SceneContext, SceneFactory, Tone } from '../../../gpu/types.ts';
@@ -103,7 +103,7 @@ export const createNeuronScene: SceneFactory = () => {
 			const t = sign(value, 'data');
 			const f = opacity * dim(t);
 			const k = Math.min(Math.abs(value), 1.5) / 1.5;
-			nodes.set(ni++, { x, y, radius: r, color: [VOID[0], VOID[1], VOID[2], opacity] });
+			nodes.set(ni++, { x, y, radius: r, color: paperFill(opacity) });
 			nodes.set(ni++, { x, y, radius: r, ring: 2, color: tone(t, 1.3 * f, f) });
 			glows.set(gi++, {
 				x,
@@ -182,7 +182,7 @@ export const createNeuronScene: SceneFactory = () => {
 			const t = sign(b, 'param');
 			const f = showBias * dim(t);
 			const k = Math.min(Math.abs(b), 1.5) / 1.5;
-			nodes.set(ni++, { x: BIAS.x, y: BIAS.y, radius: 8, color: [VOID[0], VOID[1], VOID[2], showBias] });
+			nodes.set(ni++, { x: BIAS.x, y: BIAS.y, radius: 8, color: paperFill(showBias) });
 			nodes.set(ni++, { x: BIAS.x, y: BIAS.y, radius: 8, ring: 2, color: tone(t, 1.3 * f, f) });
 			glows.set(gi++, {
 				x: BIAS.x,

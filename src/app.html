@@ -4,12 +4,27 @@
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<meta name="text-scale" content="scale" />
-		<meta name="theme-color" content="#07080d" />
+		<meta name="theme-color" content="#eef0ea" />
 		<link rel="icon" href="%sveltekit.assets%/favicon.svg" type="image/svg+xml" />
+		<script>
+			(function () {
+				try {
+					var theme = null;
+					try {
+						var saved = JSON.parse(localStorage.getItem('neural-atlas:settings:v1'));
+						if (saved && (saved.theme === 'paper' || saved.theme === 'night')) theme = saved.theme;
+					} catch (e) {}
+					if (!theme) theme = matchMedia('(prefers-color-scheme: dark)').matches ? 'night' : 'paper';
+					document.documentElement.dataset.theme = theme;
+					var meta = document.querySelector('meta[name="theme-color"]');
+					if (meta) meta.setAttribute('content', theme === 'night' ? '#15181d' : '#eef0ea');
+				} catch (e) {}
+			})();
+		</script>
 		%neural-atlas.head%
 		%sveltekit.head%
 	</head>
-	<body data-sveltekit-preload-data="hover" style="background: #07080d">
+	<body data-sveltekit-preload-data="hover">
 		<div style="display: contents">%sveltekit.body%</div>
 	</body>
 </html>

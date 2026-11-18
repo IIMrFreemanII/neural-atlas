@@ -30,6 +30,14 @@ export interface FrameInfo {
 /** Semantic colors. Each maps to a CSS token `--c-<tone>` and a linear RGB value in gpu/colors.ts. */
 export type Tone = 'text' | 'muted' | 'data' | 'param' | 'grad' | 'neg' | 'ok';
 
+/** Parts of the stage covered by floating UI, in CSS px. */
+export interface Insets {
+	top: number;
+	right: number;
+	bottom: number;
+	left: number;
+}
+
 /**
  * Camera + viewport state shared by all primitives (bind group 0).
  * WGSL layout: struct ViewU { viewProj: mat4x4f, viewport: vec2f, dpr: f32, time: f32 }
@@ -45,6 +53,8 @@ export interface View {
 	readonly dpr: number;
 	/** width / height */
 	readonly aspect: number;
+	/** Parts of the stage covered by the host page's floating UI (card, control bar, chips), in CSS px. null = the lessonInsets() defaults. */
+	readonly insets: Insets | null;
 	/** Set the column-major 4x4 view-projection matrix. Scenes call this from update(). */
 	setViewProj(m: Float32Array): void;
 	/** World position -> CSS pixels relative to the stage's top-left corner. */

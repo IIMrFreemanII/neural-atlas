@@ -1,25 +1,81 @@
+/* Paper tokens (default) and the night variant. Names and values follow docs/design/paper-atlas.html. */
 :root {
-	--bg-void: #07080d;
-	--bg-panel: #0e1018;
-	--glass: rgba(255, 255, 255, 0.04);
-	--glass-strong: rgba(255, 255, 255, 0.07);
-	--line: rgba(255, 255, 255, 0.08);
-	--line-strong: rgba(255, 255, 255, 0.15);
-	--c-text: #e8eaf2;
-	--c-text-2: #9aa3b8;
-	--c-muted: #5c647a;
-	--c-data: #4de2ff;
-	--c-param: #9b7bff;
-	--c-grad: #ffb347;
-	--c-neg: #ff5d8f;
-	--c-ok: #5df2a6;
-	--font-display: 'Space Grotesk Variable', system-ui, sans-serif;
+	--pg: #eef0ea;
+	--grid-minor: rgba(18, 74, 84, 0.06);
+	--grid-major: rgba(18, 74, 84, 0.11);
+	--sheet: #fbfbf8;
+	--ink: #1b2130;
+	--ink-2: #4a5263;
+	--ink-3: #687080;
+	--rule: rgba(27, 33, 48, 0.13);
+	--rule-2: rgba(27, 33, 48, 0.26);
+	--data: #0b7a8a;
+	--param: #4a3dbf;
+	--grad: #b9590c;
+	--neg: #c0244a;
+	--ok: #2c8650;
+	--btn-ink: #1b2130;
+	--btn-on-ink: #fbfbf8;
+	--shadow: 0 1px 0 rgba(27, 33, 48, 0.05), 0 18px 40px -18px rgba(27, 33, 48, 0.32);
+	--scrim: rgba(27, 33, 48, 0.18);
+	--plate-filter: invert(1) hue-rotate(180deg) saturate(0.9);
+	--cast: #1b2130;
+	--cast-a: 0.14;
+	--lift: 0 2px 4px -2px rgba(27, 33, 48, 0.16), 0 16px 26px -14px rgba(27, 33, 48, 0.45);
+	--grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.11 0 0 0 0 0.13 0 0 0 0 0.19 0.2 0 0 0 -0.06'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+	color-scheme: light;
+
+	/* Tone tokens, used dynamically as var(--c-<tone>). */
+	--c-text: var(--ink);
+	--c-text-2: var(--ink-2);
+	--c-muted: var(--ink-3);
+	--c-data: var(--data);
+	--c-param: var(--param);
+	--c-grad: var(--grad);
+	--c-neg: var(--neg);
+	--c-ok: var(--ok);
+
+	/* Legacy aliases: remove once every component uses the paper tokens. */
+	--bg-void: var(--pg);
+	--bg-panel: var(--sheet);
+	--glass: var(--sheet);
+	--glass-strong: var(--sheet);
+	--line: var(--rule);
+	--line-strong: var(--rule-2);
+
+	--font-display: 'Newsreader Variable', Georgia, serif;
 	--font-body: 'Inter Variable', system-ui, sans-serif;
 	--font-mono: 'JetBrains Mono Variable', ui-monospace, monospace;
 	--r-sm: 8px;
 	--r-md: 12px;
 	--r-pill: 999px;
 	--topbar-h: 52px;
+}
+
+:root[data-theme='night'] {
+	--pg: #15181d;
+	--grid-minor: rgba(196, 214, 236, 0.045);
+	--grid-major: rgba(196, 214, 236, 0.09);
+	--sheet: #1e2228;
+	--ink: #e9ecf1;
+	--ink-2: #a9b1be;
+	--ink-3: #8a93a1;
+	--rule: rgba(233, 236, 241, 0.11);
+	--rule-2: rgba(233, 236, 241, 0.24);
+	--data: #7fdcef;
+	--param: #b7a8ff;
+	--grad: #f4b968;
+	--neg: #ff8fae;
+	--ok: #8fe3b4;
+	--btn-ink: #e9ecf1;
+	--btn-on-ink: #15181d;
+	--shadow: 0 1px 0 rgba(0, 0, 0, 0.3), 0 18px 40px -18px rgba(0, 0, 0, 0.65);
+	--scrim: rgba(0, 0, 0, 0.45);
+	--plate-filter: none;
+	--cast: #000;
+	--cast-a: 0.42;
+	--lift: 0 2px 4px -2px rgba(0, 0, 0, 0.5), 0 16px 26px -14px rgba(0, 0, 0, 0.85);
+	--grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0.14 0 0 0 -0.045'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 	color-scheme: dark;
 }
 
@@ -30,15 +86,25 @@
 }
 
 html {
-	background: var(--bg-void);
+	background: var(--pg);
 }
 
 body {
 	margin: 0;
 	/* Desktop-only app: below this width the page scrolls sideways instead of reflowing. */
 	min-width: 1024px;
-	background: var(--bg-void);
-	color: var(--c-text);
+	background-color: var(--pg);
+	background-image:
+		linear-gradient(var(--grid-major) 1px, transparent 1px),
+		linear-gradient(90deg, var(--grid-major) 1px, transparent 1px),
+		linear-gradient(var(--grid-minor) 1px, transparent 1px),
+		linear-gradient(90deg, var(--grid-minor) 1px, transparent 1px);
+	background-size:
+		120px 120px,
+		120px 120px,
+		24px 24px,
+		24px 24px;
+	color: var(--ink);
 	font-family: var(--font-body);
 	font-size: 15px;
 	line-height: 1.6;
@@ -80,15 +146,14 @@ pre {
 }
 
 .glass {
-	background: var(--glass);
-	border: 1px solid var(--line);
-	backdrop-filter: blur(14px);
-	-webkit-backdrop-filter: blur(14px);
+	background: var(--sheet);
+	border: 1px solid var(--rule);
+	box-shadow: var(--shadow);
 	border-radius: var(--r-md);
 }
 
 :focus-visible {
-	outline: 2px solid var(--c-data);
+	outline: 2px solid var(--ink);
 	outline-offset: 2px;
 }
 
@@ -99,10 +164,10 @@ pre {
 	gap: 8px;
 	height: 36px;
 	padding: 0 16px;
-	border-radius: var(--r-pill);
-	border: 1px solid var(--line-strong);
+	border-radius: 4px;
+	border: 1px solid var(--rule-2);
 	background: transparent;
-	color: var(--c-text);
+	color: var(--ink);
 	font-size: 14px;
 	font-weight: 500;
 	cursor: pointer;
@@ -113,15 +178,16 @@ pre {
 		opacity 0.15s;
 }
 .btn:hover:not(:disabled):not([aria-disabled='true']) {
-	background: var(--glass-strong);
+	background: var(--rule);
 }
 .btn.primary {
-	background: var(--c-data);
-	border-color: var(--c-data);
-	color: var(--bg-void);
+	background: var(--btn-ink);
+	border-color: var(--btn-ink);
+	color: var(--btn-on-ink);
 }
 .btn.primary:hover:not(:disabled):not([aria-disabled='true']) {
-	background: #7aebff;
+	background: var(--btn-ink);
+	opacity: 0.88;
 }
 .btn:disabled,
 .btn[aria-disabled='true'] {

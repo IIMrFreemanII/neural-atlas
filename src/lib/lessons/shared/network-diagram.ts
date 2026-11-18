@@ -1,4 +1,4 @@
-import { tone } from '../../gpu/colors.ts';
+import { paperFill, tone } from '../../gpu/colors.ts';
 import { Lines, bezier } from '../../gpu/primitives/lines.ts';
 import { Points } from '../../gpu/primitives/points.ts';
 import type { Label, SceneContext, Tone, View } from '../../gpu/types.ts';
@@ -34,7 +34,7 @@ export class NetworkDiagram {
 	private edges: EdgeState[][];
 	private lines: Lines;
 	private rings: Points;
-	private glows: Points;
+	private discs: Points;
 
 	constructor(
 		ctx: Pick<SceneContext, 'gpu' | 'target' | 'view' | 'reducedMotion'>,
@@ -62,7 +62,7 @@ export class NetworkDiagram {
 		}
 		this.lines = new Lines(ctx, { capacity: Math.max(1, edgeCount * CURVE_SEGS), blend: 'alpha' });
 		this.rings = new Points(ctx, { capacity: Math.max(1, nodeCount), blend: 'alpha' });
-		this.glows = new Points(ctx, { capacity: Math.max(1, nodeCount), blend: 'additive' });
+		this.discs = new Points(ctx, { capacity: Math.max(1, nodeCount), blend: 'alpha' });
 	}
 
 	nodePos(layer: number, index: number): [number, number] {
@@ -96,7 +96,6 @@ export class NetworkDiagram {
 	}
 
 	commit(): void {
-		const motion = this.ctx.reducedMotion ? 0 : 1;
 		const wpp = this.worldPerPx();
 		const inset = this.radius * wpp;
 		let n = 0;
@@ -114,13 +113,13 @@ export class NetworkDiagram {
 					const t: Tone = e.tone ?? (e.weight < 0 ? 'neg' : 'param');
 					const width = clamp(1 + 3 * Math.abs(e.weight), 1, 7);
 					const f = e.emphasis;
-					const intensity = width < 2 ? 0.9 : 1.2;
+					// Continuous shader pulses are off in the paper look; discrete pulses come later.
 					n = this.lines.setPolyline(n, pts, {
 						width,
-						color: tone(t, intensity * f, 0.7 * f),
-						pulseSpeed: 0.3 * motion,
+						color: tone(t, 0.7 * f),
+						pulseSpeed: 0,
 						pulseCount: 2,
-						pulseGain: 3 * Math.min(1, Math.max(0, e.signal)) * motion
+						pulseGain: 0
 					});
 				}
 			}
@@ -135,27 +134,28 @@ export class NetworkDiagram {
 				const t = this.nodeTone(s);
 				const f = s.emphasis;
 				const kk = Math.min(Math.abs(s.value), 1.5) / 1.5;
-				this.rings.set(k, { x, y, radius: this.radius, ring: 2, color: tone(t, 1.3 * f, f) });
-				this.glows.set(k, {
+				// A paper-colored disc hides the edges behind the node; the ring carries tone and value.
+				this.discs.set(k, { x, y, radius: this.radius, color: paperFill() });
+				this.rings.set(k, {
 					x,
 					y,
-					radius: this.radius * 3.2,
-					softness: 1,
-					color: tone(t, (0.15 + 2.1 * kk) * f, (0.1 + 0.6 * kk) * f)
+					radius: this.radius,
+					ring: 1.5 + 1 * kk,
+					color: tone(t, (0.55 + 0.45 * kk) * f)
 				});
 				k++;
 			}
 		}
 		this.rings.count = k;
-		this.glows.count = k;
+		this.discs.count = k;
 		this.lines.upload();
 		this.rings.upload();
-		this.glows.upload();
+		this.discs.upload();
 	}
 
 	draw(pass: GPURenderPassEncoder): void {
 		this.lines.draw(pass);
-		this.glows.draw(pass);
+		this.discs.draw(pass);
 		this.rings.draw(pass);
 	}
 
@@ -214,6 +214,6 @@ export class NetworkDiagram {
 	destroy(): void {
 		this.lines.destroy();
 		this.rings.destroy();
-		this.glows.destroy();
+		this.discs.destroy();
 	}
 }

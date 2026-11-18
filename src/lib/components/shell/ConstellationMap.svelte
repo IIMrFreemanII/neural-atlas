@@ -76,7 +76,7 @@
 
 	<div class="map">
 		<div class="sky">
-			{#key settings.reducedMotion}<Stage createScene={createConstellationScene} {params} />{/key}
+			{#key `${settings.reducedMotion}|${settings.theme}`}<Stage createScene={createConstellationScene} {params} />{/key}
 		</div>
 
 		{#each tracks as track (track.id)}

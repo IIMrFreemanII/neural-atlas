@@ -42,7 +42,7 @@ export function toPixel(g: GridLayout, wx: number, wy: number): [number, number]
 /**
  * Write one quad per cell into `quads`, starting at instance `start`. `values` is row-major (row 0 on top) and
  * `color(value, index)` gives each cell's color. Returns the next free instance index. The caller sets quads.count
- * and calls upload(). Keep large bright areas dim (intensity below about 0.8) so they do not bloom.
+ * and calls upload(). Colors are ink on paper: encode value as density (alpha), so an empty cell is simply paper.
  */
 export function writeGrid(
 	quads: Quads,

@@ -28,7 +28,12 @@ export class Points {
 
 	constructor(
 		ctx: Pick<SceneContext, 'gpu' | 'target' | 'view'>,
-		opts: { capacity: number; blend?: 'alpha' | 'additive'; depthTest?: boolean }
+		opts: {
+			capacity: number;
+			/** @deprecated 'additive' draws exactly like 'alpha' since the paper redesign; remove glow layers instead. */
+			blend?: 'alpha' | 'additive';
+			depthTest?: boolean;
+		}
 	) {
 		const device = ctx.gpu.device;
 		this.device = device;
@@ -41,9 +46,9 @@ export class Points {
 			usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST
 		});
 		const module = createShader(device, 'points shader', src);
-		const additive = opts.blend === 'additive';
+		const dst: GPUBlendFactor = 'one-minus-src-alpha';
 		this.pipeline = device.createRenderPipeline({
-			label: additive ? 'points pipeline (additive)' : 'points pipeline (alpha)',
+			label: 'points pipeline (alpha)',
 			layout: device.createPipelineLayout({
 				label: 'points pipeline layout',
 				bindGroupLayouts: [ctx.view.bindGroupLayout]
@@ -72,12 +77,12 @@ export class Points {
 						blend: {
 							color: {
 								srcFactor: 'one',
-								dstFactor: additive ? 'one' : 'one-minus-src-alpha',
+								dstFactor: dst,
 								operation: 'add'
 							},
 							alpha: {
 								srcFactor: 'one',
-								dstFactor: additive ? 'one' : 'one-minus-src-alpha',
+								dstFactor: dst,
 								operation: 'add'
 							}
 						}

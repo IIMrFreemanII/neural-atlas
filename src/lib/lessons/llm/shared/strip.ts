@@ -15,7 +15,7 @@ export interface StripStyle {
 	vertical?: boolean;
 	/** Value that maps to full color. Default 1. */
 	maxAbs?: number;
-	/** Brightness multiplier. Default 0.9 (keeps a full cell below the bloom threshold). */
+	/** Ink density multiplier, 0..1. Default 1 (a full cell is fully inked; a zero cell is a faint tint). */
 	intensity?: number;
 	/** Default 1. */
 	alpha?: number;
@@ -30,7 +30,7 @@ export function stripLength(n: number, cell: number, gap = cell * 0.12): number 
 
 /**
  * Write a vector as a row (or column) of colored cells into `quads`, starting at instance `start`.
- * Positive values are 'data' cyan, negative 'neg' rose, brightness = |value| / maxAbs.
+ * Positive values are 'data' cyan, negative 'neg' rose, ink density = |value| / maxAbs (zero is a faint tint of paper).
  * Returns the next free instance index. The caller sets quads.count and calls upload().
  */
 export function writeStrip(quads: Quads, start: number, values: ArrayLike<number>, s: StripStyle): number {
@@ -46,7 +46,7 @@ export function writeStrip(quads: Quads, start: number, values: ArrayLike<number
 			y: s.vertical ? s.y - off : s.y,
 			w: s.vertical ? thick : s.cell,
 			h: s.vertical ? s.cell : thick,
-			color: diverging(values[i] / maxAbs, s.intensity ?? 0.9, s.alpha ?? 1),
+			color: diverging(values[i] / maxAbs, s.intensity ?? 1, s.alpha ?? 1),
 			radius: s.radius ?? 2
 		});
 	}
@@ -74,7 +74,7 @@ export function writeGrid(quads: Quads, start: number, values: ArrayLike<number>
 			y: s.y + height / 2 - thick / 2 - r * (thick + gap),
 			w: s.cell,
 			h: thick,
-			color: diverging(values[i] / maxAbs, s.intensity ?? 0.9, s.alpha ?? 1),
+			color: diverging(values[i] / maxAbs, s.intensity ?? 1, s.alpha ?? 1),
 			radius: s.radius ?? 2
 		});
 	}

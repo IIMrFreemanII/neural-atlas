@@ -1,6 +1,4 @@
 import type { Gpu, TargetInfo } from './types.ts';
-import { Bloom } from './post/bloom.ts';
-import { VOID } from './colors.ts';
 import { createShader } from './util.ts';
 import compositeSrc from './shaders/composite.wgsl?raw';
 
@@ -10,12 +8,10 @@ const SAMPLES = 4;
 
 export class Renderer {
 	readonly target: TargetInfo = { format: HDR, depthFormat: DEPTH, sampleCount: SAMPLES };
-	bloomStrength = 0.9;
 
 	private gpu: Gpu;
 	private canvas: HTMLCanvasElement;
 	private context: GPUCanvasContext;
-	private bloom: Bloom;
 	private msaa: GPUTexture | null = null;
 	private resolve: GPUTexture | null = null;
 	private depth: GPUTexture | null = null;
@@ -25,8 +21,6 @@ export class Renderer {
 	private compositeBgl: GPUBindGroupLayout;
 	private compositePipeline: GPURenderPipeline;
 	private compositeGroup: GPUBindGroup | null = null;
-	private paramsBuffer: GPUBuffer;
-	private paramsData = new Float32Array(4);
 	private sampler: GPUSampler;
 	private pw = 0;
 	private ph = 0;
@@ -37,10 +31,9 @@ export class Renderer {
 		const ctx = canvas.getContext('webgpu');
 		if (!ctx) throw new Error('Could not create a WebGPU canvas context');
 		this.context = ctx;
-		ctx.configure({ device: gpu.device, format: gpu.format, alphaMode: 'opaque' });
+		ctx.configure({ device: gpu.device, format: gpu.format, alphaMode: 'premultiplied' });
 
 		const device = gpu.device;
-		this.bloom = new Bloom(gpu);
 		this.sampler = device.createSampler({
 			label: 'composite sampler',
 			magFilter: 'linear',
@@ -48,18 +41,11 @@ export class Renderer {
 			addressModeU: 'clamp-to-edge',
 			addressModeV: 'clamp-to-edge'
 		});
-		this.paramsBuffer = device.createBuffer({
-			label: 'composite params',
-			size: 16,
-			usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
-		});
 		this.compositeBgl = device.createBindGroupLayout({
 			label: 'composite bgl',
 			entries: [
 				{ binding: 0, visibility: GPUShaderStage.FRAGMENT, sampler: { type: 'filtering' } },
-				{ binding: 1, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float' } },
-				{ binding: 2, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float' } },
-				{ binding: 3, visibility: GPUShaderStage.FRAGMENT, buffer: { type: 'uniform' } }
+				{ binding: 1, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float' } }
 			]
 		});
 		const module = createShader(device, 'composite shader', compositeSrc);
@@ -111,15 +97,12 @@ export class Renderer {
 		this.msaaView = this.msaa.createView();
 		this.resolveView = this.resolve.createView();
 		this.depthView = this.depth.createView();
-		this.bloom.resize(w, h, this.resolveView);
 		this.compositeGroup = device.createBindGroup({
 			label: 'composite bind group',
 			layout: this.compositeBgl,
 			entries: [
 				{ binding: 0, resource: this.sampler },
-				{ binding: 1, resource: this.resolveView },
-				{ binding: 2, resource: this.bloom.output },
-				{ binding: 3, resource: { buffer: this.paramsBuffer } }
+				{ binding: 1, resource: this.resolveView }
 			]
 		});
 	}
@@ -127,8 +110,6 @@ export class Renderer {
 	render(draw: (pass: GPURenderPassEncoder) => void): void {
 		if (!this.msaaView || !this.resolveView || !this.depthView || !this.compositeGroup) return;
 		const device = this.gpu.device;
-		this.paramsData[0] = this.bloomStrength;
-		device.queue.writeBuffer(this.paramsBuffer, 0, this.paramsData);
 
 		const encoder = device.createCommandEncoder({ label: 'frame' });
 		const scene = encoder.beginRenderPass({
@@ -139,7 +120,7 @@ export class Renderer {
 					resolveTarget: this.resolveView,
 					loadOp: 'clear',
 					storeOp: 'discard',
-					clearValue: { r: VOID[0], g: VOID[1], b: VOID[2], a: 1 }
+					clearValue: { r: 0, g: 0, b: 0, a: 0 }
 				}
 			],
 			depthStencilAttachment: {
@@ -152,8 +133,6 @@ export class Renderer {
 		draw(scene);
 		scene.end();
 
-		this.bloom.encode(encoder);
-
 		const composite = encoder.beginRenderPass({
 			label: 'composite pass',
 			colorAttachments: [
@@ -161,7 +140,7 @@ export class Renderer {
 					view: this.context.getCurrentTexture().createView(),
 					loadOp: 'clear',
 					storeOp: 'store',
-					clearValue: [0, 0, 0, 1]
+					clearValue: [0, 0, 0, 0]
 				}
 			]
 		});
@@ -184,8 +163,6 @@ export class Renderer {
 
 	destroy(): void {
 		this.releaseTargets();
-		this.bloom.destroy();
-		this.paramsBuffer.destroy();
 		this.context.unconfigure();
 	}
 }

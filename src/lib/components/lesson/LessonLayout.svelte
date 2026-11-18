@@ -250,7 +250,7 @@
 	</div>
 
 	<div class="stage-cell" id="lesson-stage" tabindex="-1" bind:this={stageCell}>
-		{#key settings.reducedMotion}
+		{#key `${settings.reducedMotion}|${settings.theme}`}
 			<Stage
 				bind:this={stage}
 				createScene={lesson.createScene}

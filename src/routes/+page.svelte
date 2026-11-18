@@ -10,7 +10,7 @@
 
 <section class="hero">
 	<div class="bg">
-		{#key settings.reducedMotion}<Stage createScene={createHeroScene} />{/key}
+		{#key `${settings.reducedMotion}|${settings.theme}`}<Stage createScene={createHeroScene} />{/key}
 	</div>
 	<div class="content">
 		<p class="eyebrow">Neural Atlas</p>

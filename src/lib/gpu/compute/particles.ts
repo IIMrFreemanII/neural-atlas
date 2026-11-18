@@ -7,7 +7,7 @@ export const MAX_GROUPS = 8;
 
 export interface ParticleCloudOptions {
 	capacity: number;
-	/** Default 'alpha'. */
+	/** Default 'alpha'. 'additive' is @deprecated: it draws exactly like 'alpha' since the paper redesign; remove glow layers instead. */
 	blend?: 'alpha' | 'additive';
 }
 
@@ -148,10 +148,9 @@ export class ParticleCloud {
 			layout: styleLayout,
 			entries: [{ binding: 0, resource: { buffer: this.styleBuf } }]
 		});
-		const additive = opts.blend === 'additive';
-		const dst: GPUBlendFactor = additive ? 'one' : 'one-minus-src-alpha';
+		const dst: GPUBlendFactor = 'one-minus-src-alpha';
 		this.renderPipeline = device.createRenderPipeline({
-			label: additive ? 'particles pipeline (additive)' : 'particles pipeline (alpha)',
+			label: 'particles pipeline (alpha)',
 			layout: device.createPipelineLayout({
 				bindGroupLayouts: [ctx.view.bindGroupLayout, styleLayout]
 			}),

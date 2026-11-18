@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { TONE_HEX } from '../../gpu/colors.ts';
 	import { getGpu } from '../../gpu/device.ts';
 	import { createFrameLoop } from '../../gpu/frame.ts';
 	import { Renderer } from '../../gpu/renderer.ts';
-	import type { Label, Scene, SceneFactory, ScenePointer, Tone } from '../../gpu/types.ts';
+	import { setPalette } from '../../gpu/theme.ts';
+	import type { Insets, Label, Scene, SceneFactory, ScenePointer, Tone } from '../../gpu/types.ts';
 	import { settings } from '../../state/settings.svelte.ts';
 	import { ViewUniforms } from '../../gpu/view.ts';
 
@@ -22,9 +22,11 @@
 		paused?: boolean;
 		/** Called when the scene emits a readout value. */
 		onreadout?: (key: string, value: number | string) => void;
+		/** Parts of the stage covered by the host page's floating UI, in CSS px. null = the scene's defaults. */
+		insets?: Insets | null;
 	}
 
-	let { createScene, params = {}, highlight = null, paused = false, onreadout }: Props = $props();
+	let { createScene, params = {}, highlight = null, paused = false, onreadout, insets = null }: Props = $props();
 
 	let container: HTMLDivElement;
 	let canvas = $state<HTMLCanvasElement>();
@@ -35,6 +37,7 @@
 	let ready = false;
 	let loop: ReturnType<typeof createFrameLoop> | null = null;
 	let onScreen = true;
+	let viewRef: ViewUniforms | null = null;
 
 	/** Forward a lesson action to scene.command(id). */
 	export function command(id: string): void {
@@ -54,6 +57,11 @@
 		if (loop) loop.paused = p;
 	});
 
+	$effect(() => {
+		const i = insets;
+		viewRef?.setInsets(i);
+	});
+
 	function syncRunning() {
 		if (!loop) return;
 		if (onScreen && !document.hidden) loop.start();
@@ -64,6 +72,7 @@
 		let destroyed = false;
 		let renderer: Renderer | null = null;
 		let view: ViewUniforms | null = null;
+		setPalette(settings.theme);
 		let resizeObs: ResizeObserver | null = null;
 		let intersectObs: IntersectionObserver | null = null;
 
@@ -80,6 +89,7 @@
 				console.error(err);
 			}
 			scene = null;
+			viewRef = null;
 			view?.destroy();
 			renderer?.destroy();
 			view = null;
@@ -103,6 +113,8 @@
 				if (!canvas) throw new Error('Stage canvas missing');
 				renderer = new Renderer(gpu, canvas);
 				view = new ViewUniforms(gpu);
+				view.setInsets(insets);
+				viewRef = view;
 				const r = renderer;
 				const v = view;
 				const rect = container.getBoundingClientRect();
@@ -183,7 +195,7 @@
 		return (
 			`transform: translate(${l.x}px, ${l.y}px) translate(${ALIGN[l.align ?? 'center']});` +
 			`opacity: ${l.opacity ?? 1};` +
-			`color: var(--c-${t}, ${TONE_HEX[t]});` +
+			`color: var(--c-${t});` +
 			`font-family: ${font};` +
 			(l.size ? `font-size: ${l.size}px;` : '')
 		);
@@ -225,9 +237,11 @@
 		width: 100%;
 		height: 100%;
 		overflow: hidden;
+		background: transparent;
 	}
 	canvas {
 		display: block;
+		background: transparent;
 		width: 100%;
 		height: 100%;
 	}
@@ -244,13 +258,13 @@
 		font-size: 12px;
 		white-space: nowrap;
 		will-change: transform;
-		/* A dark outline and halo keep labels readable where they cross bright lines. */
-		-webkit-text-stroke: 3px var(--bg-void, #07080d);
+		/* A paper-colored outline and halo keep labels readable where they cross ink. */
+		-webkit-text-stroke: 3px var(--pg);
 		paint-order: stroke fill;
 		text-shadow:
-			0 0 3px var(--bg-void, #07080d),
-			0 0 6px var(--bg-void, #07080d),
-			0 0 1px var(--bg-void, #07080d);
+			0 0 3px var(--pg),
+			0 0 6px var(--pg),
+			0 0 1px var(--pg);
 	}
 	.notice {
 		position: absolute;
@@ -262,7 +276,7 @@
 		gap: 6px;
 		padding: 16px;
 		text-align: center;
-		color: var(--c-text, #e8eaf2);
+		color: var(--ink);
 	}
 	.notice h3 {
 		margin: 0;
@@ -272,6 +286,6 @@
 	.notice p {
 		margin: 0;
 		font-size: 13px;
-		color: var(--c-muted, #5c647a);
+		color: var(--ink-3);
 	}
 </style>

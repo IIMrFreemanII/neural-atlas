@@ -1,4 +1,4 @@
-import type { Gpu, View } from './types.ts';
+import type { Gpu, Insets, View } from './types.ts';
 
 const IDENTITY = new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]);
 
@@ -46,6 +46,7 @@ export class ViewUniforms implements View {
 	width = 1;
 	height = 1;
 	dpr = 1;
+	insets: Insets | null = null;
 	private buffer: GPUBuffer;
 	private device: GPUDevice;
 	private f32 = new Float32Array(20);
@@ -86,6 +87,10 @@ export class ViewUniforms implements View {
 		this.height = cssHeight;
 		this.dpr = dpr;
 		this.dirty = true;
+	}
+
+	setInsets(i: Insets | null): void {
+		this.insets = i;
 	}
 
 	setTime(time: number): void {

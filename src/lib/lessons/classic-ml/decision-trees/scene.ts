@@ -1,5 +1,5 @@
 import { Camera2D } from '../../../gpu/camera.ts';
-import { mixColor, tone, VOID } from '../../../gpu/colors.ts';
+import { mixColor, paperFill, tone } from '../../../gpu/colors.ts';
 import { Field } from '../../../gpu/primitives/field.ts';
 import { Lines, type SegmentStyle } from '../../../gpu/primitives/lines.ts';
 import { Points, type PointStyle } from '../../../gpu/primitives/points.ts';
@@ -526,7 +526,7 @@ export const createDecisionTreesScene: SceneFactory = () => {
 					const o = u(onPath ? 3.5 : 2);
 					const oc = onPath ? tone('grad', 1.1, 0.95 * mG) : tone('text', 1, 0.5 * mT);
 					Q.add({ x, y, w: w + o, h: h + o, radius: 6, color: oc });
-					Q.add({ x, y, w, h, radius: 5, color: [VOID[0], VOID[1], VOID[2], 0.97] });
+					Q.add({ x, y, w, h, radius: 5, color: paperFill(0.97) });
 					label(`n${i}`, x, y, question(n.node), { tone: 'text', opacity: mT * fade });
 				}
 			});

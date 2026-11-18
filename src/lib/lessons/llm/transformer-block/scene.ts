@@ -1,5 +1,5 @@
 import { Camera2D } from '../../../gpu/camera.ts';
-import { diverging, tone, VOID } from '../../../gpu/colors.ts';
+import { diverging, paperFill, tone } from '../../../gpu/colors.ts';
 import { bezier, Lines } from '../../../gpu/primitives/lines.ts';
 import { Points } from '../../../gpu/primitives/points.ts';
 import { Quads } from '../../../gpu/primitives/quads.ts';
@@ -399,7 +399,7 @@ export const createTransformerBlockScene: SceneFactory = () => {
 						],
 						{ width: 1.2, color: tone('data', 0.6, 0.6 * bright * mData * dA) }
 					);
-					dots.set(nD++, { x: lx, y: a.y, radius: 8, color: [VOID[0], VOID[1], VOID[2], dA * under] });
+					dots.set(nD++, { x: lx, y: a.y, radius: 8, color: paperFill(dA * under) });
 					dots.set(nD++, { x: lx, y: a.y, radius: 8, ring: 1.2, color: tone('text', 0.7 + 0.8 * f, 0.9 * bright * nm * dA) });
 					const pc = tone('text', 0.8, 0.85 * (0.4 + 0.6 * bright) * nm * dA);
 						const arm = px(4.5);
@@ -459,7 +459,7 @@ export const createTransformerBlockScene: SceneFactory = () => {
 		// ---- inspector
 		if (inspOn) {
 			const { cx, cy, w, h } = inspC;
-			backdrop.set(nBd++, { x: cx, y: cy, w, h, color: [VOID[0], VOID[1], VOID[2], inspA], radius: 8 });
+			backdrop.set(nBd++, { x: cx, y: cy, w, h, color: paperFill(inspA), radius: 8 });
 			nIL = ilines.setPolyline(nIL, rrPts(cx, cy, w, h, px(8)), { width: 1, color: tone('muted', 1, 0.7 * inspA) });
 			const tok = `${model.tokens[sel]} · ${ORDINALS[sel]}`;
 			labI('insp-title', cx, cy + h / 2 - 0.09, tok, { size: 11, tone: 'muted', mono: true });
