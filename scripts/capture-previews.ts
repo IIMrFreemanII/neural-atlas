@@ -37,6 +37,7 @@ const STEP: Record<string, number> = {
 	'fundamentals/loss-landscape': 7,
 	'classic-ml/linear-regression': 6,
 	'classic-ml/k-means': 7,
+	'classic-ml/decision-trees': 6,
 	'llm/embeddings': 2,
 	'llm/attention': 8,
 	'llm/training': 6,

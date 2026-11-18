@@ -15,6 +15,7 @@ const POSITIONS: Record<string, [x: number, y: number]> = {
 	'classic-ml/decision-boundaries': [175, 195],
 	'classic-ml/k-means': [95, 290],
 	'classic-ml/overfitting': [180, 385],
+	'classic-ml/decision-trees': [95, 470],
 	// A dipper in the middle: three handle stars, then the four corners of the bowl.
 	'fundamentals/neuron': [300, 270],
 	'fundamentals/activations': [365, 205],

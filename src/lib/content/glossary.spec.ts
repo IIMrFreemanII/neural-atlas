@@ -5,9 +5,9 @@ import { findEntry, glossary, searchGlossary, termsForLesson } from './glossary.
 const keys = allLessons.map((l) => `${l.track}/${l.id}`);
 
 describe('glossary data', () => {
-	it('has between 70 and 95 entries', () => {
+	it('has between 70 and 100 entries', () => {
 		expect(glossary.length).toBeGreaterThanOrEqual(70);
-		expect(glossary.length).toBeLessThanOrEqual(95);
+		expect(glossary.length).toBeLessThanOrEqual(100);
 	});
 
 	it('has unique kebab-case ids', () => {

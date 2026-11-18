@@ -68,6 +68,15 @@ const entries: GlossaryEntry[] = [
 		related: ['chain-rule', 'gradient', 'forward-pass']
 	},
 	{
+		id: 'bagging',
+		term: 'bagging',
+		aliases: ['bootstrap aggregating'],
+		definition:
+			'Training each model on a random resample of the data, with some examples used twice and some left out, then averaging their answers. The average is steadier than any one model.',
+		lessons: ['classic-ml/decision-trees'],
+		related: ['random-forest', 'bias-and-variance']
+	},
+	{
 		id: 'batch',
 		term: 'batch',
 		definition:
@@ -212,8 +221,8 @@ const entries: GlossaryEntry[] = [
 		term: 'decision tree',
 		definition:
 			'A classifier that asks a series of yes or no questions about the inputs, each one cutting a region in two. Its boundary is a staircase of straight cuts.',
-		lessons: ['classic-ml/decision-boundaries'],
-		related: ['decision-boundary', 'classification']
+		lessons: ['classic-ml/decision-boundaries', 'classic-ml/decision-trees'],
+		related: ['decision-boundary', 'classification', 'random-forest']
 	},
 	{
 		id: 'denoising',
@@ -291,6 +300,15 @@ const entries: GlossaryEntry[] = [
 			'fundamentals/train-a-network'
 		],
 		related: ['layer', 'backpropagation', 'neural-network']
+	},
+	{
+		id: 'gini-impurity',
+		term: 'Gini impurity',
+		aliases: ['Gini'],
+		definition:
+			'A number for how mixed a group of examples is: 0 when they all share one class, 0.5 for an even mix of two. A tree picks the cut that gives its two sides the lowest weighted impurity.',
+		lessons: ['classic-ml/decision-trees', 'classic-ml/decision-boundaries'],
+		related: ['decision-tree', 'classification']
 	},
 	{
 		id: 'gradient',
@@ -606,7 +624,7 @@ const entries: GlossaryEntry[] = [
 		aliases: ['overfit'],
 		definition:
 			'When a model is so flexible that it chases the noise in its training data. Its training error is low, but it does badly on data it has not seen.',
-		lessons: ['classic-ml/overfitting', 'classic-ml/decision-boundaries', 'llm/training'],
+		lessons: ['classic-ml/overfitting', 'classic-ml/decision-boundaries', 'classic-ml/decision-trees', 'llm/training'],
 		related: ['underfitting', 'test-set', 'model-complexity']
 	},
 	{
@@ -682,6 +700,14 @@ const entries: GlossaryEntry[] = [
 		tone: 'ok',
 		lessons: ['llm/attention'],
 		related: ['key', 'value', 'self-attention']
+	},
+	{
+		id: 'random-forest',
+		term: 'random forest',
+		definition:
+			'Many decision trees, each grown on a random resample of the data and with random choices of question, whose answers are averaged. It overfits far less than a single deep tree.',
+		lessons: ['classic-ml/decision-trees'],
+		related: ['decision-tree', 'bagging', 'overfitting']
 	},
 	{
 		id: 'receptive-field',
@@ -809,7 +835,7 @@ const entries: GlossaryEntry[] = [
 		definition:
 			'Examples kept out of the fitting and used only to check how a model does on data it has never seen. The error on them is the test error.',
 		tone: 'ok',
-		lessons: ['classic-ml/overfitting', 'llm/training'],
+		lessons: ['classic-ml/overfitting', 'classic-ml/decision-trees', 'llm/training'],
 		related: ['training-set', 'overfitting']
 	},
 	{

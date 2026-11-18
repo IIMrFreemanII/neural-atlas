@@ -85,13 +85,15 @@ export const tracks: Track[] = [
 				['linear-regression', 'Linear regression', 'Fit a line to noisy points by minimizing squared error.', 5],
 				['decision-boundaries', 'Decision boundaries', 'See how different classifiers carve a plane into regions.', 6],
 				['k-means', 'K-means clustering', 'Group unlabeled points by alternating assignment and averaging.', 5],
-				['overfitting', 'Overfitting and underfitting', 'Too simple a model misses the pattern, too flexible a model memorizes noise.', 7]
+				['overfitting', 'Overfitting and underfitting', 'Too simple a model misses the pattern, too flexible a model memorizes noise.', 7],
+				['decision-trees', 'Decision trees and forests', 'Grow a tree of yes-or-no questions, watch it overfit, then let a forest of trees vote.', 8]
 			],
 			{
 				'linear-regression': () => import('../lessons/classic-ml/linear-regression/lesson.ts'),
 				'decision-boundaries': () => import('../lessons/classic-ml/decision-boundaries/lesson.ts'),
 				'k-means': () => import('../lessons/classic-ml/k-means/lesson.ts'),
-				overfitting: () => import('../lessons/classic-ml/overfitting/lesson.ts')
+				overfitting: () => import('../lessons/classic-ml/overfitting/lesson.ts'),
+				'decision-trees': () => import('../lessons/classic-ml/decision-trees/lesson.ts')
 			}
 		)
 	},

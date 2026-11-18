@@ -10,12 +10,12 @@ Try it at <https://iimrfreemanii.github.io/neural-atlas/>.
 
 ## What is in it
 
-Twenty lessons in four tracks:
+Twenty-two lessons in four tracks:
 
 - **Neural net fundamentals**: the neuron, activation functions, forward pass, loss landscape, gradient
   descent, backpropagation, train a network.
 - **Classic machine learning**: linear regression, decision boundaries, k-means clustering, overfitting and
-  underfitting.
+  underfitting, decision trees and random forests.
 - **LLMs and transformers**: tokenization, embedding space, self-attention, inside a transformer block,
   next-token sampling, watching a model learn.
 - **Vision and generative**: convolution, CNN feature maps, latent space (an autoencoder), diffusion.

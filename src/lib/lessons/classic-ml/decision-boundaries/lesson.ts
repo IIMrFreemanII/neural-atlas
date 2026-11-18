@@ -97,7 +97,7 @@ const lesson: LessonDef = {
 			params: { scenario: 6, model: 2, dataset: 1, depth: 1 },
 			controls: ['depth'],
 			deepDive: {
-				note: 'At each node the tree tries every cut on each axis and keeps the one that makes the two sides purest. Purity is measured with Gini impurity.',
+				note: 'At each node the tree tries every cut on each axis and keeps the one that makes the two sides purest. Purity is measured with Gini impurity. The Decision trees and forests lesson grows a tree one question at a time.',
 				math: [
 					{ tex: 'G = 1 - p_A^2 - p_B^2 = 2\\,p_A\\,(1 - p_A)' },
 					{
