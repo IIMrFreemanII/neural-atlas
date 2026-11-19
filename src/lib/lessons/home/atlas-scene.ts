@@ -1,3 +1,4 @@
+import { tracks } from '../../content/curriculum.ts';
 import { OrbitRig, type Pose } from '../../gpu/camera.ts';
 import { mixColor, sheetFill, tone } from '../../gpu/colors.ts';
 import { Lines, type SegmentStyle } from '../../gpu/primitives/lines.ts';
@@ -18,20 +19,36 @@ export const regions = [
 	{ id: 'vision', label: 'Vision models', tone: 'grad', center: [5.9, 0, 3.9] }
 ] as const satisfies readonly { id: string; label: string; tone: Tone; center: Readonly<Vec3> }[];
 
-const lessonLabels = [
-	'The neuron', 'Activation functions', 'Forward pass', 'Loss landscape',
-	'Gradient descent', 'Backpropagation', 'Train a network'
+const leftOrbit: Vec3[] = [
+	[-2.8, 1.14, -1.82], [-3.18, 0.62, -0.69], [-3.2, 0.32, 0.8], [-2.56, 0.06, 2.13]
 ];
-const lessonPoints: Vec3[] = [
-	[-2.8, 1.14, -1.82], [-3.18, 0.62, -0.69], [-3.2, 0.32, 0.8],
-	[-2.56, 0.06, 2.13], [2.5, 0.07, 2.1], [3.15, 0.57, 0.22], [2.8, 1.11, -1.73]
-];
+const rightOrbit: Vec3[] = [[2.5, 0.07, 2.1], [3.15, 0.57, 0.22], [2.8, 1.11, -1.73]];
+
+function orbitPoints(profile: Vec3[], count: number): Vec3[] {
+	return Array.from({ length: count }, (_, i) => {
+		const t = count === 1 ? (profile.length - 1) / 2 : i * (profile.length - 1) / (count - 1);
+		const start = Math.floor(t);
+		const end = Math.ceil(t);
+		const blend = t - start;
+		const a = profile[start];
+		const b = profile[end];
+		return [a[0] + (b[0] - a[0]) * blend, a[1] + (b[1] - a[1]) * blend, a[2] + (b[2] - a[2]) * blend];
+	});
+}
+
+const lessonLayouts = regions.map(({ id, center }) => {
+	const lessons = tracks.find((track) => track.id === id)?.lessons ?? [];
+	const split = Math.ceil(lessons.length / 2);
+	const offsets = [...orbitPoints(leftOrbit, split), ...orbitPoints(rightOrbit, lessons.length - split)];
+	return { lessons, split, offsets, points: offsets.map((offset) => plus(center, offset)) };
+});
 const TAU = Math.PI * 2;
 const FOV = 0.63;
 
 export interface AtlasAnchor {
 	id: string;
 	kind: 'region' | 'lesson';
+	region: (typeof regions)[number]['id'];
 	x: number;
 	y: number;
 	label: string;
@@ -350,27 +367,27 @@ function sculpture(ctx: SceneContext, index: number) {
 	};
 }
 
-function satellites(ctx: SceneContext) {
-	const points = lessonPoints.map((p) => plus(regions[0].center, p));
+function satellites(ctx: SceneContext, regionIndex: number) {
+	const { points, split } = lessonLayouts[regionIndex];
+	const tint = regions[regionIndex].tone;
 	const strokes: SegmentStyle[] = [];
 	for (let i = 1; i < points.length; i++) {
 		const a = points[i - 1];
 		const b = points[i];
-		if (i === 4) {
+		if (i === split) {
 			path(strokes, sample(36, (t) => [
 				a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t,
 				a[2] + (b[2] - a[2]) * t + 0.66 * Math.sin(t * Math.PI)
-			]), { width: 1.1, color: tone('data', 0.6) });
-		} else path(strokes, [a, b], { width: 1.1, color: tone('data', 0.6) });
+			]), { width: 1.1, color: tone(tint, 0.6) });
+		} else path(strokes, [a, b], { width: 1.1, color: tone(tint, 0.6) });
 	}
 	const lines = lineLayer(ctx, strokes);
 	const nodes = new Points(ctx, { capacity: points.length, shade: 'sphere', size: 'world', depthTest: true });
 	return {
-		points,
 		set(index: number, completed: number) {
 			points.forEach((p, i) => nodes.set(i, {
-				x: p[0], y: p[1], z: p[2], radius: i === index ? 0.15 : 0.095,
-				color: tone(i === index ? 'param' : completed & (1 << i) ? 'ok' : 'data')
+				x: p[0], y: p[1], z: p[2], radius: i === index ? 0.15 : completed & (1 << i) ? 0.12 : 0.095,
+				color: tone(i === index ? 'text' : completed & (1 << i) ? 'ok' : tint)
 			}));
 			nodes.count = points.length;
 			nodes.upload();
@@ -387,7 +404,6 @@ function satellites(ctx: SceneContext) {
 }
 
 const regionAnchors = regions.map(({ center }) => plus(center, [0, -0.13, 1.96]));
-const markerWorld = lessonPoints.map((point) => plus(regions[0].center, point));
 const bounds = regions.map(({ center }) => [
 	...ring(center, 2.19, -0.17), ...ring(center, 2.19, 0.24), ...ring(center, 1.75, 2.34, 0.67)
 ]);
@@ -398,10 +414,11 @@ function fitPose(ctx: SceneContext, region: number, lesson: number): Pose {
 	const overview = region === 0;
 	const fundamentals = region === 1;
 	const wide = view.width > 630;
-	const selected = fundamentals ? lessonPoints[lesson] : undefined;
+	const layout = lessonLayouts[region - 1];
+	const selected = layout?.offsets[lesson];
 	const target: Vec3 = overview
 		? [0.02, 0.16, 1.42]
-		: plus(regions[region - 1].center, [0, fundamentals ? 0.91 : 0.96, fundamentals ? 0.34 : 0.12]);
+		: plus(regions[region - 1].center, [0, fundamentals ? 0.91 : 0.89, 0.34]);
 	if (selected) {
 		target[0] += 0.095 * selected[0];
 		target[1] += 0.075 * (selected[1] - 0.62);
@@ -409,17 +426,17 @@ function fitPose(ctx: SceneContext, region: number, lesson: number): Pose {
 	}
 	const pose: Pose = {
 		target,
-		azimuth: overview ? (wide ? 0.19 : 0.13) : fundamentals ? 0.16 + 0.014 * (selected?.[0] ?? 0) : 0.34,
+		azimuth: overview ? (wide ? 0.19 : 0.13) : (fundamentals ? 0.16 : 0.25) + 0.014 * (selected?.[0] ?? 0),
 		elevation: overview ? (wide ? 0.54 : 0.82) : 0.64,
 		distance: overview ? 15 : 6
 	};
 	const shape = overview ? bounds.flat() : bounds[region - 1];
-	const markers = overview ? regionAnchors : fundamentals ? markerWorld : [regionAnchors[region - 1]];
+	const markers = overview ? regionAnchors : layout.points;
 	const left = view.width * (overview ? 0.06 : 0.055);
 	const right = view.width - left;
 	const top = 52;
 	const bottom = Math.max(top, view.height - 44);
-	const labelMargin = overview ? Math.min(85, view.width * 0.18) : fundamentals ? Math.min(71, view.width * 0.17) : 80;
+	const labelMargin = overview ? Math.min(85, view.width * 0.18) : Math.min(81, view.width * 0.14);
 	for (let attempt = 0; attempt < 46; attempt++) {
 		layoutRig.setPose(pose);
 		const matrix = layoutRig.matrix(view.aspect);
@@ -432,7 +449,7 @@ function fitPose(ctx: SceneContext, region: number, lesson: number): Pose {
 		pose.distance *= 1.055;
 	}
 	// Keep clearance for all lesson labels while moving into the selected chapter.
-	if (fundamentals && lesson < 0) pose.distance *= 1.048;
+	if (!overview && lesson < 0) pose.distance *= 1.048;
 	return pose;
 }
 
@@ -441,7 +458,7 @@ export function createAtlasScene(onanchors: (anchors: AtlasAnchor[]) => void, re
 	const sculptures: ReturnType<typeof sculpture>[] = [];
 	let routes: Lines | undefined;
 	let travelRemaining = 0;
-	let lessonNodes: ReturnType<typeof satellites> | undefined;
+	const lessonNodes: ReturnType<typeof satellites>[] = [];
 	let orbit: SceneOrbit;
 	let region = 0;
 	let lesson = -1;
@@ -457,36 +474,44 @@ export function createAtlasScene(onanchors: (anchors: AtlasAnchor[]) => void, re
 		const { view } = ctx;
 		const width = view.width;
 		const compact = width < 630;
-		const projected = region === 1
-			? lessonLabels.map((label, i): AtlasAnchor => {
-				const [px, py] = view.project(...markerWorld[i]);
-				const alignOffset = i < 4 ? -10 : 10;
-				const horizontal = compact ? 65 : 78;
+		const layout = lessonLayouts[region - 1];
+		const focused = regions[region - 1];
+		const projected = focused
+			? layout.lessons.map(({ title }, i): AtlasAnchor => {
+				const [px, py] = view.project(...layout.points[i]);
+				const left = i < layout.split;
+				const horizontal = compact ? 66 : 89;
 				return {
-					id: String(i), kind: 'lesson', label, tone: completed & (1 << i) ? 'ok' : 'data',
-					x: constrain(px + alignOffset, horizontal, width - horizontal),
+					id: String(i), kind: 'lesson', region: focused.id, label: title,
+					tone: completed & (1 << i) ? 'ok' : focused.tone,
+					x: constrain(
+						px + (left ? -12 : 12),
+						left ? horizontal : width / 2 + horizontal,
+						left ? width / 2 - horizontal : width - horizontal
+					),
 					y: constrain(py + 18, 51, view.height - 52)
 				};
 			})
-			: regions.flatMap(({ id, label, tone: tint }, i): AtlasAnchor[] => {
-				if (region !== 0 && region !== i + 1) return [];
+			: regions.map(({ id, label, tone: tint }, i): AtlasAnchor => {
 				const [px, py] = view.project(...regionAnchors[i]);
-				const horizontal = compact ? 60 : 88;
-				return [{
-					id, kind: 'region', label, tone: tint,
+				const horizontal = compact ? 63 : 95;
+				return {
+					id, kind: 'region', region: id, label, tone: tint,
 					x: constrain(px, horizontal, width - horizontal),
 					y: constrain(py + 15, 58, view.height - 55)
-				}];
+				};
 			});
 
 		// Preserve the spatial order when orbiting brings two captions closer than their hit areas.
-		if (region === 1) {
-			for (const side of [projected.slice(0, 4), projected.slice(4).reverse()]) {
-				for (let i = 1; i < side.length; i++) side[i].y = Math.max(side[i].y, side[i - 1].y + 43);
+		if (focused) {
+			const spacing = compact ? 56 : 47;
+			for (const side of [projected.slice(0, layout.split), projected.slice(layout.split).reverse()]) {
+				if (!side.length) continue;
+				for (let i = 1; i < side.length; i++) side[i].y = Math.max(side[i].y, side[i - 1].y + spacing);
 				const overflow = side[side.length - 1].y - (view.height - 53);
 				if (overflow > 0) side.forEach((anchor) => { anchor.y -= overflow; });
 			}
-		} else if (compact && region === 0) {
+		} else if (compact) {
 			for (const [top, bottom] of [[0, 1], [2, 3]]) {
 				projected[bottom].y = Math.max(projected[bottom].y, projected[top].y + 55);
 			}
@@ -494,7 +519,8 @@ export function createAtlasScene(onanchors: (anchors: AtlasAnchor[]) => void, re
 		if (
 			anchors.length === projected.length &&
 			projected.every((item, i) =>
-				item.id === anchors[i].id && item.kind === anchors[i].kind && item.tone === anchors[i].tone &&
+				item.id === anchors[i].id && item.kind === anchors[i].kind && item.region === anchors[i].region &&
+				item.tone === anchors[i].tone &&
 				Math.abs(item.x - anchors[i].x) < 0.25 && Math.abs(item.y - anchors[i].y) < 0.25
 			)
 		) return;
@@ -507,9 +533,10 @@ export function createAtlasScene(onanchors: (anchors: AtlasAnchor[]) => void, re
 			ctx = { ...context, reducedMotion };
 			orbit = new SceneOrbit(ctx, rig);
 			routes = atlasRoutes(ctx);
-			regions.forEach((_, i) => { sculptures.push(sculpture(ctx, i)); });
-			lessonNodes = satellites(ctx);
-			lessonNodes.set(-1, 0);
+			regions.forEach((_, i) => {
+				sculptures.push(sculpture(ctx, i));
+				lessonNodes.push(satellites(ctx, i));
+			});
 		},
 		setParams(params) {
 			const nextRegion = params.region ?? 0;
@@ -521,7 +548,7 @@ export function createAtlasScene(onanchors: (anchors: AtlasAnchor[]) => void, re
 			region = nextRegion;
 			lesson = nextLesson;
 			completed = nextCompleted;
-			lessonNodes?.set(lesson, completed);
+			lessonNodes[region - 1]?.set(lesson, completed);
 		},
 		update({ dt }) {
 			if (poseChanged || ctx.view.width !== previousWidth || ctx.view.height !== previousHeight) {
@@ -544,7 +571,7 @@ export function createAtlasScene(onanchors: (anchors: AtlasAnchor[]) => void, re
 			} else {
 				sculptures[region - 1]?.draw(pass);
 			}
-			if (region === 1) lessonNodes?.draw(pass);
+			lessonNodes[region - 1]?.draw(pass);
 		},
 		pointer(event) { orbit.pointer(event); },
 		command(id) {
@@ -554,7 +581,7 @@ export function createAtlasScene(onanchors: (anchors: AtlasAnchor[]) => void, re
 		dispose() {
 			routes?.destroy();
 			sculptures.forEach((part) => part.dispose());
-			lessonNodes?.dispose();
+			lessonNodes.forEach((part) => part.dispose());
 		}
 	};
 }

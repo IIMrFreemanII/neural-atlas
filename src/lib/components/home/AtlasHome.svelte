@@ -8,7 +8,6 @@
 	import { progress } from '../../state/progress.svelte.ts';
 	import { settings } from '../../state/settings.svelte.ts';
 
-	const fundamentals = tracks[0];
 	const regionNames = ['Neural networks', 'Classic machine learning', 'Language models', 'Vision & generation'];
 	const motifs = ['From one neuron to a learning system', 'Find the structure in your data', 'Inside the machinery of language', 'From pixels to possibilities'];
 	let region = $state<string | null>(null);
@@ -17,15 +16,15 @@
 	let scene: AtlasScene | undefined = $state();
 	let detailHeading: HTMLHeadingElement | undefined = $state();
 	const selectedTrack = $derived(tracks.find((t) => t.id === region));
-	const selectedLesson = $derived(region === 'fundamentals' && lesson !== null ? fundamentals.lessons[lesson] : null);
-	const completedMask = $derived(doneMask((key) => progress.isComplete(key)));
+	const selectedLesson = $derived(lesson !== null ? selectedTrack?.lessons[lesson] ?? null : null);
+	const completedMask = $derived(selectedTrack?.lessons.reduce((mask, item, i) => progress.isComplete(lessonKey(item.track, item.id)) ? mask | (1 << i) : mask, 0) ?? 0);
 	const completed = $derived(allLessons.filter((l) => progress.isComplete(lessonKey(l.track, l.id))).length);
 	const solved = $derived(allLessons.reduce((n, l) => n + progress.solvedCount(lessonKey(l.track, l.id), l.questions), 0));
 	const nextIndex = $derived(nextUp(doneMask((key) => progress.isComplete(key))));
 	const next = $derived(nextIndex >= 0 ? allLessons[nextIndex] : null);
 	const hasProgress = $derived(completed > 0 || solved > 0 || allLessons.some((l) => progress.getStep(lessonKey(l.track, l.id)) > 0));
 	const prerequisites = $derived(selectedLesson?.prerequisites.map((key) => allLessons.find((l) => lessonKey(l.track, l.id) === key)).filter((l) => l !== undefined) ?? []);
-	const plate = (id: string) => asset(`previews/fundamentals/${id}.jpg` as Parameters<typeof asset>[0]);
+	const plate = (track: string, id: string) => asset(`previews/${track}/${id}.jpg` as Parameters<typeof asset>[0]);
 
 	async function focusDetails() {
 		await tick();
@@ -37,12 +36,13 @@
 		void focusDetails();
 	}
 	function selectLesson(index: number) {
-		region = 'fundamentals';
+		if (!selectedTrack?.lessons[index]) return;
 		lesson = index;
 		void focusDetails();
 	}
 	function chooseStart(value: 'new' | 'experienced') {
 		audience = value;
+		region = 'fundamentals';
 		selectLesson(value === 'new' ? 0 : 2);
 	}
 	function overview() {
@@ -88,10 +88,10 @@
 			{#if selectedTrack}
 				<aside class="detail" aria-label="Topic and lesson preview" style:--accent="var(--c-{selectedTrack.tone})">
 					{#if selectedLesson}
-						<div class="preview-meta"><span>Lesson {lesson! + 1} / {fundamentals.lessons.length}</span><button onclick={() => selectRegion('fundamentals')} aria-label="Back to Fundamentals overview">All seven lessons ↗</button></div>
-						<img class="preview-image" src={plate(selectedLesson.id)} alt="Interactive figure from {selectedLesson.title}" />
+						<div class="preview-meta"><span>Lesson {lesson! + 1} / {selectedTrack.lessons.length}</span><button onclick={() => selectRegion(selectedTrack.id)} aria-label="Back to {selectedTrack.title} overview">All {selectedTrack.lessons.length} lessons ↗</button></div>
+						<img class="preview-image" src={plate(selectedLesson.track, selectedLesson.id)} alt="Interactive figure from {selectedLesson.title}" />
 						<div class="preview-copy">
-							<p class="small-label">{progress.isComplete(lessonKey(selectedLesson.track, selectedLesson.id)) ? 'Completed · revisit anytime' : audience === 'experienced' && lesson === 2 ? 'A starting point for developers' : lesson === 0 ? 'Your first building block' : 'Explore the idea'}</p>
+							<p class="small-label">{progress.isComplete(lessonKey(selectedLesson.track, selectedLesson.id)) ? 'Completed · revisit anytime' : region === 'fundamentals' && audience === 'experienced' && lesson === 2 ? 'A starting point for developers' : lesson === 0 ? 'Your first building block' : 'Explore the idea'}</p>
 							<h2 bind:this={detailHeading} tabindex="-1">{selectedLesson.title}</h2>
 							<p>{selectedLesson.summary}</p>
 							<p class="lesson-facts">{selectedLesson.minutes} minutes <span>·</span> {selectedLesson.questions} questions <span>·</span> Interactive</p>
@@ -103,13 +103,8 @@
 							<p class="small-label">Region {tracks.indexOf(selectedTrack) + 1} · {selectedTrack.lessons.length} lessons</p>
 							<h2 bind:this={detailHeading} tabindex="-1">{regionNames[tracks.indexOf(selectedTrack)]}</h2>
 							<p>{selectedTrack.blurb}</p>
-							{#if region === 'fundamentals'}
-								<p class="path-caption">A recommended path, with room to wander. Choose any lesson to take a closer look.</p>
-								<ol class="region-lessons">{#each fundamentals.lessons as item, i}<li><button onclick={() => selectLesson(i)}><span class="step-num">{progress.isComplete(lessonKey(item.track, item.id)) ? '✓' : String(i + 1).padStart(2, '0')}</span><span>{item.title}</span><span aria-hidden="true">↗</span></button></li>{/each}</ol>
-							{:else}
-								<p class="path-caption">Explore this region’s lessons below. The first complete guided region in this atlas is Neural networks.</p>
-								<ol class="region-lessons">{#each selectedTrack.lessons as item, i}<li><a href={lessonLink(item)}><span class="step-num">{String(i + 1).padStart(2, '0')}</span><span>{item.title}</span><span aria-hidden="true">↗</span></a></li>{/each}</ol>
-							{/if}
+							<p class="path-caption">A recommended path, with room to wander. Choose any lesson to take a closer look.</p>
+							<ol class="region-lessons">{#each selectedTrack.lessons as item, i}<li><button onclick={() => selectLesson(i)}><span class="step-num">{progress.isComplete(lessonKey(item.track, item.id)) ? '✓' : String(i + 1).padStart(2, '0')}</span><span>{item.title}</span><span aria-hidden="true">↗</span></button></li>{/each}</ol>
 						</div>
 					{/if}
 				</aside>
@@ -124,9 +119,9 @@
 		</nav>
 	</section>
 
-	{#if region === 'fundamentals' && selectedLesson}
-		<nav class="lesson-path" aria-label="Fundamentals learning path">
-			{#each fundamentals.lessons as item, i}
+	{#if selectedTrack && selectedLesson}
+		<nav class="lesson-path" aria-label="{selectedTrack.title} learning path" style:--path-count={selectedTrack.lessons.length} style:--accent="var(--c-{selectedTrack.tone})">
+			{#each selectedTrack.lessons as item, i}
 				<button aria-current={lesson === i ? 'step' : undefined} class:selected={lesson === i} onclick={() => selectLesson(i)}><span>{progress.isComplete(lessonKey(item.track, item.id)) ? '✓' : String(i + 1).padStart(2, '0')}</span>{item.title}</button>
 			{/each}
 		</nav>
@@ -182,8 +177,8 @@
 	.start-lesson { width: 100%; justify-content: space-between; margin-top: 16px; height: 40px; }
 	.detail .path-caption { margin-top: 14px; font-size: 11px; }
 	.region-lessons { list-style: none; padding: 0; margin: 14px 0 0; }
-	.region-lessons button, .region-lessons a { display: grid; grid-template-columns: 22px 1fr 12px; gap: 8px; width: 100%; text-align: left; padding: 9px 0; background: transparent; border: 0; border-top: 1px solid var(--rule); font-size: 12px; cursor: pointer; align-items: center; }
-	.region-lessons button:hover, .region-lessons a:hover { color: var(--accent); }
+	.region-lessons button { display: grid; grid-template-columns: 22px 1fr 12px; gap: 8px; width: 100%; text-align: left; padding: 9px 0; background: transparent; border: 0; border-top: 1px solid var(--rule); font-size: 12px; cursor: pointer; align-items: center; }
+	.region-lessons button:hover { color: var(--accent); }
 	.step-num { font: 10px var(--font-mono); color: var(--accent); }
 	.region-tabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); background: var(--sheet); border-top: 1px solid var(--rule); }
 	.region-tabs button { min-width: 0; display: flex; gap: 12px; align-items: center; text-align: left; padding: 18px; border: 0; border-right: 1px solid var(--rule); background: transparent; cursor: pointer; }
@@ -197,11 +192,11 @@
 	.atlas-foot p span { margin-right: 8px; }
 	.atlas-foot p span:not(.progress-dot) { margin-left: 8px; }
 	.atlas-foot a { text-decoration: underline; text-underline-offset: 4px; }
-	.lesson-path { display: grid; grid-template-columns: repeat(7, 1fr); margin-top: 16px; border: 1px solid var(--rule); border-radius: 5px; overflow: hidden; }
+	.lesson-path { display: grid; grid-template-columns: repeat(var(--path-count, 7), 1fr); margin-top: 16px; border: 1px solid var(--rule); border-radius: 5px; overflow: hidden; }
 	.lesson-path button { display: flex; flex-direction: column; gap: 6px; text-align: left; font-size: 11px; line-height: 1.4; padding: 12px; border: 0; border-right: 1px solid var(--rule); background: var(--sheet); cursor: pointer; }
 	.lesson-path button:last-child { border-right: 0; }
-	.lesson-path button span { color: var(--data); font: 10px var(--font-mono); }
-	.lesson-path button.selected { box-shadow: inset 0 2px var(--data); background: color-mix(in srgb, var(--data) 7%, var(--sheet)); }
+	.lesson-path button span { color: var(--accent); font: 10px var(--font-mono); }
+	.lesson-path button.selected { box-shadow: inset 0 2px var(--accent); background: color-mix(in srgb, var(--accent) 7%, var(--sheet)); }
 	.directory { margin-top: 56px; border-top: 1px solid var(--rule-2); padding-top: 28px; }
 	.directory-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin-bottom: 26px; }
 	.directory h2 { font-size: 32px; letter-spacing: -.02em; }

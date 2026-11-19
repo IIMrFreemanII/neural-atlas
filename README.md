@@ -227,11 +227,11 @@ The homepage prototype uses the same WebGPU engine as the lessons. Its overview 
 sculptures; click a region to move closer, or drag to turn the view. **Whole atlas** restores the overview
 and **Reset view** restores the current camera. Paper and Night apply to both the scene and its controls.
 
-Neural networks is the first complete guided region: all seven lesson markers open previews with the
-lesson summary, prerequisites and a **Start lesson** link. **New to AI** starts with the neuron;
-**I know the basics** starts with forward propagation. The other three regions show their sculptures and
-link to existing lessons. The directory beneath the atlas keeps every lesson accessible, including when
-WebGPU is unavailable. Reduced motion stops decorative signals and makes camera transitions immediate.
+All four regions show their lesson paths: seven Neural networks lessons, five Classic ML lessons, six
+Language models lessons, and five Vision lessons. Every marker opens a preview with the lesson summary,
+prerequisites and a **Start lesson** link. **New to AI** starts with the neuron;
+**I know the basics** starts with forward propagation. The directory beneath the atlas keeps every lesson
+accessible, including when WebGPU is unavailable. Reduced motion stops decorative signals and makes camera transitions immediate.
 
 ## Using a lesson
 

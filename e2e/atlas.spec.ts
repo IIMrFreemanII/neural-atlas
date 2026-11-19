@@ -13,7 +13,7 @@ async function ready(page: Page) {
 }
 
 for (const theme of ['paper', 'night'] as const) {
-	test(`the WebGPU atlas opens every Fundamentals preview in ${theme}`, async ({ page }) => {
+	test(`the WebGPU atlas opens every lesson preview in ${theme}`, async ({ page }) => {
 		const errors: string[] = [];
 		page.on('pageerror', (error) => errors.push(String(error)));
 		page.on('console', (message) => { if (message.type() === 'error') errors.push(message.text()); });
@@ -21,21 +21,31 @@ for (const theme of ['paper', 'night'] as const) {
 		await page.goto('/');
 		await ready(page);
 		await expect(atlas(page).getByRole('button', { name: /^Explore / })).toHaveCount(4);
-		await atlas(page).getByRole('button', { name: 'Explore Neural network fundamentals', exact: true }).click();
-		await expect(atlas(page)).toHaveAttribute('data-view', 'fundamentals');
-		await expect(atlas(page).getByRole('button', { name: /^Preview / })).toHaveCount(7);
-		for (let i = 0; i < fundamentals.length; i++) {
-			const lesson = fundamentals[i];
-			await atlas(page).getByRole('button', { name: `Preview ${lesson.title}`, exact: true }).click();
-			await expect(preview(page).getByRole('heading', { level: 2 })).toHaveText(lesson.title);
-			await expect(preview(page).getByRole('link', { name: 'Start lesson' })).toHaveAttribute('href', lessonHref(lesson));
-			await expect(page).toHaveURL(/\/$/);
-			await expect(atlas(page)).toHaveAttribute('data-lesson', String(i));
+		for (const [trackIndex, track] of tracks.entries()) {
+			await page.getByRole('navigation', { name: 'Atlas regions' }).getByRole('button').nth(trackIndex).click();
+			await expect(atlas(page)).toHaveAttribute('data-view', track.id);
+			await expect(atlas(page).getByRole('button', { name: /^Preview / })).toHaveCount(track.lessons.length);
+			await expect(preview(page).getByRole('heading')).toBeVisible();
+			for (let i = 0; i < track.lessons.length; i++) {
+				const lesson = track.lessons[i];
+				await atlas(page).getByRole('button', { name: `Preview ${lesson.title}`, exact: true }).click();
+				await expect(preview(page).getByRole('heading', { level: 2 })).toHaveText(lesson.title);
+				await expect(preview(page).getByRole('link', { name: 'Start lesson' })).toHaveAttribute('href', lessonHref(lesson));
+				await expect(preview(page).getByRole('img')).toHaveAttribute('src', `/previews/${track.id}/${lesson.id}.jpg`);
+				await expect(page).toHaveURL(/\/$/);
+				await expect(atlas(page)).toHaveAttribute('data-lesson', String(i));
+				await expect(atlas(page)).toHaveAttribute('data-view', track.id);
+				await expect(page.getByRole('navigation', { name: `${track.title} learning path` }).getByRole('button')).toHaveCount(track.lessons.length);
+			}
+			await preview(page).getByRole('button', { name: `Back to ${track.title} overview`, exact: true }).click();
+			await expect(preview(page).getByRole('link', { name: 'Start lesson' })).toHaveCount(0);
+			await preview(page).getByRole('button', { name: new RegExp(track.lessons[0].title) }).click();
+			await expect(preview(page).getByRole('heading')).toHaveText(track.lessons[0].title);
 		}
 		await page.getByRole('group', { name: 'Theme' }).getByRole('button', { name: theme === 'paper' ? 'Night' : 'Paper', exact: true }).click();
 		await ready(page);
-		await expect(preview(page).getByRole('heading')).toHaveText('Train a network');
-		await expect(atlas(page).getByRole('button', { name: /^Preview / })).toHaveCount(7);
+		await expect(preview(page).getByRole('heading')).toHaveText('Convolution');
+		await expect(atlas(page).getByRole('button', { name: /^Preview / })).toHaveCount(tracks[3].lessons.length);
 		await page.getByRole('button', { name: 'Whole atlas' }).click();
 		await expect(atlas(page)).toHaveAttribute('data-view', 'overview');
 		await expect(preview(page)).toHaveCount(0);
@@ -136,4 +146,56 @@ test('lesson navigation remains available when WebGPU is unavailable', async ({ 
 	await preview(page).getByRole('button', { name: /The neuron/ }).click();
 	await expect(preview(page).getByRole('link', { name: 'Start lesson' })).toHaveAttribute('href', lessonHref(fundamentals[0]));
 	await expect(page.locator('a.star')).toHaveCount(23);
+});
+
+for (const width of [390, 1024]) {
+	test(`every region keeps its lesson markers readable at ${width}px`, async ({ page }) => {
+		await page.setViewportSize({ width, height: 900 });
+		await page.emulateMedia({ reducedMotion: 'reduce' });
+		await page.goto('/');
+		await ready(page);
+		await page.evaluate(() => document.fonts.ready);
+		for (const [index, track] of tracks.entries()) {
+			await page.getByRole('navigation', { name: 'Atlas regions' }).getByRole('button').nth(index).click();
+			const buttons = atlas(page).getByRole('button', { name: /^Preview / });
+			await expect(buttons).toHaveCount(track.lessons.length);
+			await atlas(page).scrollIntoViewIfNeeded();
+			await page.evaluate(() => new Promise<void>((done) => requestAnimationFrame(() => requestAnimationFrame(() => done()))));
+			const stage = (await atlas(page).boundingBox())!;
+			const boxes = await buttons.evaluateAll((items) => items.map((item) => {
+				const r = item.getBoundingClientRect();
+				return { x: r.x, y: r.y, right: r.right, bottom: r.bottom, label: item.textContent };
+			}));
+			for (const [i, box] of boxes.entries()) {
+				expect(box.x, box.label ?? '').toBeGreaterThanOrEqual(stage.x);
+				expect(box.right, box.label ?? '').toBeLessThanOrEqual(stage.x + stage.width + 1);
+				expect(box.y).toBeGreaterThanOrEqual(stage.y);
+				expect(box.bottom).toBeLessThanOrEqual(stage.y + stage.height);
+				for (const other of boxes.slice(i + 1)) {
+					const overlap = Math.min(box.right, other.right) > Math.max(box.x, other.x) && Math.min(box.bottom, other.bottom) > Math.max(box.y, other.y);
+					expect(overlap, `${box.label} overlaps ${other.label}`).toBe(false);
+				}
+			}
+			await buttons.last().focus();
+			await page.keyboard.press('Enter');
+			await expect(preview(page).getByRole('heading')).toHaveText(track.lessons.at(-1)!.title);
+		}
+	});
+}
+
+test('completion belongs to the right lesson when switching regions', async ({ page }) => {
+	await page.addInitScript(() => localStorage.setItem('neural-atlas:progress:v1', JSON.stringify({
+		done: { 'classic-ml/decision-boundaries': true, 'llm/attention': true }, step: {}, solved: {}
+	})));
+	await page.goto('/');
+	await ready(page);
+	for (const [index, track] of tracks.entries()) {
+		await page.getByRole('navigation', { name: 'Atlas regions' }).getByRole('button').nth(index).click();
+		await atlas(page).getByRole('button', { name: `Preview ${track.lessons[1].title}`, exact: true }).click();
+		await expect(preview(page).getByText('Completed · revisit anytime')).toHaveCount(index === 1 ? 1 : 0);
+	}
+	await page.getByRole('navigation', { name: 'Atlas regions' }).getByRole('button').nth(2).click();
+	await atlas(page).getByRole('button', { name: 'Preview Self-attention', exact: true }).click();
+	await expect(preview(page).getByText('Completed · revisit anytime')).toBeVisible();
+	await expect(preview(page).getByRole('link', { name: 'Embedding space' })).toHaveAttribute('href', '/learn/llm/embeddings');
 });

@@ -23,8 +23,7 @@
 	});
 	const visibleAnchors = $derived(
 		anchors.filter((anchor) =>
-			region === 'fundamentals' ? anchor.kind === 'lesson' :
-			anchor.kind === 'region' && (region === null || anchor.id === region)
+			region === null ? anchor.kind === 'region' : anchor.kind === 'lesson' && anchor.region === region
 		)
 	);
 
@@ -69,7 +68,7 @@
 		<Stage createScene={makeScene} {params} bind:this={stage} />
 	{/key}
 	<div class="anchors">
-		{#each visibleAnchors as anchor (anchor.kind + anchor.id)}
+		{#each visibleAnchors as anchor (anchor.region + anchor.kind + anchor.id)}
 			{@const selected = anchor.kind === 'lesson' && Number(anchor.id) === lesson}
 			<button
 				type="button"
@@ -83,7 +82,7 @@
 				onclick={() => anchor.kind === 'region' ? onregion(anchor.id) : onlesson(Number(anchor.id))}
 			>
 				{#if anchor.kind === 'lesson'}
-					<span class="ordinal" aria-hidden="true">{String(Number(anchor.id) + 1).padStart(2, '0')}</span>
+					<span class="ordinal" aria-hidden="true">{completed & (1 << Number(anchor.id)) ? '✓' : String(Number(anchor.id) + 1).padStart(2, '0')}</span>
 				{:else}
 					<span class="dot" aria-hidden="true"></span>
 				{/if}
@@ -149,7 +148,7 @@
 	}
 
 	button.lesson {
-		max-width: 148px;
+		max-width: 168px;
 		padding-inline: 0.53rem 0.67rem;
 	}
 
