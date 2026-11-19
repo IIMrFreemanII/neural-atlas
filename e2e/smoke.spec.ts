@@ -122,7 +122,7 @@ for (const [path, heading] of PAGES) {
 		const errors = watchErrors(page);
 		await page.goto(path);
 		await expect(page.getByRole('heading', { level: 1 })).toHaveText(heading);
-		// The home page is an SVG map with no stage; the others that have one must not have failed.
+		// The home page keeps an HTML lesson directory alongside its WebGPU atlas.
 		if (path === '/') expect(await page.locator('a.star').count()).toBeGreaterThan(0);
 		else if (path === '/playground') expect(await stageStatuses(page)).not.toContain('error');
 		expect(errors).toEqual([]);
@@ -188,7 +188,7 @@ test('the tab title follows navigation in the app', async ({ page }) => {
 	expect(await page.locator('head title').count()).toBe(1);
 });
 
-test('the home map links to every lesson', async ({ page }) => {
+test('the home directory links to every lesson', async ({ page }) => {
 	await page.goto('/');
 	for (const meta of allLessons) {
 		await expect(page.locator(`a.star[href="${lessonHref(meta)}"]`)).toHaveCount(1);

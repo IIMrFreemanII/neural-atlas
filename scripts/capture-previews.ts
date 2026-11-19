@@ -106,8 +106,8 @@ try {
 		const page = isHome ? home : lesson;
 		await page.goto(ROOT + path);
 		if (isHome) {
-			// The home page is an SVG map with no stage: wait for its lesson links.
-			await page.locator('a.star').first().waitFor();
+			// The atlas is drawn by WebGPU; do not save a loading or unsupported-browser notice.
+			await page.locator('.scene-wrap .stage[data-status="ready"]').waitFor();
 			await page.mouse.move(0, 0);
 			await page.waitForTimeout(SETTLE_MS);
 		} else {

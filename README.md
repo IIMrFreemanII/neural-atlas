@@ -203,7 +203,8 @@ src/
     lessons/types.ts            the lesson contract
     content/                    curriculum, constellation layout, glossary
     components/lesson/          lesson page: stage, narration, controls
-    components/shell/           top bar, track list, constellation map
+    components/home/            WebGPU atlas host, homepage and lesson previews
+    components/shell/           top bar and track list
     state/                      progress and settings, kept in localStorage
   routes/                       home, /learn, /learn/<track>/<lesson>, /glossary
 e2e/                            Playwright smoke test
@@ -219,6 +220,18 @@ A lesson's questions are a list of `Question` objects (`src/lib/lessons/types.ts
 `goal` function over the lesson's params, readouts and typed text, and an `example` of control settings that
 reach it. `src/lib/lessons/questions.spec.ts` checks every lesson's questions: the texts, that each task starts
 unsolved, and that each example solves its task with controls that are on screen.
+
+## Exploring the atlas
+
+The homepage prototype uses the same WebGPU engine as the lessons. Its overview shows four scientific
+sculptures; click a region to move closer, or drag to turn the view. **Whole atlas** restores the overview
+and **Reset view** restores the current camera. Paper and Night apply to both the scene and its controls.
+
+Neural networks is the first complete guided region: all seven lesson markers open previews with the
+lesson summary, prerequisites and a **Start lesson** link. **New to AI** starts with the neuron;
+**I know the basics** starts with forward propagation. The other three regions show their sculptures and
+link to existing lessons. The directory beneath the atlas keeps every lesson accessible, including when
+WebGPU is unavailable. Reduced motion stops decorative signals and makes camera transitions immediate.
 
 ## Using a lesson
 
