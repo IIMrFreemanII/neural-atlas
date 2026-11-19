@@ -63,7 +63,7 @@
 		<div class="crumb">
 			<span>{current.track.title}</span>
 			<Icon name="chevron-right" size={12} />
-			<b>{current.meta.title}</b>
+			<b title={current.meta.title}>{current.meta.title}</b>
 		</div>
 	{/if}
 
@@ -140,6 +140,14 @@
 		white-space: nowrap;
 		color: var(--ink);
 	}
+	.brand,
+	nav,
+	.chip-btn,
+	.search-pill,
+	.theme-switch,
+	.icon-btn {
+		flex-shrink: 0;
+	}
 	nav {
 		display: flex;
 		gap: 18px;
@@ -182,6 +190,16 @@
 		min-width: 0;
 		white-space: nowrap;
 		color: var(--ink-2);
+		overflow: hidden;
+	}
+	.crumb span,
+	.crumb b {
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+	.crumb :global(svg) {
+		flex-shrink: 0;
 	}
 	.crumb b {
 		font-family: var(--font-display);
@@ -258,5 +276,17 @@
 		border-color: var(--ink);
 		color: var(--ink);
 		box-shadow: 0 0 0 3px color-mix(in srgb, var(--ink) 10%, transparent);
+	}
+	@media (max-width: 1200px) {
+		.crumb span,
+		.crumb :global(svg),
+		.search-pill span,
+		.search-pill kbd {
+			display: none;
+		}
+		.search-pill {
+			min-width: 30px;
+			padding: 0 7px;
+		}
 	}
 </style>

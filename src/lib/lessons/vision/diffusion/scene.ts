@@ -325,23 +325,29 @@ export const createDiffusionScene: SceneFactory = () => {
 		}
 	}
 
-	/** The whole row (first to last sheet) spans about 88% of the uncovered width: the distance is solved by projecting the row's ends. */
+	/** Keep every sheet corner inside the uncovered area, including the nearer, larger end of the perspective view. */
 	function overviewPose(aspect: number): Pose {
 		const half = sheetX(LEVELS - 1) + SHEET / 2;
 		const mid = SHEET_Y0 + SHEET / 2;
 		const pose: Pose = { target: [0, mid, 0], azimuth: 0.38, elevation: 0.26, distance: (2 * half) / (0.828 * aspect * 0.88) };
 		const probe = new OrbitRig();
-		const ends: Vec3[] = [[-half, mid, 0], [half, mid, 0]];
-		for (let it = 0; it < 4; it++) {
+		const corners: Vec3[] = [];
+		for (const x of [-half, half]) {
+			for (const y of [SHEET_Y0, SHEET_Y0 + SHEET]) {
+				for (const z of [0, LIVE_Z]) corners.push([x, y, z]);
+			}
+		}
+		for (let it = 0; it < 8; it++) {
 			probe.setPose(pose);
 			const m = probe.matrix(aspect);
-			const nx = ends.map((p) => {
+			const extent = Math.max(...corners.map((p) => {
 				const w = m[3] * p[0] + m[7] * p[1] + m[11] * p[2] + m[15];
-				return (m[0] * p[0] + m[4] * p[1] + m[8] * p[2] + m[12]) / w;
-			});
-			const width = Math.abs(nx[1] - nx[0]);
-			if (width < 1e-6) break;
-			pose.distance *= width / (2 * 0.88);
+				const x = (m[0] * p[0] + m[4] * p[1] + m[8] * p[2] + m[12]) / w;
+				const y = (m[1] * p[0] + m[5] * p[1] + m[9] * p[2] + m[13]) / w;
+				return Math.max(Math.abs(x), Math.abs(y));
+			}));
+			if (extent <= 0.88) break;
+			pose.distance *= extent / 0.88;
 		}
 		return pose;
 	}
