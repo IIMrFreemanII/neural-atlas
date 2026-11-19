@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+	<style>
+		.ink { stroke: #1b2130; }
+		.ink-fill { fill: #1b2130; }
+		.data-fill { fill: #0b7a8a; }
+		@media (prefers-color-scheme: dark) {
+			.ink { stroke: #e9ecf1; }
+			.ink-fill { fill: #e9ecf1; }
+			.data-fill { fill: #7fdcef; }
+		}
+	</style>
+	<circle class="ink-fill" cx="3.6" cy="8.6" r="2.3" />
+	<circle class="ink-fill" cx="3.6" cy="23.4" r="2.3" />
+	<path class="ink" d="M5.6 9.8 12 13.8M5.6 22.2 12 18.2" stroke-width="2.8" stroke-linecap="round" />
+	<circle class="ink" cx="16.4" cy="16" r="4.9" stroke-width="2.8" />
+	<path class="ink" d="M21.3 16h4" stroke-width="2.8" stroke-linecap="round" />
+	<circle class="data-fill" cx="28" cy="16" r="3" />
+</svg>

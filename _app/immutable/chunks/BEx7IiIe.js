@@ -1,0 +1,1 @@
+function e(e,t=1e-5){let n=e.length;if(n===0)return[];let r=0;for(let t of e)r+=t;r/=n;let i=0;for(let t of e)i+=(t-r)*(t-r);i/=n;let a=1/Math.sqrt(i+t);return e.map(e=>(e-r)*a)}function t(e){return .5*e*(1+Math.tanh(Math.sqrt(2/Math.PI)*(e+.044715*e*e*e)))}export{e as n,t};

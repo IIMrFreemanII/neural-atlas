@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<meta name="text-scale" content="scale" />
+		<meta name="theme-color" content="#eef0ea" />
+		<link rel="icon" href="./favicon.svg" type="image/svg+xml" />
+		<script>
+			(function () {
+				try {
+					var theme = null;
+					try {
+						var saved = JSON.parse(localStorage.getItem('neural-atlas:settings:v1'));
+						if (saved && (saved.theme === 'paper' || saved.theme === 'night')) theme = saved.theme;
+					} catch (e) {}
+					if (!theme) theme = matchMedia('(prefers-color-scheme: dark)').matches ? 'night' : 'paper';
+					document.documentElement.dataset.theme = theme;
+					var meta = document.querySelector('meta[name="theme-color"]');
+					if (meta) meta.setAttribute('content', theme === 'night' ? '#15181d' : '#eef0ea');
+				} catch (e) {}
+			})();
+		</script>
+		<title>Playground · Neural Atlas</title>
+		<meta name="description" content="Free play with a small network: pick the data, shape the network and watch it learn." />
+		<meta property="og:site_name" content="Neural Atlas" />
+		<meta property="og:type" content="website" />
+		<meta property="og:title" content="Playground · Neural Atlas" />
+		<meta property="og:description" content="Free play with a small network: pick the data, shape the network and watch it learn." />
+		<meta property="og:url" content="https://iimrfreemanii.github.io/neural-atlas/playground" />
+		<meta property="og:image" content="https://iimrfreemanii.github.io/neural-atlas/previews/home.jpg" />
+		<meta property="og:image:width" content="1200" />
+		<meta property="og:image:height" content="630" />
+		<meta property="og:image:alt" content="Playground · Neural Atlas" />
+		<meta name="twitter:card" content="summary_large_image" />
+		<link href="./_app/immutable/entry/start.uO8kdgNL.js" rel="modulepreload">
+		<link href="./_app/immutable/entry/payload.DSmR2FwN.js" rel="modulepreload">
+		<link href="./_app/immutable/chunks/DclECHGd.js" rel="modulepreload">
+		<link href="./_app/immutable/chunks/Dk-kC9Mv.js" rel="modulepreload">
+		<link href="./_app/immutable/chunks/BQBSXdK5.js" rel="modulepreload">
+		<link href="./_app/immutable/chunks/Cdz0z6Tn.js" rel="modulepreload">
+		<link href="./_app/immutable/chunks/Bbkvzshl.js" rel="modulepreload">
+		<link href="./_app/immutable/chunks/Cm6SbDjZ.js" rel="modulepreload">
+		<link href="./_app/immutable/chunks/DXgvJ0KM.js" rel="modulepreload">
+		<link href="./_app/immutable/chunks/BVcGzDvW.js" rel="modulepreload">
+		<link href="./_app/immutable/entry/app.DA5-JzfH.js" rel="modulepreload">
+		<link href="./_app/immutable/nodes/0.Bgq1bixx.js" rel="modulepreload">
+		<link href="./_app/immutable/chunks/DK3Fl9T5.js" rel="modulepreload">
+		<link href="./_app/immutable/chunks/C9qQ9KS1.js" rel="modulepreload">
+		<link href="./_app/immutable/chunks/BJw6Th_N.js" rel="modulepreload">
+		<link href="./_app/immutable/chunks/DSWSSpyL.js" rel="modulepreload">
+		<link href="./_app/immutable/chunks/2IV3EXt-.js" rel="modulepreload">
+		<link href="./_app/immutable/chunks/BlN2uXzZ.js" rel="modulepreload">
+		<link href="./_app/immutable/chunks/BaYInKNN.js" rel="modulepreload">
+		<link href="./_app/immutable/chunks/-UDLc_cy.js" rel="modulepreload">
+		<link href="./_app/immutable/chunks/DfsOTY2c.js" rel="modulepreload">
+		<link href="./_app/immutable/chunks/Dm0TrM_h.js" rel="modulepreload">
+		<link href="./_app/immutable/nodes/11.Ce09jlGn.js" rel="modulepreload">
+		<link href="./_app/immutable/chunks/mqGsQHCd.js" rel="modulepreload">
+		<link href="./_app/immutable/chunks/MfLy5J65.js" rel="modulepreload">
+		<link href="./_app/immutable/chunks/BOlS45Hx.js" rel="modulepreload">
+		<link href="./_app/immutable/chunks/ANoGunGS.js" rel="modulepreload">
+		<link href="./_app/immutable/chunks/CyejDahK.js" rel="modulepreload">
+		<link href="./_app/immutable/chunks/DDwKBXs1.js" rel="modulepreload">
+		<link href="./_app/immutable/chunks/Dy4eWgNh.js" rel="modulepreload">
+		<link href="./_app/immutable/chunks/BEnKZ8Fw.js" rel="modulepreload">
+		<link href="./_app/immutable/chunks/CLpMVmPZ.js" rel="modulepreload">
+		<link href="./_app/immutable/chunks/BOwfZBzr.js" rel="modulepreload">
+		<link href="./_app/immutable/chunks/ZZemFbp2.js" rel="modulepreload">
+		<link href="./_app/immutable/chunks/DkfJ-UMW.js" rel="modulepreload">
+		<link href="./_app/immutable/chunks/BS-kQl_I.js" rel="modulepreload">
+		<link href="./_app/immutable/chunks/CboGKS5k.js" rel="modulepreload">
+		
+		<link href="./_app/immutable/assets/QuestionPips.DWQxrlKF.css" rel="stylesheet">
+		<link href="./_app/immutable/assets/0.0LkQGqGr.css" rel="stylesheet">
+		<link href="./_app/immutable/assets/Readouts.CTSi2451.css" rel="stylesheet">
+		<link href="./_app/immutable/assets/Stage.pGOmP46d.css" rel="stylesheet">
+		<link href="./_app/immutable/assets/11.C3OB6Q0D.css" rel="stylesheet">
+	</head>
+	<body data-sveltekit-preload-data="hover">
+		<div style="display: contents">
+			<script>
+				{
+					__sveltekit_1ndrkaf = {
+						base: new URL(".", location).pathname.slice(0, -1),
+						version: "1795105360669",
+						assets: "/neural-atlas"
+					};
+
+					const element = document.currentScript.parentElement;
+
+					import("./_app/immutable/entry/start.uO8kdgNL.js").then(async (kit) => {
+						kit.init(__sveltekit_1ndrkaf);
+						const app = await import("./_app/immutable/entry/app.DA5-JzfH.js");
+						kit.start(app, element);
+					});
+				}
+			</script>
+		</div>
+	</body>
+</html>

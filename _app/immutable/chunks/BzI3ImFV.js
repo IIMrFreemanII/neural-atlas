@@ -1,0 +1,1 @@
+import{n as e,t}from"./CH6y5FOE.js";var n=[`circle`,`square`,`triangle`,`cross`],r=16,i=[0,0,0,Math.PI/4],a=t.map((t,n)=>e(t,r,8,8,5.5,i[n],.7));export{a as n,n as t};
